@@ -1,0 +1,61 @@
+name: iPhone Duo 助手 - Windows 测试与打包
+
+on:
+  push:
+    paths:
+      - "iphone_duo_assistant/**"
+      - ".github/workflows/iphone-duo-windows.yml"
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: iphone_duo_assistant
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          python -m playwright install chromium
+
+      - name: 测试（Playwright 自带 Chromium）
+        env:
+          QT_QPA_PLATFORM: offscreen
+          DUO_TEST_CHANNEL: chromium
+        run: python -m pytest -v
+
+      - name: 端到端测试（Windows 自带 Microsoft Edge）
+        env:
+          DUO_TEST_CHANNEL: msedge
+        run: python -m pytest -v tests/test_e2e_mock_flow.py
+
+      - name: PyInstaller 打包
+        run: pyinstaller --noconfirm --clean --onedir --windowed --name iPhoneDuoAssistant --collect-submodules duo_assistant run_app.py
+
+      - name: 运行打包后的 EXE 自检（Edge）
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "dist\iPhoneDuoAssistant\iPhoneDuoAssistant.exe" `
+               -ArgumentList "--self-test","--self-test-out","$PWD\selftest_result.json","--channel","msedge" `
+               -Wait -PassThru
+          Get-Content selftest_result.json -Encoding utf8
+          if ($p.ExitCode -ne 0) { throw "EXE 自检失败，退出码 $($p.ExitCode)" }
+
+      - name: 上传 EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: iPhoneDuoAssistant-windows
+          path: |
+            iphone_duo_assistant/dist/iPhoneDuoAssistant/
+            iphone_duo_assistant/selftest_result.json

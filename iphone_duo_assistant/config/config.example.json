@@ -1,0 +1,33 @@
+{
+  "purchase": {
+    "product_name": "iPhone Duo",
+    "all_colors": ["深空黑色", "云白色", "远峰蓝色", "沙漠金色"],
+    "all_capacities": ["256GB", "512GB", "1TB"],
+    "acceptable_colors": ["远峰蓝色", "深空黑色", "云白色"],
+    "acceptable_capacities": ["512GB", "256GB"],
+    "budget_total": 12000,
+    "quantity": 1,
+    "strategy": "capacity_first",
+    "payment_method": "alipay",
+    "use_sale_time": false,
+    "sale_time": "2026-10-20T20:00:00",
+    "prewarm_seconds": 60,
+    "poll_interval_sec": 3.0,
+    "max_run_minutes": 30
+  },
+  "mock": { "port": 8765, "preset": "normal" },
+  "real": {
+    "store_url": "https://www.apple.com.cn/shop/buy-iphone",
+    "open_seconds_before": 30,
+    "prices": {}
+  },
+  "bark": {
+    "server": "https://api.day.app",
+    "level": "critical",
+    "volume": 8,
+    "sound": "alarm",
+    "group": "iPhone抢购",
+    "call": true
+  },
+  "browser": { "channel": "msedge", "headless": false }
+}
