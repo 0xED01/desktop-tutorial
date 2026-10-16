@@ -62,7 +62,7 @@ def run(pages_override=None):
     pages = dict(PAGES, **(pages_override or {}))
     kwargs = {"headless": True}
     if len(sys.argv) > 1:  # 本地用指定的 Chromium 测试
-        kwargs.update(channels=(None,), executable_path=sys.argv[1])
+        kwargs.update(channels=(None,), executable_path=sys.argv[1], chromium_sandbox=False)
     with tempfile.TemporaryDirectory() as d:
         buyer = AutoBuyer(os.path.join(d, "profile"), lambda e, p: events.append((e, p)), **kwargs)
         page = buyer._page()

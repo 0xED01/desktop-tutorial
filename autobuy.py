@@ -14,7 +14,7 @@ import time
 import urllib.parse
 
 BASE = "https://www.apple.com.cn"
-SIGNIN_URL = BASE + "/shop/signIn"
+ACCOUNT_URL = BASE + "/shop/account/home"  # 先访问过官网拿到 cookie，才会正确跳转到登录页
 BAG_URL = BASE + "/shop/bag"
 # 最终下单/支付按钮（只匹配真正提交订单的按钮，不误伤「继续选择付款方式」这类按钮）
 FINAL_BUTTON_RE = re.compile(r"下单|提交订单|^\s*(立即|去|确认)?(支付|付款)\s*$|Place Order|Pay Now", re.I)
@@ -38,8 +38,11 @@ class AutoBuyer:
       need_user dict(title, body)   需要你接手（登录 / 某一步卡住 / 已到下单前一步）
     """
 
-    def __init__(self, profile_dir, emit, headless=False, channels=("msedge", "chrome"), executable_path=None):
+    def __init__(self, profile_dir, emit, headless=False, channels=("msedge", "chrome"), executable_path=None,
+                 **launch_options):
         self.profile_dir = profile_dir
+        # 默认开启浏览器沙盒（否则 Edge 顶部会提示 --no-sandbox 不安全）；测试时可覆盖
+        self.launch_options = {"chromium_sandbox": True, **launch_options}
         self.headless = headless
         self.channels = channels
         self.executable_path = executable_path
@@ -74,7 +77,9 @@ class AutoBuyer:
             try:
                 if job[0] == "login":
                     page = self._page()
-                    page.goto(SIGNIN_URL, wait_until="domcontentloaded", timeout=60000)
+                    page.goto(BAG_URL, wait_until="domcontentloaded", timeout=60000)
+                    page.wait_for_timeout(1500)
+                    page.goto(ACCOUNT_URL, wait_until="domcontentloaded", timeout=60000)
                     page.bring_to_front()
                     self.emit("log", "已打开抢购浏览器，请在里面登录 Apple ID（勾选保持登录），之后可以不关这个窗口")
                 elif job[0] == "buy":
@@ -104,7 +109,8 @@ class AutoBuyer:
             try:
                 self._ctx = self._pw.chromium.launch_persistent_context(
                     self.profile_dir, channel=channel, executable_path=self.executable_path,
-                    headless=self.headless, no_viewport=True, locale="zh-CN", args=["--start-maximized"])
+                    headless=self.headless, no_viewport=True, locale="zh-CN", args=["--start-maximized"],
+                    **self.launch_options)
                 break
             except Exception as e:  # noqa: BLE001
                 last_err = e
