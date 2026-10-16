@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>心动飞行棋</title>
+<style>
+:root{--bg:#1a0b16;--card:#2a1222;--ink:#fde7f0;--mute:#c79bb3;--p1:#4aa8ff;--p2:#ff4f8b;
+--l1:#ffb3c7;--l2:#ff7aa8;--l3:#ff3d6e;--l4:#b5179e;--fly:#7b2cbf;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:radial-gradient(circle at 50% 0,#3a1030,var(--bg) 70%);color:var(--ink);
+font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;min-height:100vh;user-select:none}
+.wrap{max-width:520px;margin:0 auto;padding:12px 12px 24px}
+h1{text-align:center;font-size:22px;margin:6px 0 2px;letter-spacing:2px}
+.sub{text-align:center;color:var(--mute);font-size:12px;margin-bottom:10px}
+.screen{display:none}.screen.on{display:block}
+.card{background:var(--card);border-radius:16px;padding:16px;margin:10px 0;box-shadow:0 4px 20px #0006}
+label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
+input,textarea,select{width:100%;padding:10px;border-radius:10px;border:1px solid #5a2a48;background:#1a0b16;color:var(--ink);font-size:15px}
+button{border:0;border-radius:12px;padding:12px 16px;font-size:16px;font-weight:600;color:#fff;
+background:linear-gradient(135deg,#ff4f8b,#b5179e);cursor:pointer}
+button.ghost{background:#3a1a30;color:var(--ink)}
+button:disabled{opacity:.4}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.board{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin:8px 0}
+.cell{position:relative;aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;
+font-size:11px;font-weight:700;color:#2a0a1c;text-align:center;line-height:1.1}
+.cell .n{position:absolute;top:2px;left:4px;font-size:9px;opacity:.6}
+.lv1{background:var(--l1)}.lv2{background:var(--l2)}.lv3{background:var(--l3);color:#fff}.lv4{background:var(--l4);color:#fff}
+.fly{background:var(--fly);color:#fff}.back{background:#555;color:#fff}.swap{background:#f9c74f}
+.start{background:#90e0ef}.end{background:linear-gradient(135deg,#ffd166,#ff4f8b);color:#fff}
+.tok{position:absolute;width:42%;aspect-ratio:1;border-radius:50%;border:2px solid #fff;bottom:3px;box-shadow:0 0 8px #000a;transition:all .3s}
+.tok.a{background:var(--p1);left:3px}.tok.b{background:var(--p2);right:3px}
+.status{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.who{font-size:16px;font-weight:700}
+.dice{width:64px;height:64px;border-radius:14px;background:#fff;color:#b5179e;font-size:38px;display:flex;align-items:center;justify-content:center;font-weight:900}
+.dice.roll{animation:sh .5s}
+@keyframes sh{0%,100%{transform:rotate(0)}25%{transform:rotate(-20deg) scale(1.1)}75%{transform:rotate(20deg) scale(1.1)}}
+.modal{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;padding:16px;z-index:9}
+.modal.on{display:flex}
+.mbox{background:var(--card);border-radius:20px;padding:20px;max-width:420px;width:100%;text-align:center;border:2px solid var(--l2)}
+.tag{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;margin-bottom:8px}
+.task{font-size:19px;line-height:1.6;margin:10px 0 14px}
+.timer{font-size:34px;font-weight:900;color:var(--l2);margin:6px 0}
+.legend{display:flex;flex-wrap:wrap;gap:6px;font-size:11px;color:var(--mute)}
+.legend span{display:flex;align-items:center;gap:3px}.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.small{font-size:12px;color:var(--mute);line-height:1.6}
+.list{max-height:240px;overflow:auto;font-size:13px}
+.list div{display:flex;justify-content:space-between;gap:6px;padding:6px 0;border-bottom:1px solid #3a1a30}
+.list b{color:#ff6b6b;cursor:pointer;padding:0 6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>💋 心动飞行棋</h1>
+<div class="sub">情侣专属 · 越往后越热 · 仅限两个人自愿开心地玩</div>
+
+<!-- 设置页 -->
+<div id="setup" class="screen on">
+  <div class="card">
+    <div class="row">
+      <div><label>🔵 玩家一</label><input id="n1" value="宝贝A" maxlength="8"></div>
+      <div><label>🔴 玩家二</label><input id="n2" value="宝贝B" maxlength="8"></div>
+    </div>
+    <label>🔥 尺度</label>
+    <select id="heat">
+      <option value="2">微醺（甜蜜 + 暧昧）</option>
+      <option value="3">上头（到火热为止）</option>
+      <option value="4" selected>失控（全部解锁，含狂野）</option>
+    </select>
+    <label>🛑 安全词（任何一方说出，当前任务立即作废，不罚）</label>
+    <input id="safe" value="菠萝" maxlength="10">
+    <label>🙅 跳过任务的代价</label>
+    <select id="skipcost">
+      <option value="back">后退 3 格</option>
+      <option value="owe">欠对方一个“随时兑现”的愿望</option>
+      <option value="drink">喝一口饮料/酒</option>
+    </select>
+  </div>
+  <div class="card">
+    <div class="small">✍️ <b>自定义任务</b>：你们最懂彼此的口味，把专属玩法写进去，会混进对应等级随机抽到。</div>
+    <div class="row" style="margin-top:8px">
+      <select id="clv" style="flex:0 0 96px"><option value="1">甜蜜</option><option value="2">暧昧</option><option value="3">火热</option><option value="4" selected>狂野</option></select>
+      <input id="ctext" placeholder="比如：用口红在对方身上签名">
+    </div>
+    <button class="ghost" style="width:100%;margin-top:8px" onclick="addCustom()">＋ 加入任务池</button>
+    <div class="list" id="clist"></div>
+  </div>
+  <button style="width:100%" onclick="startGame()">开始游戏 🎲</button>
+  <p class="small">规则：轮流掷骰子前进，停在哪格就做哪格的任务（执行者是掷骰子的人，除非任务另有说明）。紫色✈️格直接起飞前进 4 格并再抽任务；灰色格后退；黄色格交换位置。先到终点的人，可以向对方提一个“终点大奖”要求。<br>任何时候任何一方不舒服，喊安全词即可，开心最重要 ❤️</p>
+</div>
+
+<!-- 游戏页 -->
+<div id="game" class="screen">
+  <div class="card status">
+    <div>
+      <div class="small">轮到</div>
+      <div class="who" id="who">—</div>
+      <div class="small" id="pos"></div>
+    </div>
+    <div class="dice" id="dice">🎲</div>
+    <button id="rollBtn" onclick="roll()">掷骰子</button>
+  </div>
+  <div class="board" id="board"></div>
+  <div class="legend">
+    <span><i style="background:var(--l1)"></i>甜蜜</span><span><i style="background:var(--l2)"></i>暧昧</span>
+    <span><i style="background:var(--l3)"></i>火热</span><span><i style="background:var(--l4)"></i>狂野</span>
+    <span><i style="background:var(--fly)"></i>起飞</span><span><i style="background:#555"></i>后退</span><span><i style="background:#f9c74f"></i>换位</span>
+  </div>
+  <div class="row" style="margin-top:12px">
+    <button class="ghost" onclick="if(confirm('重新开始？'))location.reload()">重来</button>
+    <button class="ghost" onclick="randomOne()">随机抽一张</button>
+  </div>
+  <p class="small" id="owe"></p>
+</div>
+</div>
+
+<div class="modal" id="modal"><div class="mbox">
+  <div class="tag" id="mtag"></div>
+  <div class="small" id="mwho"></div>
+  <div class="task" id="mtask"></div>
+  <div class="timer" id="mtimer" style="display:none"></div>
+  <div class="row" id="mbtns"></div>
+  <div class="small" style="margin-top:10px" id="msafe"></div>
+</div></div>
+
+<script>
+const T = {
+1:[ // 甜蜜
+"深情对视 30 秒，谁先笑谁再抽一张",
+"说出对方身上你最喜欢的 3 个地方，要具体",
+"公主抱/背起对方转一圈",
+"用最肉麻的语气叫对方一个新昵称，今晚都得这么叫",
+"在对方额头、鼻尖、嘴唇各亲一下",
+"模仿对方第一次心动时的样子",
+"给对方十指相扣地揉手 1 分钟",
+"讲一件你从没告诉过 TA 的、关于 TA 的小心思",
+"用嘴喂对方吃一口零食",
+"抱紧对方 30 秒，不许说话",
+"让对方用三个词形容你在床上的样子，你不许反驳",
+"闭眼，让对方捏你的脸做 10 个表情",
+],
+2:[ // 暧昧
+"贴着对方耳朵，低声说一句你今晚最想对 TA 做的事",
+"轻吻对方的脖子 5 下，慢一点",
+"蒙上眼睛，对方亲你身上 3 个地方，你来猜位置",
+"坐到对方腿上，保持到下一轮结束",
+"用指尖在对方背上写一个字，TA 猜不出就亲你一下",
+"咬一下对方的耳垂",
+"对方选一个部位，你只能用嘴唇碰它 10 秒",
+"把手伸进对方衣服里，在腰上停留 30 秒",
+"用最撩的眼神看着对方，慢慢舔一下嘴唇",
+"让对方从背后抱着你，在你耳边呼吸 30 秒",
+"说出你对 TA 最心动的一个身体细节，并亲那里一下",
+"含一颗糖，用嘴递给对方",
+"闭上眼让对方随意摆一个你的姿势，保持 20 秒",
+"讲出你做过的关于 TA 的最暧昧的梦",
+],
+3:[ // 火热
+"为对方脱掉一件衣服（由你挑）",
+"脱掉自己的一件衣服（由对方挑）",
+"舌吻 30 秒，不许停",
+"给对方做 1 分钟全身按摩，对方说哪里就揉哪里",
+"用冰块从对方的锁骨慢慢滑到小腹",
+"隔着衣服，从下巴一路吻到肚脐",
+"让对方躺下，你跨坐在 TA 身上，对视 30 秒",
+"在对方大腿内侧留一个吻痕",
+"把对方的手按在墙上/床上，吻到 TA 求饶",
+"对方说出 1 个指令，你必须照做（双方都能接受的前提下）",
+"用嘴解开对方的一颗扣子或拉链",
+"闭眼享受：对方用羽毛/指尖在你身上游走 1 分钟，你不许动",
+"在对方身上找出 3 个敏感点，找错一个就脱一件",
+"贴身慢舞一首歌，越近越好",
+"告诉对方一个你一直想试但没说出口的事",
+],
+4:[ // 狂野
+"蒙眼 + 用领带绑住双手 2 分钟，任由对方“处置”（底线由你先说清）",
+"只穿内衣为对方跳一段热舞",
+"用口红在对方身上写下“我的”，位置由你决定",
+"接下来 3 轮，你是对方的“专属仆人”，称呼对方为主人",
+"对方选一个角色扮演场景（老师/护士/陌生人…），立刻进入角色 3 分钟",
+"下一轮之前你只能穿对方选的那一件",
+"把奶油/巧克力酱抹在自己身上一处，让对方舔干净",
+"对方在你身上任选 5 处亲吻，你必须一直和 TA 对视",
+"让对方用一句话描述 TA 现在最想对你做什么，然后你给 TA 30 秒去做",
+"说出你最羞耻的一个幻想，详细一点",
+"进入“禁止触碰”模式：对方可以碰你，你不能碰 TA，持续到下一轮",
+"选一个房间里的道具，用它让对方心跳加速 1 分钟",
+"全身只留一件，坚持到游戏结束（或喊安全词）",
+"对方掷骰子，点数 = 你要接受的吻的次数，位置 TA 定",
+"拍一张只有你们俩能看的照片（对方同意后，可随时删）",
+"和对方玩“1 分钟木头人”：TA 做什么你都不能有反应，动了就再抽一张",
+],
+};
+const LVNAME={1:"💗 甜蜜",2:"💞 暧昧",3:"🔥 火热",4:"😈 狂野"};
+const LVCOL={1:"var(--l1)",2:"var(--l2)",3:"var(--l3)",4:"var(--l4)"};
+const PRIZE=["今晚你说了算，对方无条件配合你一个愿望","让对方给你提供 10 分钟“全套服务”","对方明天要穿你挑的衣服出门","获得一张“随时兑现券”：任何时候喊出就生效"];
+const N=36;
+let custom=[];try{custom=JSON.parse(localStorage.getItem("fc_custom")||"[]")}catch(e){}
+let S={};
+
+function saveCustom(){try{localStorage.setItem("fc_custom",JSON.stringify(custom))}catch(e){}}
+function renderCustom(){const el=document.getElementById("clist");el.innerHTML="";
+ custom.forEach((c,i)=>{const d=document.createElement("div");d.innerHTML=`<span>[${LVNAME[c.lv]}] ${esc(c.t)}</span><b>✕</b>`;
+ d.querySelector("b").onclick=()=>{custom.splice(i,1);saveCustom();renderCustom()};el.appendChild(d)})}
+function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function addCustom(){const t=document.getElementById("ctext").value.trim();if(!t)return;
+ custom.push({lv:+document.getElementById("clv").value,t});saveCustom();renderCustom();document.getElementById("ctext").value=""}
+renderCustom();
+
+function buildCells(maxLv){const cells=[];
+ for(let i=0;i<N;i++){
+  let lv=Math.min(maxLv,1+Math.floor(i/(N/maxLv)));
+  let type="task";
+  if(i===0)type="start";else if(i===N-1)type="end";
+  else if([5,14,23,30].includes(i))type="fly";
+  else if([9,20,27].includes(i))type="back";
+  else if([17,33].includes(i))type="swap";
+  cells.push({lv,type})}
+ return cells}
+function pathIndex(i){const r=Math.floor(i/6),c=i%6;return r*6+(r%2?5-c:c)} // 蛇形
+
+function startGame(){
+ const heat=+document.getElementById("heat").value;
+ S={names:[val("n1")||"A",val("n2")||"B"],pos:[0,0],turn:0,cells:buildCells(heat),heat,
+   safe:val("safe")||"菠萝",skip:val("skipcost"),owe:[0,0],busy:false,used:{}};
+ document.getElementById("setup").classList.remove("on");document.getElementById("game").classList.add("on");
+ drawBoard();upd()}
+function val(id){return document.getElementById(id).value.trim()}
+
+function drawBoard(){const b=document.getElementById("board");b.innerHTML="";const slots=new Array(N);
+ S.cells.forEach((c,i)=>slots[pathIndex(i)]=i);
+ slots.forEach(i=>{const c=S.cells[i];const d=document.createElement("div");
+  let cls="cell ",txt="";
+  if(c.type==="start"){cls+="start";txt="起点"}else if(c.type==="end"){cls+="end";txt="🏁终点"}
+  else if(c.type==="fly"){cls+="fly";txt="✈️起飞"}else if(c.type==="back"){cls+="back";txt="⬅️退2"}
+  else if(c.type==="swap"){cls+="swap";txt="🔄换位"}else{cls+="lv"+c.lv;txt=["","💗","💞","🔥","😈"][c.lv]}
+  d.className=cls;d.innerHTML=`<span class="n">${i}</span>${txt}`;
+  if(S.pos[0]===i)d.innerHTML+='<div class="tok a"></div>';
+  if(S.pos[1]===i)d.innerHTML+='<div class="tok b"></div>';
+  b.appendChild(d)})}
+function upd(){const t=S.turn;document.getElementById("who").innerHTML=`<span style="color:${t?"var(--p2)":"var(--p1)"}">${t?"🔴":"🔵"} ${esc(S.names[t])}</span>`;
+ document.getElementById("pos").textContent=`${S.names[0]}: ${S.pos[0]}格 · ${S.names[1]}: ${S.pos[1]}格`;
+ const o=[];S.owe.forEach((n,i)=>{if(n)o.push(`${S.names[i]} 欠对方 ${n} 个愿望`)});
+ document.getElementById("owe").textContent=o.join("；")}
+
+function pick(lv){const pool=T[lv].map(t=>({t})).concat(custom.filter(c=>c.lv===lv));
+ let fresh=pool.filter(p=>!S.used[p.t]);if(!fresh.length){pool.forEach(p=>delete S.used[p.t]);fresh=pool}
+ const p=fresh[Math.floor(Math.random()*fresh.length)];S.used[p.t]=1;return p.t}
+
+function roll(){if(S.busy)return;S.busy=true;document.getElementById("rollBtn").disabled=true;
+ const d=document.getElementById("dice");d.classList.add("roll");let k=0;
+ const it=setInterval(()=>{d.textContent=1+Math.floor(Math.random()*6);if(++k>8){clearInterval(it);d.classList.remove("roll");
+  const n=1+Math.floor(Math.random()*6);d.textContent=n;move(n)}},60)}
+
+function move(n){const p=S.turn;let target=S.pos[p]+n;
+ if(target>N-1)target=(N-1)-(target-(N-1)); // 超过终点反弹
+ step(p,target,()=>land(p))}
+function step(p,target,cb){const dir=target>S.pos[p]?1:-1;
+ const it=setInterval(()=>{if(S.pos[p]===target){clearInterval(it);cb();return}S.pos[p]+=dir;drawBoard();upd()},180)}
+
+function land(p){const c=S.cells[S.pos[p]];
+ if(c.type==="end")return win(p);
+ if(c.type==="fly"){return show({tag:"✈️ 起飞！",col:"var(--fly)",text:"顺风起飞，直接前进 4 格！",btns:[["冲！",()=>{close();step(p,Math.min(N-1,S.pos[p]+4),()=>land(p))}]]})}
+ if(c.type==="back"){return show({tag:"⬅️ 倒霉",col:"#555",text:"后退 2 格，并且让对方亲你一下作为安慰 😘",btns:[["好吧",()=>{close();step(p,Math.max(0,S.pos[p]-2),()=>land(p))}]]})}
+ if(c.type==="swap"){return show({tag:"🔄 换位",col:"#f9c74f",text:"和对方交换位置！交换前先来一个拥抱。",btns:[["交换",()=>{S.pos.reverse();drawBoard();upd();close();next()}]]})}
+ taskCard(p,c.lv)}
+
+function taskCard(p,lv){const text=pick(lv);const m=text.match(/(\d+)\s*(秒|分钟)/);
+ const secs=m?(+m[1])*(m[2]==="分钟"?60:1):0;
+ const btns=[];
+ if(secs)btns.push(["⏱ 计时",()=>timer(secs)]);
+ btns.push(["✅ 完成",()=>{close();next()}]);
+ btns.push(["🙅 跳过",()=>skip(p)]);
+ show({tag:LVNAME[lv],col:LVCOL[lv],who:`${S.names[p]} 执行 · 对象是 ${S.names[1-p]}`,text,btns})}
+
+function skip(p){close();
+ if(S.skip==="back"){step(p,Math.max(0,S.pos[p]-3),()=>{next()})}
+ else if(S.skip==="owe"){S.owe[p]++;upd();next()}
+ else{show({tag:"🍷",col:"var(--l2)",text:`${S.names[p]} 喝一口！`,btns:[["喝了",()=>{close();next()}]]})}}
+
+let tm=null;
+function timer(s){const el=document.getElementById("mtimer");el.style.display="block";clearInterval(tm);let r=s;el.textContent=r+"s";
+ tm=setInterval(()=>{r--;el.textContent=r>0?r+"s":"⏰ 时间到！";if(r<=0){clearInterval(tm);try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}}},1000)}
+
+function next(){S.turn=1-S.turn;S.busy=false;document.getElementById("rollBtn").disabled=false;upd()}
+
+function win(p){const prize=PRIZE[Math.floor(Math.random()*PRIZE.length)];
+ show({tag:"🏆 终点大奖",col:"var(--l2)",who:`${S.names[p]} 赢了！`,text:`${prize}<br><span class="small">输家 ${esc(S.names[1-p])} 愿赌服输 😏</span>`,
+  btns:[["再来一局",()=>location.reload()],["继续抽卡",()=>{close();S.busy=false}]]})}
+
+function randomOne(){if(S.busy)return;S.busy=true;const lv=1+Math.floor(Math.random()*S.heat);
+ const text=pick(lv);show({tag:LVNAME[lv]+" · 随机",col:LVCOL[lv],who:`${S.names[S.turn]} 执行`,text,btns:[["完成",()=>{close();S.busy=false}]]})}
+
+function show(o){document.getElementById("mtag").textContent=o.tag;document.getElementById("mtag").style.background=o.col;
+ document.getElementById("mwho").textContent=o.who||"";document.getElementById("mtask").innerHTML=o.text.includes("<")?o.text:esc(o.text);
+ document.getElementById("mtimer").style.display="none";clearInterval(tm);
+ const b=document.getElementById("mbtns");b.innerHTML="";
+ o.btns.forEach(([t,f],i)=>{const x=document.createElement("button");x.textContent=t;if(i&&o.btns.length>2&&t.includes("跳过"))x.className="ghost";x.onclick=f;b.appendChild(x)});
+ document.getElementById("msafe").textContent=S.safe?`安全词「${S.safe}」：说出即作废，不受罚`:"";
+ document.getElementById("modal").classList.add("on")}
+function close(){clearInterval(tm);document.getElementById("modal").classList.remove("on")}
+</script>
+</body>
+</html>
