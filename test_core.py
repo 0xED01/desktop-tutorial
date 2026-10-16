@@ -60,6 +60,26 @@ def test_monitor_alerts_on_transition():
     assert "有货" in title and "七宝" in body
 
 
+def test_backoff_and_outage():
+    events = []
+    m = mc.Monitor([("MG8L4CH/A", "")], "上海 上海 黄浦区", "", 20,
+                   lambda e, p: events.append((e, p)), outage_minutes=3, client=FakeClient())
+    m.last_error = mc.ApiError("HTTP 541", kind="limited")
+    t = 1000.0
+    waits = []
+    for _ in range(6):  # 被限制：间隔翻倍，最长 300 秒
+        waits.append(m.after_round(False, now=t))
+        t += waits[-1]
+    assert waits == [40, 80, 160, 300, 300, 300]
+    assert [p for e, p in events if e == "outage"], "连续失败超过 3 分钟应发出中断通知"
+    assert sum(1 for e, _ in events if e == "outage") == 1
+    m.after_round(True, now=t)
+    assert [p for e, p in events if e == "recovered"]
+    assert m.cur_interval == 240  # 恢复后逐步调回
+    m.last_error = mc.ApiError("网络错误", kind="network")
+    assert m.after_round(False, now=t + 10) == 20  # 断网不降速
+
+
 def test_parse_pickup_new_format():
     data = {"head": {"status": "200"}, "body": {"stores": SAMPLE["body"]["content"]["pickupMessage"]["stores"]}}
     res = mc.parse_pickup(data, ["MG8L4CH/A", "BADXXCH/A"])

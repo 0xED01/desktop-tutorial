@@ -24,7 +24,11 @@ STORE_RE = re.compile(r"^R\d{3,4}$", re.I)
 
 
 class ApiError(Exception):
-    pass
+    """kind: network（断网/超时）、limited（被苹果限制）、other。"""
+
+    def __init__(self, message, kind="other"):
+        super().__init__(message)
+        self.kind = kind
 
 
 def parse_parts(text):
@@ -153,17 +157,16 @@ class AppleClient:
                 headers={"Accept": "application/json, text/plain, */*"},
             )
         except requests.RequestException as e:
-            raise ApiError(f"网络错误：{e.__class__.__name__}") from e
+            raise ApiError(f"网络错误：{e.__class__.__name__}（电脑断网或睡眠？）", kind="network") from e
         if r.status_code in (403, 429, 503, 541):
-            self._warmed = False
-            raise ApiError(f"HTTP {r.status_code}：被苹果风控限制了，将自动降速重试（可把检查间隔调大一些）")
+            # 不重新访问首页“预热”，被限制时少发请求才能更快恢复
+            raise ApiError(f"HTTP {r.status_code}：查询太频繁被苹果暂时限制，自动降速中", kind="limited")
         if r.status_code != 200:
             raise ApiError(f"HTTP {r.status_code}")
         try:
             data = r.json()
         except ValueError as e:
-            self._warmed = False
-            raise ApiError("返回的不是 JSON（可能被风控），将自动重试") from e
+            raise ApiError("返回的不是 JSON（可能被苹果暂时限制），自动降速中", kind="limited") from e
         return parse_pickup(data, parts)
 
     def lookup_parts(self, page_url):
@@ -217,7 +220,7 @@ class Monitor(threading.Thread):
     """
 
     def __init__(self, parts, location, store_filter, interval, emit,
-                 repeat_minutes=5, client=None):
+                 repeat_minutes=5, client=None, outage_minutes=3):
         super().__init__(daemon=True)
         self.parts = parts
         self.location = location
@@ -232,6 +235,11 @@ class Monitor(threading.Thread):
         self.last_alert = {}   # part -> timestamp
         self.errors = 0
         self.rounds = 0
+        self.cur_interval = self.interval   # 自动降速后的实际间隔
+        self.outage_seconds = max(1, outage_minutes) * 60
+        self.fail_since = None              # 连续失败开始时间
+        self.outage_notified = False
+        self.last_error = None
         self.invalid_warned = set()
 
     def stop(self):
@@ -242,16 +250,44 @@ class Monitor(threading.Thread):
         while not self.stop_event.is_set():
             ok = self.check_round()
             self.rounds += 1
-            self.emit("round", {"count": self.rounds, "time": time.strftime("%H:%M:%S")})
-            if ok:
-                self.errors = 0
-                wait = self.interval * random.uniform(0.85, 1.15)
-            else:
-                self.errors += 1
-                wait = self.interval * min(2 ** self.errors, 10)
-                self.emit("log", f"连续出错 {self.errors} 次，{int(wait)} 秒后重试")
-            self.stop_event.wait(wait)
+            self.emit("round", {"count": self.rounds, "time": time.strftime("%H:%M:%S"),
+                                "interval": int(self.cur_interval)})
+            self.stop_event.wait(self.after_round(ok))
         self.emit("log", "监控已停止")
+
+    def after_round(self, ok, now=None):
+        """根据本轮结果调整间隔、发出中断/恢复通知，返回下次检查前要等待的秒数。"""
+        now = time.time() if now is None else now
+        if ok:
+            if self.outage_notified:
+                lasted = int((now - self.fail_since) / 60)
+                self.emit("recovered", {"minutes": lasted})
+                self.emit("log", f"监控已恢复（中断约 {lasted} 分钟）")
+            self.errors = 0
+            self.fail_since = None
+            self.outage_notified = False
+            if self.cur_interval > self.interval:
+                # 恢复后慢慢调回设定的间隔，避免马上又被限制
+                self.cur_interval = max(self.interval, self.cur_interval * 0.8)
+                self.emit("log", f"查询恢复正常，间隔逐步调回：{int(self.cur_interval)} 秒")
+            return self.cur_interval * random.uniform(0.85, 1.15)
+
+        self.errors += 1
+        if self.fail_since is None:
+            self.fail_since = now
+        kind = getattr(self.last_error, "kind", "other")
+        if kind == "limited":
+            # 被限制：间隔翻倍，最长 5 分钟
+            self.cur_interval = min(self.cur_interval * 2, 300)
+            wait = self.cur_interval
+        else:
+            # 断网/其他错误：不必降速，按设定间隔（最长 1 分钟）重试，网络一恢复马上能查
+            wait = min(self.interval, 60)
+        self.emit("log", f"连续失败 {self.errors} 次，{int(wait)} 秒后重试")
+        if not self.outage_notified and now - self.fail_since >= self.outage_seconds:
+            self.outage_notified = True
+            self.emit("outage", {"minutes": int((now - self.fail_since) / 60), "reason": str(self.last_error or "未知错误")})
+        return wait
 
     def check_round(self):
         all_ok = True
@@ -268,10 +304,12 @@ class Monitor(threading.Thread):
                 results = self.client.check([p for p, _ in batch], self.location)
             except ApiError as e:
                 all_ok = False
+                self.last_error = e
                 self.emit("log", f"[{names}] 查询失败：{e}")
                 continue
             except Exception as e:  # 防止线程意外退出
                 all_ok = False
+                self.last_error = e
                 self.emit("log", f"[{names}] 未知错误：{e!r}")
                 continue
             for part, note in batch:
@@ -331,7 +369,7 @@ def build_alert_text(info):
     return title, body
 
 
-def send_push(cfg, title, body, url, log=lambda s: None):
+def send_push(cfg, title, body, url, log=lambda s: None, urgent=True):
     """推送到手机：Server酱 / PushPlus（微信）、Bark（iPhone）。在后台线程调用。"""
     sent = []
     key = (cfg.get("serverchan_key") or "").strip()
@@ -356,9 +394,10 @@ def send_push(cfg, title, body, url, log=lambda s: None):
         try:
             q = urllib.parse.quote
             # level=critical 静音模式也会响；call=1 持续响铃 30 秒
-            requests.get(f"{bark}/{q(title, safe='')}/{q(body, safe='')}",
-                         params={"url": url, "level": "critical", "volume": "10",
-                                 "call": "1", "group": "苹果库存"}, timeout=10)
+            params = {"url": url, "group": "苹果库存"}
+            if urgent:
+                params.update(level="critical", volume="10", call="1")
+            requests.get(f"{bark}/{q(title, safe='')}/{q(body, safe='')}", params=params, timeout=10)
             sent.append("Bark")
         except requests.RequestException as e:
             log(f"Bark推送失败：{e.__class__.__name__}")

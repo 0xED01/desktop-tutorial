@@ -106,8 +106,8 @@ object Apple {
             throw ApiException("网络错误：${e.javaClass.simpleName}")
         }
         if (code in listOf(403, 429, 503, 541)) {
-            warmed = false
-            throw ApiException("HTTP $code：被苹果风控限制了，将自动降速重试（可把检查间隔调大）")
+            // 被限制时不再重新访问首页“预热”，少发请求才能更快恢复
+            throw ApiException("HTTP $code：查询太频繁被苹果暂时限制，自动降速中")
         }
         if (code != 200) throw ApiException("HTTP $code")
         return parsePickup(body, parts)
@@ -117,8 +117,7 @@ object Apple {
         val root = try {
             JSONObject(text)
         } catch (e: JSONException) {
-            warmed = false
-            throw ApiException("返回的不是 JSON（可能被风控），将自动重试")
+            throw ApiException("返回的不是 JSON（可能被苹果暂时限制），自动降速中")
         }
         var body = root.optJSONObject("body") ?: JSONObject()
         if (!body.has("stores")) {
