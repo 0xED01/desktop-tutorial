@@ -1,2 +1,3 @@
 requests>=2.31
 winotify>=1.1.0; sys_platform == "win32"
+playwright>=1.48

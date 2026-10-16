@@ -31,9 +31,17 @@ jobs:
           python test_core.py
           $env:ASM_SMOKE_TEST = "1"
           python apple_stock_monitor.py
+          Remove-Item Env:ASM_SMOKE_TEST
+          python test_autobuy.py
 
       - name: Build exe
-        run: python -m PyInstaller --noconfirm --onefile --windowed --name AppleStockMonitor apple_stock_monitor.py
+        run: python -m PyInstaller --noconfirm --onefile --windowed --collect-all playwright --name AppleStockMonitor apple_stock_monitor.py
+
+      - name: Test packaged exe can drive Edge
+        run: |
+          $env:ASM_BROWSER_TEST = "$PWD\browser_test.txt"
+          Start-Process -FilePath dist\AppleStockMonitor.exe -Wait
+          if ((Get-Content browser_test.txt -ErrorAction Stop) -ne "ok") { exit 1 }
 
       - name: Build installer
         run: |
