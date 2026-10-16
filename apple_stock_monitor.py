@@ -11,10 +11,9 @@ import webbrowser
 from tkinter import messagebox, scrolledtext, ttk
 
 import monitor_core as mc
-from autobuy import AutoBuyer
 
 APP_NAME = "苹果库存监控"
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 IS_WIN = sys.platform.startswith("win")
 
 DATA_DIR = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "AppleStockMonitor")
@@ -32,7 +31,7 @@ DEFAULT_CONFIG = {
     "toast": True,
     "open_browser": True,
     "prevent_sleep": True,
-    "auto_buy": False,
+    "open_bag": False,
     "serverchan_key": "",
     "pushplus_token": "",
     "bark_url": "",
@@ -192,9 +191,6 @@ class App:
         self.monitor = None
         self.alarm = Alarm()
         self.rows = {}
-        self.auto_buy_used = False
-        self.buyer = AutoBuyer(os.path.join(DATA_DIR, "browser"),
-                               emit=lambda e, p: self.events.put(("buy_" + e, p)))
 
         root.title(f"{APP_NAME} v{VERSION} —— Apple 中国大陆官网门店取货")
         root.geometry("980x720")
@@ -245,7 +241,8 @@ class App:
         n.pack(side="left", fill="y", padx=(8, 0))
         self.flags = {}
         for key, text in (("sound", "电脑持续响铃"), ("popup", "弹窗置顶提醒"), ("toast", "Windows 通知"),
-                          ("open_browser", "自动打开购买页"), ("prevent_sleep", "监控时禁止电脑睡眠")):
+                          ("open_browser", "自动打开购买页"),
+                          ("open_bag", "去抢购直接打开购物袋（需提前加购）"), ("prevent_sleep", "监控时禁止电脑睡眠")):
             v = tk.BooleanVar(value=self.cfg[key])
             self.flags[key] = v
             ttk.Checkbutton(n, text=text, variable=v).pack(anchor="w", padx=8)
@@ -268,9 +265,6 @@ class App:
         self.stop_btn.pack(side="left", padx=6)
         ttk.Button(bar, text="🔕 停止响铃", command=self.alarm.stop).pack(side="left")
         ttk.Button(bar, text="打开日志文件夹", command=self.open_data_dir).pack(side="right")
-        ttk.Button(bar, text="打开抢购浏览器（先登录）", command=self.buyer.open_for_login).pack(side="right", padx=6)
-        self.flags["auto_buy"] = tk.BooleanVar(value=self.cfg["auto_buy"])
-        ttk.Checkbutton(bar, text="有货时自动加购并走到下单前一步", variable=self.flags["auto_buy"]).pack(side="right")
         self.status = ttk.Label(bar, text="未开始", foreground="gray")
         self.status.pack(side="left", padx=12)
 
@@ -339,7 +333,6 @@ class App:
                                   emit=lambda e, p: self.events.put((e, p)),
                                   repeat_minutes=cfg["repeat_minutes"])
         self.monitor.start()
-        self.auto_buy_used = False
         if cfg["prevent_sleep"]:
             set_keep_awake(True)
         self.start_btn.state(["disabled"])
@@ -368,12 +361,7 @@ class App:
                                        foreground="#0a7d00")
                 elif event == "alert":
                     self.fire_alert(payload)
-                elif event == "buy_log":
-                    self.log(payload)
-                elif event == "buy_need_user":
-                    self.log("★ " + payload["title"])
-                    self.alarm.start()
-                    self.show_popup(payload["title"], payload["body"], None)
+
         except queue.Empty:
             pass
         self.root.after(200, self.poll_events)
@@ -397,6 +385,8 @@ class App:
 
     # ---------- 提醒 ----------
     def fire_alert(self, info):
+        if self.cfg.get("open_bag"):
+            info = dict(info, url=mc.BAG_URL)
         title, body = mc.build_alert_text(info)
         self.log("★★★ " + title + " ★★★ " + body.replace("\n", " "))
         cfg = self.cfg
@@ -406,12 +396,7 @@ class App:
             self.alarm.start()
         if cfg["toast"]:
             threading.Thread(target=show_toast, args=(title, body, info["url"]), daemon=True).start()
-        auto = cfg.get("auto_buy") and info.get("new") and info["stores"] and not self.auto_buy_used
-        if auto:
-            self.auto_buy_used = True  # 每次开始监控只自动处理一单
-            self.log("已触发自动加购（本次监控只自动处理这一单，最后下单付款由你完成）")
-            self.buyer.buy(info["part"], [s["store"] for s in info["stores"]], [s["name"] for s in info["stores"]])
-        elif cfg["open_browser"] and info.get("new"):
+        if cfg["open_browser"] and info.get("new"):
             webbrowser.open(info["url"])
         if cfg["popup"]:
             self.show_popup(title, body, info["url"])
@@ -488,17 +473,6 @@ def main():
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
         except Exception:
             pass
-    if os.environ.get("ASM_BROWSER_TEST"):  # CI：确认打包后的程序能驱动 Edge
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            b = p.chromium.launch(channel="msedge", headless=True)
-            pg = b.new_page()
-            pg.set_content("<button data-autom='add-to-cart'>ok</button>")
-            ok = pg.locator("[data-autom=add-to-cart]").inner_text()
-            b.close()
-        with open(os.environ["ASM_BROWSER_TEST"], "w", encoding="utf-8") as f:
-            f.write(ok)
-        return
     root = tk.Tk()
     App(root)
     if os.environ.get("ASM_SMOKE_TEST"):  # CI 冒烟测试：启动后自动退出

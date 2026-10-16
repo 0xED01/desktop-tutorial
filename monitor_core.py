@@ -52,6 +52,9 @@ def strip_html(s):
     return html.unescape(re.sub(r"<[^>]+>", "", s or "")).strip()
 
 
+BAG_URL = BASE_URL + "/shop/bag"
+
+
 def product_url(part):
     return f"{BASE_URL}/shop/product/{part}"
 
@@ -225,6 +228,7 @@ class Monitor(threading.Thread):
         self.client = client or AppleClient()
         self.stop_event = threading.Event()
         self.state = {}        # (part, store) -> available
+        self.since = {}        # (part, store) -> 首次发现有货的时间
         self.last_alert = {}   # part -> timestamp
         self.errors = 0
         self.rounds = 0
@@ -299,6 +303,11 @@ class Monitor(threading.Thread):
                 in_stock.append(r)
                 if not prev:
                     newly.append(r)
+                    self.since[key] = time.time()
+            elif prev and key in self.since:
+                # 记录这次有货持续了多久，帮助判断放货量和该把间隔调多短
+                lasted = time.time() - self.since.pop(key)
+                self.emit("log", f"[{part}] {r['name']} 已无货，这次有货最多持续约 {int(lasted)} 秒")
         label = title or note or part
         if in_stock:
             self.emit("log", f"[{part}] {label}：{len(in_stock)} 家门店有货 → "

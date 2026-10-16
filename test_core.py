@@ -48,11 +48,12 @@ def test_monitor_alerts_on_transition():
     unavailable = copy.deepcopy(SAMPLE)
     unavailable["body"]["content"]["pickupMessage"]["stores"][0]["partsAvailability"]["MG8L4CH/A"]["pickupDisplay"] = "unavailable"
     client = FakeClient()
-    client.responses = [unavailable, SAMPLE, SAMPLE]
+    client.responses = [unavailable, SAMPLE, SAMPLE, unavailable]
     m = mc.Monitor([("MG8L4CH/A", "")], "上海 上海 闵行区", "", 30,
                    lambda e, p: events.append((e, p)), repeat_minutes=0, client=client)
-    for _ in range(3):
+    for _ in range(4):
         m.check_round()
+    assert any("这次有货最多持续约" in p for e, p in events if e == "log")
     alerts = [p for e, p in events if e == "alert"]
     assert len(alerts) == 1 and alerts[0]["stores"][0]["name"] == "七宝"
     title, body = mc.build_alert_text(alerts[0])
