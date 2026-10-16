@@ -11,7 +11,8 @@ import urllib.parse
 import requests
 
 BASE_URL = "https://www.apple.com.cn"
-FULFILLMENT_URL = BASE_URL + "/shop/fulfillment-messages"
+PICKUP_URL = BASE_URL + "/shop/retail/pickup-message"
+BATCH_SIZE = 10  # 一次请求最多查询的型号数
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
@@ -55,37 +56,50 @@ def product_url(part):
     return f"{BASE_URL}/shop/product/{part}"
 
 
-def parse_fulfillment(data, part):
-    """解析 fulfillment-messages 接口返回的 JSON，得到每家门店的取货状态。"""
+def parse_pickup(data, parts):
+    """解析 pickup-message 接口返回的 JSON。
+
+    返回 {型号: [每家门店的状态, ...]}；返回结果里没出现的型号不在字典中（通常是型号无效）。
+    兼容老的 fulfillment-messages 格式（body.content.pickupMessage）。
+    """
     if not isinstance(data, dict):
         raise ApiError("返回内容格式异常")
-    content = (data.get("body") or {}).get("content") or {}
-    pm = content.get("pickupMessage") or {}
-    if pm.get("errorMessage"):
-        raise ApiError(strip_html(pm["errorMessage"]))
-    stores = pm.get("stores")
-    if stores is None:
-        raise ApiError("返回内容中没有门店信息（型号或地区可能不正确）")
-    out = []
-    for st in stores:
-        pa = (st.get("partsAvailability") or {}).get(part) or {}
-        mtypes = pa.get("messageTypes") or {}
-        title = ""
-        for key in ("regular", "compact"):
-            title = (mtypes.get(key) or {}).get("storePickupProductTitle") or ""
-            if title:
-                break
-        display = pa.get("pickupDisplay", "")
-        out.append({
-            "store": st.get("storeNumber", ""),
-            "name": st.get("storeName", "") or st.get("storeNumber", ""),
-            "city": st.get("city", ""),
-            "available": display == "available",
-            "display": display,
-            "quote": strip_html(pa.get("pickupSearchQuote", "")),
-            "title": strip_html(title),
-        })
+    body = data.get("body") or {}
+    if "stores" not in body:
+        body = (body.get("content") or {}).get("pickupMessage") or body
+    if body.get("errorMessage"):
+        raise ApiError(strip_html(body["errorMessage"]))
+    out = {}
+    for st in body.get("stores") or []:
+        for part in parts:
+            pa = (st.get("partsAvailability") or {}).get(part)
+            if not pa:
+                continue
+            mtypes = pa.get("messageTypes") or {}
+            title = ""
+            for key in ("regular", "compact"):
+                title = (mtypes.get(key) or {}).get("storePickupProductTitle") or ""
+                if title:
+                    break
+            display = pa.get("pickupDisplay", "")
+            out.setdefault(part, []).append({
+                "store": st.get("storeNumber", ""),
+                "name": (st.get("storeName", "") or st.get("storeNumber", "")).strip(),
+                "city": st.get("city", ""),
+                "available": display == "available",
+                "display": display,
+                "quote": strip_html(pa.get("pickupSearchQuote", "")),
+                "title": strip_html(title),
+            })
     return out
+
+
+def parse_fulfillment(data, part):
+    """单个型号的便捷版本。"""
+    res = parse_pickup(data, [part])
+    if part not in res:
+        raise ApiError("返回内容中没有门店信息（型号或地区可能不正确）")
+    return res[part]
 
 
 def filter_stores(results, keywords_text):
@@ -116,17 +130,15 @@ class AppleClient:
             pass
         self._warmed = True
 
-    def check(self, part, location):
+    def check(self, parts, location):
+        """查询一批型号（最多 BATCH_SIZE 个），返回 {型号: [门店状态...]}。"""
+        if isinstance(parts, str):
+            parts = [parts]
         if not self._warmed:
             self.warm_up()
-        params = {
-            "fae": "true",
-            "pl": "true",
-            "mts.0": "regular",
-            "mts.1": "compact",
-            "parts.0": part,
-            "searchNearby": "true",
-        }
+        params = {"pl": "true", "searchNearby": "true"}
+        for i, part in enumerate(parts):
+            params[f"parts.{i}"] = part
         loc = (location or "").strip()
         if STORE_RE.match(loc):
             params["store"] = loc.upper()
@@ -134,16 +146,14 @@ class AppleClient:
             params["location"] = loc
         try:
             r = self.session.get(
-                FULFILLMENT_URL, params=params, timeout=self.timeout,
+                PICKUP_URL, params=params, timeout=self.timeout,
                 headers={"Accept": "application/json, text/plain, */*"},
             )
         except requests.RequestException as e:
             raise ApiError(f"网络错误：{e.__class__.__name__}") from e
-        if r.status_code == 541:
-            raise ApiError("HTTP 541：苹果拒绝了请求，通常是开了 VPN/代理（非中国大陆 IP），请关闭后重试")
-        if r.status_code in (403, 429, 503):
+        if r.status_code in (403, 429, 503, 541):
             self._warmed = False
-            raise ApiError(f"HTTP {r.status_code}：请求太频繁被限制，将自动降速重试")
+            raise ApiError(f"HTTP {r.status_code}：被苹果风控限制了，将自动降速重试（可把检查间隔调大一些）")
         if r.status_code != 200:
             raise ApiError(f"HTTP {r.status_code}")
         try:
@@ -151,7 +161,7 @@ class AppleClient:
         except ValueError as e:
             self._warmed = False
             raise ApiError("返回的不是 JSON（可能被风控），将自动重试") from e
-        return parse_fulfillment(data, part)
+        return parse_pickup(data, parts)
 
     def lookup_parts(self, page_url):
         """从官网购买页面（如 /shop/buy-iphone/iphone-17-pro）里提取所有型号代码及其配置。"""
@@ -186,7 +196,7 @@ def extract_parts_from_html(text):
         for k, v in obj.items():
             if k.startswith("dimension") and isinstance(v, str) and v:
                 dims.append(names.get(v, v))
-        items[part] = " ".join(dims)
+        items[part] = re.sub(r"\s+", " ", strip_html(re.sub(r"<as-footnote.*?</as-footnote>", "", " ".join(dims), flags=re.S)))
     if not items:
         for m in PART_RE.finditer(text):
             items.setdefault(m.group(1).upper(), "")
@@ -218,6 +228,7 @@ class Monitor(threading.Thread):
         self.last_alert = {}   # part -> timestamp
         self.errors = 0
         self.rounds = 0
+        self.invalid_warned = set()
 
     def stop(self):
         self.stop_event.set()
@@ -240,22 +251,39 @@ class Monitor(threading.Thread):
 
     def check_round(self):
         all_ok = True
-        for i, (part, note) in enumerate(self.parts):
+        checked = stocked = 0
+        stores = set()
+        batches = [self.parts[i:i + BATCH_SIZE] for i in range(0, len(self.parts), BATCH_SIZE)]
+        for i, batch in enumerate(batches):
             if self.stop_event.is_set():
                 break
             if i:
-                self.stop_event.wait(random.uniform(1.0, 2.5))
+                self.stop_event.wait(random.uniform(1.5, 3.0))
+            names = "、".join(p for p, _ in batch) if len(batch) <= 2 else f"{batch[0][0]} 等 {len(batch)} 个型号"
             try:
-                results = self.client.check(part, self.location)
+                results = self.client.check([p for p, _ in batch], self.location)
             except ApiError as e:
                 all_ok = False
-                self.emit("log", f"[{part}] 查询失败：{e}")
+                self.emit("log", f"[{names}] 查询失败：{e}")
                 continue
             except Exception as e:  # 防止线程意外退出
                 all_ok = False
-                self.emit("log", f"[{part}] 未知错误：{e!r}")
+                self.emit("log", f"[{names}] 未知错误：{e!r}")
                 continue
-            self.handle_results(part, note, filter_stores(results, self.store_filter))
+            for part, note in batch:
+                if part not in results:
+                    if part not in self.invalid_warned:
+                        self.invalid_warned.add(part)
+                        self.emit("log", f"[{part}] 官网没有返回这个型号，可能型号代码有误或不支持门店取货")
+                    continue
+                filtered = filter_stores(results[part], self.store_filter)
+                stores.update(r["store"] for r in filtered)
+                has, _ = self.handle_results(part, note, filtered)
+                checked += 1
+                stocked += has
+        if checked:
+            self.emit("log", f"本轮检查 {checked} 个型号 × {len(stores)} 家门店："
+                             + (f"{stocked} 个型号有货！" if stocked else "全部无货"))
         return all_ok
 
     def handle_results(self, part, note, results):
@@ -271,12 +299,10 @@ class Monitor(threading.Thread):
                 in_stock.append(r)
                 if not prev:
                     newly.append(r)
-        label = note or title or part
+        label = title or note or part
         if in_stock:
             self.emit("log", f"[{part}] {label}：{len(in_stock)} 家门店有货 → "
                              + "、".join(r["name"] for r in in_stock))
-        else:
-            self.emit("log", f"[{part}] {label}：{len(results)} 家门店均无货")
         t = time.time()
         due = self.repeat_seconds and in_stock and t - self.last_alert.get(part, 0) >= self.repeat_seconds
         if newly or due:
@@ -285,10 +311,11 @@ class Monitor(threading.Thread):
                 "part": part, "note": note, "title": title,
                 "stores": in_stock, "new": bool(newly), "url": product_url(part),
             })
+        return bool(in_stock), len(results)
 
 
 def build_alert_text(info):
-    name = info.get("note") or info.get("title") or info["part"]
+    name = info.get("title") or info.get("note") or info["part"]
     stores = "、".join(f'{s["name"]}（{s["quote"] or "可取货"}）' for s in info["stores"])
     title = f"有货啦！{name}"
     body = f"型号 {info['part']} 可门店取货：{stores}\n赶快下单：{info['url']}"

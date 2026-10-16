@@ -20,8 +20,8 @@ class FakeClient:
     def __init__(self):
         self.responses = []
 
-    def check(self, part, location):
-        return mc.parse_fulfillment(self.responses.pop(0), part)
+    def check(self, parts, location):
+        return mc.parse_pickup(self.responses.pop(0), parts)
 
 
 def test_parse_parts():
@@ -57,6 +57,18 @@ def test_monitor_alerts_on_transition():
     assert len(alerts) == 1 and alerts[0]["stores"][0]["name"] == "七宝"
     title, body = mc.build_alert_text(alerts[0])
     assert "有货" in title and "七宝" in body
+
+
+def test_parse_pickup_new_format():
+    data = {"head": {"status": "200"}, "body": {"stores": SAMPLE["body"]["content"]["pickupMessage"]["stores"]}}
+    res = mc.parse_pickup(data, ["MG8L4CH/A", "BADXXCH/A"])
+    assert list(res) == ["MG8L4CH/A"] and res["MG8L4CH/A"][0]["available"]
+    assert mc.parse_pickup({"body": {"content": {}}}, ["X"]) == {}
+    try:
+        mc.parse_pickup({"body": {"errorMessage": "请输入有效的省/市名称或邮政编码。"}}, ["X"])
+        raise AssertionError("should raise")
+    except mc.ApiError:
+        pass
 
 
 def test_extract_parts_from_html():

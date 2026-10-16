@@ -13,7 +13,7 @@ from tkinter import messagebox, scrolledtext, ttk
 import monitor_core as mc
 
 APP_NAME = "苹果库存监控"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 IS_WIN = sys.platform.startswith("win")
 
 DATA_DIR = os.path.join(os.environ.get("APPDATA") or os.path.expanduser("~"), "AppleStockMonitor")
