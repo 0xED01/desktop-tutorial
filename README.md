@@ -1,5 +1,57 @@
-# Welcome to GitHub Desktop!
+# 苹果库存监控（Apple 中国大陆官网 · 门店取货）
 
-This is your README. READMEs are where you can communicate what your project is and how to use it.
+一个 Windows 桌面小工具：24 小时自动检查 Apple 中国大陆官网（apple.com.cn）指定型号在你附近 Apple Store 的**门店取货**库存。一旦有货（比如半夜放货），立刻：
 
-Write your name on line 6, save it, and then head back to GitHub Desktop.
+- 🔔 电脑**持续响铃**（直到你点停止，最长 10 分钟）
+- 🪟 **置顶弹窗**，带「去抢购」按钮
+- 💬 Windows 系统通知
+- 🌐 自动打开该型号的购买页面
+- 📱 **推送到手机**（可选）：微信（Server酱 / PushPlus）或 iPhone（Bark，静音模式也会响）
+
+## 下载安装
+
+到本仓库的 **Releases** 页面下载最新版：
+
+- `AppleStockMonitor-Setup.exe`：安装版，双击安装，会创建桌面快捷方式（推荐）
+- `AppleStockMonitor.exe`：免安装版，双击直接运行
+
+> Windows 可能提示「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」即可（程序没有付费签名）。
+
+## 使用步骤
+
+1. **填写型号代码**（每行一个，后面可以写备注）
+   - 点「型号查询」，粘贴官网购买页地址（如 `https://www.apple.com.cn/shop/buy-iphone/iphone-17-pro`），点「获取型号」，选中想要的颜色/容量后添加。
+   - 也可以手动查：在官网选好配置后点「加入购物袋」，页面地址里 `/shop/product/` 后面的 `XXXXXCH/A` 就是型号代码。直接把这个地址粘进来也能识别。
+2. **填写取货地区**：格式「省 市 区」，例如 `上海 上海 黄浦区`、`广东 深圳 福田区`。也可以直接填门店编号（如 `R705`）。
+3. （可选）**只看门店**：只关心某几家店就填门店名关键字，如 `南京东路,浦东`。
+4. **检查间隔**：建议 20～60 秒。太快会被苹果限制。
+5. 点「**测试提醒**」确认能听到响铃、手机能收到推送。
+6. 点「**开始监控**」，最小化窗口即可，晚上开着电脑去睡觉。
+
+表格里绿色行表示有货，双击某行可打开购买页。日志保存在 `%APPDATA%\AppleStockMonitor\monitor.log`，可以回看什么时间放过货。
+
+## 手机推送设置（强烈建议，半夜叫醒你靠它）
+
+| 方式 | 适合 | 获取方法 |
+| --- | --- | --- |
+| Bark | iPhone | App Store 安装 Bark，复制 App 里的地址（形如 `https://api.day.app/xxxxxx`）填入。会以「重要提醒 + 持续响铃」推送，静音模式也会响 |
+| Server酱 | 微信 | 打开 sct.ftqq.com，微信扫码登录，复制 SendKey |
+| PushPlus | 微信 | 打开 www.pushplus.plus，微信扫码登录，复制 Token |
+
+## 注意事项
+
+- **必须关闭 VPN / 代理**。苹果中国官网会拒绝非中国大陆 IP（日志里会出现 `HTTP 541`）。
+- 勾选「监控时禁止电脑睡眠」后，监控期间电脑不会自动睡眠（屏幕仍可关闭）。但**合上笔记本盖子**仍可能睡眠，请在 Windows「电源选项」里把「合上盖子」设为「不采取任何操作」，并插上电源。
+- 工具只负责提醒，下单仍需你本人在官网操作。监控结果以官网为准。
+
+## 自己打包
+
+安装 Python 3.10+ 后双击 `build.bat`，生成 `dist\AppleStockMonitor.exe`。
+每次推送代码，GitHub Actions 会自动在 Windows 上打包并发布到 Releases。
+
+## 文件说明
+
+- `apple_stock_monitor.py`：桌面界面与提醒
+- `monitor_core.py`：查询官网库存、解析结果、手机推送
+- `test_core.py`：核心逻辑测试
+- `installer.iss`：安装包脚本（Inno Setup）
