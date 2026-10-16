@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <TextView style="@style/Label" android:text="监控型号（每行一个，后面可写备注）" />
+
+        <EditText
+            android:id="@+id/parts"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="top"
+            android:hint="例如：MG8L4CH/A  17Pro 256G 深蓝"
+            android:inputType="textMultiLine|textNoSuggestions"
+            android:maxLines="8"
+            android:minLines="3"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/lookup"
+            style="@style/Btn"
+            android:layout_width="match_parent"
+            android:text="型号查询（从官网页面获取型号）" />
+
+        <TextView style="@style/Label" android:text="取货地区（省 市 区，或门店编号如 R705）" />
+
+        <EditText
+            android:id="@+id/location"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="上海 上海 黄浦区"
+            android:inputType="text"
+            android:singleLine="true" />
+
+        <TextView style="@style/Label" android:text="只看门店（店名关键字，逗号分隔，留空=全部）" />
+
+        <EditText
+            android:id="@+id/storeFilter"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="例如：南京东路,浦东"
+            android:inputType="text"
+            android:singleLine="true" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView style="@style/Inline" android:text="间隔(秒)" />
+
+            <EditText
+                android:id="@+id/interval"
+                android:layout_width="64dp"
+                android:layout_height="wrap_content"
+                android:inputType="number" />
+
+            <TextView style="@style/Inline" android:text="  仍有货每(分钟)重复提醒" />
+
+            <EditText
+                android:id="@+id/repeat"
+                android:layout_width="56dp"
+                android:layout_height="wrap_content"
+                android:inputType="number" />
+        </LinearLayout>
+
+        <CheckBox
+            android:id="@+id/maxVolume"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="提醒时把闹钟音量调到最大" />
+
+        <TextView style="@style/Label" android:text="推送到其他设备（可选）" />
+
+        <EditText
+            android:id="@+id/serverchan"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Server酱 SendKey（微信）"
+            android:inputType="text"
+            android:singleLine="true" />
+
+        <EditText
+            android:id="@+id/pushplus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="PushPlus Token（微信）"
+            android:inputType="text"
+            android:singleLine="true" />
+
+        <EditText
+            android:id="@+id/bark"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Bark 地址（iPhone），如 https://api.day.app/xxxx"
+            android:inputType="textUri"
+            android:singleLine="true" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/start"
+                style="@style/Btn"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:backgroundTint="#0A7D00"
+                android:text="▶ 开始监控"
+                android:textColor="#FFFFFF" />
+
+            <Button
+                android:id="@+id/stop"
+                style="@style/Btn"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:text="■ 停止监控" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/test"
+                style="@style/Btn"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:text="测试提醒" />
+
+            <Button
+                android:id="@+id/stopAlarm"
+                style="@style/Btn"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:text="停止响铃" />
+
+            <Button
+                android:id="@+id/background"
+                style="@style/Btn"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:text="后台设置" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="8dp"
+            android:paddingBottom="4dp"
+            android:textColor="#0A7D00"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:id="@+id/rows"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <TextView style="@style/Label" android:text="日志" />
+
+        <TextView
+            android:id="@+id/log"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#F2F2F2"
+            android:fontFamily="monospace"
+            android:padding="6dp"
+            android:textIsSelectable="true"
+            android:textSize="11sp" />
+    </LinearLayout>
+</ScrollView>

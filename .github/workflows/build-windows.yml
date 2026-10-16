@@ -3,6 +3,9 @@ name: Build Windows
 on:
   push:
     branches: ["**"]
+    paths-ignore:
+      - "android/**"
+      - ".github/workflows/build-android.yml"
   workflow_dispatch:
 
 permissions:
