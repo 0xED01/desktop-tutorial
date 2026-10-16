@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.Footprint" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+    <color name="window_bg">#F6F7FB</color>
+    <color name="launcher_bg_start">#4F6BED</color>
+    <color name="launcher_bg_end">#12B886</color>
+</resources>
