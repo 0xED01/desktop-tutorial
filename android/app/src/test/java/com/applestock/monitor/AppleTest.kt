@@ -8,7 +8,7 @@ class AppleTest {
     private val sample = javaClass.getResource("/pickup_sample.json")!!.readText()
 
     private fun available(json: String, store: String) =
-        json.replace(Regex("(\"storeNumber\":\\s*\"$store\"[\\s\\S]*?\"pickupDisplay\":\\s*)\"unavailable\""), "$1\"available\"")
+        json.replaceFirst(Regex("(\"storeNumber\":\\s*\"$store\"[\\s\\S]*?\"pickupDisplay\":\\s*)\"unavailable\""), "$1\"available\"")
 
     @Test
     fun parsesRealResponse() {
