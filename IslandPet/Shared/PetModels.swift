@@ -301,7 +301,7 @@ struct ShopItem: Identifiable, Hashable {
         ShopItem(id: "console", name: "游戏机", emoji: "🎮", price: 60, category: .toy, happiness: 40, energy: -5, xp: 15),
         // 护理
         ShopItem(id: "soap", name: "香香泡泡", emoji: "🧼", price: 10, category: .care, cleanliness: 100, xp: 3, note: "洗得干干净净"),
-        ShopItem(id: "medicine", name: "感冒药", emoji: "💊", price: 30, category: .care, health: 20, cures: true, xp: 5),
+        ShopItem(id: "medicine", name: "感冒药", emoji: "💊", price: 30, category: .care, health: 20, xp: 5, cures: true),
         ShopItem(id: "potion", name: "营养剂", emoji: "🧪", price: 40, category: .care, health: 35, xp: 5),
         ShopItem(id: "grape", name: "能量葡萄", emoji: "🍇", price: 25, category: .care, hunger: 5, energy: 35, xp: 4),
         // 装扮
