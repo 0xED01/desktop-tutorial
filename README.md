@@ -1,5 +1,43 @@
-# Welcome to GitHub Desktop!
+# 喝水提醒 · Water Reminder
 
-This is your README. READMEs are where you can communicate what your project is and how to use it.
+一款简约的安卓喝水提醒 App（Kotlin + Jetpack Compose + Material 3）。
 
-Write your name on line 6, save it, and then head back to GitHub Desktop.
+**直接安装：** 下载 [`release/WaterReminder-v1.0.0.apk`](release/WaterReminder-v1.0.0.apk)，在手机上打开安装（需允许“安装未知来源应用”）。支持 Android 8.0 及以上。
+
+## 功能
+
+**今日**
+- 水波动画进度球，实时显示完成百分比和剩余量
+- 4 个可自定义的快捷杯量 + 自定义任意饮水量
+- 7 种饮品（白水、茶、咖啡、牛奶、果汁、运动饮料、汤），按含水系数计入有效饮水量
+- 今日记录时间线，可删除并撤销
+- 下次提醒时间、今日杯数、连续达标天数一目了然
+
+**提醒**
+- 自定义提醒间隔（30 分钟 ~ 3 小时）与时间段（如 08:00 ~ 22:00）
+- 通知里直接点“喝了 250ml”记录，或“15 分钟后”再提醒
+- 喝水后自动重新计时；达标后可当天静默
+- 开机/更新/改时区后自动恢复提醒；支持精确闹钟与电池优化引导
+- 达成每日目标时发送祝贺通知
+
+**统计**
+- 近 7 天 / 30 天每日饮水柱状图（含目标线）
+- 日均饮水、达标天数、连续天数、累计饮水
+- 24 小时饮水时段分布、饮品构成占比
+- 9 枚成就徽章
+
+**设置**
+- 每日目标滑块，或按体重 + 运动量一键推荐
+- 浅色 / 深色 / 跟随系统主题，Android 12+ 支持动态取色
+- 桌面小部件：显示今日进度，一键 +250ml
+- 清空数据
+
+## 构建
+
+```bash
+echo "sdk.dir=/path/to/android-sdk" > local.properties
+./gradlew assembleRelease
+# 输出：app/build/outputs/apk/release/app-release.apk
+```
+
+`app/release.jks` 是本项目的签名密钥（密码见 `app/build.gradle.kts`），用于保证后续版本可以覆盖安装。如需上架应用商店请更换为自己的私密密钥。

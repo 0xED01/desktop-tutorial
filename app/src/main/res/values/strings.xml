@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">喝水提醒</string>
+    <string name="widget_name">今日饮水</string>
+    <string name="widget_desc">查看今日进度，一键记录喝水</string>
+</resources>
