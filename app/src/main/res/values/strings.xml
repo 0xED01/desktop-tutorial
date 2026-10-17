@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">漏液整蛊</string>
+    <string name="intro">点击开始后会有 3 秒倒计时，然后整个屏幕会变成液晶漏液、花屏坏掉的样子。趁机把手机递给朋友看看反应吧。</string>
+    <string name="exit_hint">退出暗号：连按 3 次返回键，或长按屏幕 3 秒。按 Home 键 / 划掉任务也能直接退出。</string>
+    <string name="start_button">开始整蛊</string>
+    <string name="countdown">%1$d 秒后开始…</string>
+</resources>

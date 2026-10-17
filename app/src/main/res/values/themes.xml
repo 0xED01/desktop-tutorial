@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.LiquidPrank" parent="Theme.AppCompat.DayNight">
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+
+    <!-- Fullscreen, no title bar, for the prank itself. -->
+    <style name="Theme.LiquidPrank.Fullscreen" parent="Theme.LiquidPrank">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowActionBar">false</item>
+    </style>
+
+</resources>

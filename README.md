@@ -1,5 +1,41 @@
-# Welcome to GitHub Desktop!
+# 漏液整蛊 (Liquid Screen Prank)
 
-This is your README. READMEs are where you can communicate what your project is and how to use it.
+一个安卓恶作剧 App：打开后整个屏幕变成**液晶漏液 / 花屏坏掉**的样子——黑色墨渍从几个点向外扩散、边缘带彩虹色渗漏、伴随竖条坏点和裂纹，看起来像屏幕真的坏了。
 
-Write your name on line 6, save it, and then head back to GitHub Desktop.
+## 玩法
+
+1. 打开 App，点「开始整蛊」，有 3 秒倒计时，趁机把手机递给朋友。
+2. 屏幕铺满逼真的漏液动画，并隐藏状态栏/导航栏，还会轻微震动一下。
+3. **退出暗号**（你知道，朋友不知道）：
+   - 连按 **3 次返回键**，或
+   - **长按屏幕约 3 秒**。
+   - 按 **Home 键**或在最近任务里**划掉**也能立即退出。
+
+## 设计说明（为什么“退得掉”）
+
+这是一个**普通 Activity**，不是系统悬浮窗、不申请任何特殊权限、不在后台常驻。
+离开 App（Home / 最近任务）就会结束特效。
+
+它被**刻意设计成随时能退出**：一个无法退出、常驻盖在所有界面之上的全屏遮罩，
+本质上就是把别人的手机变成不可用的锁屏（勒索/锁机类恶意软件的做法）。
+这个 App 只做“看起来坏了”的玩笑效果，不做“锁住设备”的事——请只在自己的手机上，
+对朋友善意地开玩笑。
+
+## 构建
+
+需要 Android Studio，或命令行 + Android SDK：
+
+```bash
+# 命令行构建 debug APK
+./gradlew :app:assembleDebug
+# 产物：app/build/outputs/apk/debug/app-debug.apk
+```
+
+- 最低支持 Android 5.0 (API 21)，目标 API 34。
+- 无需任何运行时权限（震动在部分系统上自动生效）。
+
+## 主要文件
+
+- `app/src/main/java/.../LiquidLeakView.java` — 漏液动画的自定义绘制 View。
+- `app/src/main/java/.../PrankActivity.java` — 全屏特效界面 + 退出手势。
+- `app/src/main/java/.../MainActivity.java` — 启动页、说明、倒计时。
