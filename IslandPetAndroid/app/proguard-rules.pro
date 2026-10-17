@@ -1,0 +1,3 @@
+-keepattributes *Annotation*, InnerClasses
+-keep,includedescriptorclasses class com.islandpet.model.**$$serializer { *; }
+-keepclassmembers class com.islandpet.model.** { *** Companion; kotlinx.serialization.KSerializer serializer(...); }

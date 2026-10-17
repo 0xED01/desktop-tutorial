@@ -4,3 +4,9 @@ IslandPet/App/Info.plist
 IslandPet/Widget/Info.plist
 .DS_Store
 xcuserdata/
+IslandPetAndroid/local.properties
+IslandPetAndroid/.gradle/
+IslandPetAndroid/.kotlin/
+IslandPetAndroid/build/
+IslandPetAndroid/app/build/
+apk/

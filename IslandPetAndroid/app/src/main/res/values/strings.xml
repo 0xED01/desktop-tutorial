@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">灵动岛宠物</string>
+    <string name="a11y_label">灵动岛宠物 · 增强模式</string>
+    <string name="a11y_desc">开启后，宠物灵动岛可以准确覆盖在前置摄像头位置并且可以点击。本服务只用于显示灵动岛，不会读取或收集任何屏幕内容。</string>
+</resources>
