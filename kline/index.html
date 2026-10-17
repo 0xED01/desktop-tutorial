@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>K线制作器</title>
+<style>
+  :root {
+    --bg: #0f1419; --panel: #161c23; --line: #26303b; --text: #d6dde5; --muted: #8a96a3;
+    --up: #ef5350; --down: #26a69a; --accent: #4c8dff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0 12px 0 0; }
+  main { display: grid; grid-template-columns: 340px 1fr; height: calc(100vh - 53px); }
+  aside { border-right: 1px solid var(--line); padding: 12px; overflow: auto; background: var(--panel); }
+  section.chart { position: relative; min-height: 300px; }
+  canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+  h2 { font-size: 13px; color: var(--muted); margin: 14px 0 6px; font-weight: 600; }
+  label { font-size: 12px; color: var(--muted); display: block; }
+  input, select, textarea, button { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+  input:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); }
+  button { cursor: pointer; background: #1f2731; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .row { display: flex; gap: 6px; align-items: end; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 0; }
+  .row input { width: 100%; }
+  .seg button { border-radius: 0; margin-left: -1px; }
+  .seg button:first-child { border-radius: 6px 0 0 6px; }
+  .seg button:last-child { border-radius: 0 6px 6px 0; }
+  .seg button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  textarea { width: 100%; height: 110px; resize: vertical; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 3px 4px; border-bottom: 1px solid var(--line); text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  td button { padding: 0 6px; font-size: 12px; }
+  .hint { font-size: 12px; color: var(--muted); margin: 4px 0; }
+  .msg { font-size: 12px; min-height: 18px; color: var(--accent); }
+  #tip { position: absolute; top: 8px; left: 12px; font-size: 12px; pointer-events: none; font-variant-numeric: tabular-nums; }
+  .ohlc { display: none; }
+  .show-ohlc .ohlc { display: block; }
+  .show-ohlc .single { display: none; }
+  @media (max-width: 800px) {
+    main { grid-template-columns: 1fr; height: auto; }
+    section.chart { height: 60vh; }
+    aside { border-right: 0; border-bottom: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>K线制作器</h1>
+  <span style="color:var(--muted);font-size:12px">周期</span>
+  <span class="seg" id="periods"></span>
+  <label style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="showMA" checked> 均线 MA5/10/20</label>
+  <label style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="redUp" checked> 红涨绿跌</label>
+  <span style="flex:1"></span>
+  <button id="fit">全部显示</button>
+  <button id="png">导出图片</button>
+</header>
+<main>
+  <aside>
+    <h2>录入价格</h2>
+    <div class="row">
+      <div><label>日期</label><input type="date" id="date"></div>
+      <div><label>时间（分钟）</label><input type="time" id="time" step="60"></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:4px;margin-top:6px"><input type="checkbox" id="ohlcMode"> 按开/高/低/收录入（否则每分钟填一个价格）</label>
+    <div id="priceBox">
+      <div class="row single" style="margin-top:6px">
+        <div><label>价格</label><input type="number" step="any" id="price" placeholder="例如 100.25"></div>
+        <button class="primary" id="add1">添加 ↵</button>
+      </div>
+      <div class="row ohlc" style="margin-top:6px">
+        <div><label>开</label><input type="number" step="any" id="o"></div>
+        <div><label>高</label><input type="number" step="any" id="h"></div>
+        <div><label>低</label><input type="number" step="any" id="l"></div>
+        <div><label>收</label><input type="number" step="any" id="c"></div>
+      </div>
+      <div class="row ohlc" style="margin-top:6px"><button class="primary" id="add4" style="width:100%">添加 ↵</button></div>
+    </div>
+    <p class="hint">按回车即添加，时间自动 +1 分钟，可连续录入。同一分钟重复填写会合并（高低取极值、收盘取最新）。</p>
+    <div class="msg" id="msg"></div>
+
+    <h2>批量粘贴</h2>
+    <textarea id="bulk" placeholder="每行一条，支持：
+09:30 100.5
+2026-10-17 09:31 100.8
+09:32 100 101 99.5 100.7   (开 高 低 收)
+没写日期的行使用上方日期"></textarea>
+    <div class="row" style="margin-top:6px">
+      <button id="bulkAdd">导入粘贴内容</button>
+      <button id="csvOut">导出 CSV</button>
+      <button id="csvIn">导入 CSV</button>
+      <input type="file" id="file" accept=".csv,.txt" hidden>
+    </div>
+
+    <h2>已录入数据 <span id="count"></span></h2>
+    <div class="row" style="margin-bottom:6px">
+      <button id="demo">生成示例数据</button>
+      <button id="clearDay">清空当天</button>
+      <button id="clearAll">清空全部</button>
+    </div>
+    <table>
+      <thead><tr><th>时间</th><th>开</th><th>高</th><th>低</th><th>收</th><th></th></tr></thead>
+      <tbody id="list"></tbody>
+    </table>
+  </aside>
+  <section class="chart">
+    <canvas id="cv"></canvas>
+    <div id="tip"></div>
+  </section>
+</main>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const KEY = 'kline-maker-v1';
+  const PERIODS = [['1分', 1], ['5分', 5], ['15分', 15], ['30分', 30], ['60分', 60], ['日K', 'D'], ['周K', 'W']];
+
+  // 数据：每分钟一条 { t: 'YYYY-MM-DD HH:MM', o, h, l, c }
+  let recs = [];
+  let period = 1;
+  try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) { recs = s.recs || []; period = s.period ?? 1; } } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ recs, period })); } catch (e) {} };
+
+  const pad = n => String(n).padStart(2, '0');
+  const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  $('date').value = today();
+  $('time').value = '09:30';
+
+  function msg(t, err) { $('msg').textContent = t; $('msg').style.color = err ? 'var(--up)' : 'var(--accent)'; }
+
+  function upsert(t, o, h, l, c) {
+    if (![o, h, l, c].every(Number.isFinite)) return false;
+    h = Math.max(h, o, c, l); l = Math.min(l, o, c, h);
+    const i = recs.findIndex(r => r.t === t);
+    if (i >= 0) { const r = recs[i]; r.h = Math.max(r.h, h); r.l = Math.min(r.l, l); r.c = c; }
+    else recs.push({ t, o, h, l, c });
+    return true;
+  }
+  const sortRecs = () => recs.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
+  function changed() { sortRecs(); save(); renderList(); build(); draw(); }
+
+  function nextMinute() {
+    const [H, M] = $('time').value.split(':').map(Number);
+    let m = H * 60 + M + 1;
+    if (m >= 1440) m = 0;
+    $('time').value = `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+  }
+
+  function addFromForm() {
+    const d = $('date').value, tm = $('time').value;
+    if (!d || !tm) return msg('请先填写日期和时间', true);
+    const t = `${d} ${tm.slice(0, 5)}`;
+    let ok;
+    if ($('ohlcMode').checked) {
+      const v = ['o', 'h', 'l', 'c'].map(k => parseFloat($(k).value));
+      ok = upsert(t, ...v);
+      if (ok) { ['o', 'h', 'l', 'c'].forEach(k => $(k).value = ''); $('o').focus(); }
+    } else {
+      const p = parseFloat($('price').value);
+      ok = upsert(t, p, p, p, p);
+      if (ok) { $('price').value = ''; $('price').focus(); }
+    }
+    if (!ok) return msg('价格格式不对', true);
+    msg(`已添加 ${t}`);
+    nextMinute(); changed(); fitView();
+  }
+  $('add1').onclick = $('add4').onclick = addFromForm;
+  ['price', 'o', 'h', 'l', 'c'].forEach(k => $(k).addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    if ($('ohlcMode').checked && k !== 'c') { $(['o', 'h', 'l', 'c'][['o', 'h', 'l', 'c'].indexOf(k) + 1]).focus(); return; }
+    addFromForm();
+  }));
+  $('ohlcMode').onchange = () => { $('priceBox').classList.toggle('show-ohlc', $('ohlcMode').checked); };
+
+  // 解析一行文本：[日期] 时间 价格 | [日期] 时间 开 高 低 收
+  function parseLine(line, defDate) {
+    const parts = line.trim().split(/[\s,，\t]+/).filter(Boolean);
+    if (!parts.length) return null;
+    let d = defDate;
+    if (/^\d{4}[-/.]\d{1,2}[-/.]\d{1,2}$/.test(parts[0])) {
+      const [y, m, dd] = parts.shift().split(/[-/.]/);
+      d = `${y}-${pad(+m)}-${pad(+dd)}`;
+    }
+    const tm = parts.shift();
+    if (!/^\d{1,2}:\d{2}(:\d{2})?$/.test(tm || '')) return null;
+    const [H, M] = tm.split(':').map(Number);
+    if (H > 23 || M > 59) return null;
+    const nums = parts.map(Number);
+    if (nums.length === 1) return [`${d} ${pad(H)}:${pad(M)}`, nums[0], nums[0], nums[0], nums[0]];
+    if (nums.length >= 4) return [`${d} ${pad(H)}:${pad(M)}`, ...nums.slice(0, 4)];
+    return null;
+  }
+  function importText(text) {
+    let n = 0, bad = 0;
+    for (const line of text.split(/\r?\n/)) {
+      if (!line.trim() || /^(time|时间|date|日期)/i.test(line.trim())) continue;
+      const r = parseLine(line, $('date').value || today());
+      if (r && upsert(...r)) n++; else bad++;
+    }
+    changed(); fitView();
+    msg(`导入 ${n} 条` + (bad ? `，${bad} 行无法识别` : ''), bad && !n);
+  }
+  $('bulkAdd').onclick = () => { importText($('bulk').value); $('bulk').value = ''; };
+  $('csvIn').onclick = () => $('file').click();
+  $('file').onchange = async e => { const f = e.target.files[0]; if (f) importText(await f.text()); e.target.value = ''; };
+  $('csvOut').onclick = () => {
+    const csv = 'date,time,open,high,low,close\n' + recs.map(r => `${r.t.replace(' ', ',')},${r.o},${r.h},${r.l},${r.c}`).join('\n');
+    download(new Blob([csv], { type: 'text/csv' }), 'kline.csv');
+  };
+  function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+
+  $('clearDay').onclick = () => {
+    const d = $('date').value;
+    if (!confirm(`清空 ${d} 的全部数据？`)) return;
+    recs = recs.filter(r => !r.t.startsWith(d)); changed(); fitView();
+  };
+  $('clearAll').onclick = () => { if (confirm('清空全部数据？此操作不可撤销')) { recs = []; changed(); fitView(); } };
+  $('demo').onclick = () => {
+    let p = 100;
+    const d = $('date').value || today();
+    for (let m = 9 * 60 + 30; m < 15 * 60; m++) {
+      if (m >= 11 * 60 + 30 && m < 13 * 60) continue;
+      const t = `${d} ${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+      const o = p; const c = +(p + (Math.random() - 0.48) * 0.6).toFixed(2);
+      upsert(t, o, +(Math.max(o, c) + Math.random() * 0.3).toFixed(2), +(Math.min(o, c) - Math.random() * 0.3).toFixed(2), c);
+      p = c;
+    }
+    changed(); fitView(); msg('已生成当天 9:30–15:00 示例数据');
+  };
+
+  const fmt = v => { const a = Math.abs(v); return v.toFixed(a >= 1000 ? 1 : a >= 1 ? 2 : 4); };
+
+  function renderList() {
+    $('count').textContent = `（${recs.length} 条）`;
+    const rows = recs.slice(-300).reverse();
+    $('list').innerHTML = rows.map(r =>
+      `<tr><td>${r.t.slice(5)}</td><td>${fmt(r.o)}</td><td>${fmt(r.h)}</td><td>${fmt(r.l)}</td><td>${fmt(r.c)}</td><td><button data-t="${r.t}" title="删除">×</button></td></tr>`
+    ).join('') + (recs.length > 300 ? `<tr><td colspan="6" class="hint">仅显示最近 300 条</td></tr>` : '');
+  }
+  $('list').onclick = e => {
+    const t = e.target.dataset && e.target.dataset.t;
+    if (t) { recs = recs.filter(r => r.t !== t); changed(); }
+  };
+
+  // ---- 按周期聚合 ----
+  let bars = [];
+  function bucketKey(t) {
+    const d = t.slice(0, 10);
+    if (period === 'D') return d;
+    if (period === 'W') {
+      const dt = new Date(d + 'T00:00:00'); const wd = (dt.getDay() + 6) % 7; dt.setDate(dt.getDate() - wd);
+      return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+    }
+    const m = +t.slice(11, 13) * 60 + +t.slice(14, 16);
+    const b = Math.floor(m / period) * period;
+    return `${d} ${pad(Math.floor(b / 60))}:${pad(b % 60)}`;
+  }
+  function build() {
+    bars = [];
+    let cur = null;
+    for (const r of recs) {
+      const k = bucketKey(r.t);
+      if (!cur || cur.t !== k) { cur = { t: k, o: r.o, h: r.h, l: r.l, c: r.c }; bars.push(cur); }
+      else { cur.h = Math.max(cur.h, r.h); cur.l = Math.min(cur.l, r.l); cur.c = r.c; }
+    }
+    for (const n of [5, 10, 20]) {
+      let s = 0;
+      bars.forEach((b, i) => { s += b.c; if (i >= n) s -= bars[i - n].c; b['ma' + n] = i >= n - 1 ? s / n : null; });
+    }
+  }
+
+  // ---- 绘图 ----
+  const cv = $('cv'), ctx = cv.getContext('2d');
+  let W = 0, H = 0, view = { count: 80, end: 0 }, hover = -1;
+  const AXIS_R = 70, AXIS_B = 26, TOP = 30;
+  const MA_COLORS = { ma5: '#f5c542', ma10: '#c77dff', ma20: '#4c8dff' };
+  const colors = () => {
+    const red = getComputedStyle(document.documentElement).getPropertyValue('--up').trim();
+    const green = getComputedStyle(document.documentElement).getPropertyValue('--down').trim();
+    return $('redUp').checked ? { up: red, down: green } : { up: green, down: red };
+  };
+
+  function resize() {
+    const r = cv.parentElement.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    W = r.width; H = r.height;
+    cv.width = W * dpr; cv.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+  function fitView() { view.count = Math.max(20, Math.min(bars.length, 200)); view.end = bars.length; draw(); }
+  function clampView() {
+    view.count = Math.max(10, Math.min(view.count, Math.max(10, bars.length + 5)));
+    view.end = Math.max(Math.min(view.end, bars.length + Math.floor(view.count / 3)), Math.min(bars.length, 5));
+  }
+  function geom() {
+    const pw = W - AXIS_R, ph = H - AXIS_B - TOP;
+    const bw = pw / view.count;
+    const start = Math.floor(view.end - view.count);
+    return { pw, ph, bw, start };
+  }
+  const xOf = (i, g) => (i - g.start + 0.5) * g.bw;
+
+  function draw() {
+    if (!W) return;
+    clampView();
+    const { up, down } = colors();
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f1419'; ctx.fillRect(0, 0, W, H);
+    ctx.font = '11px ui-monospace, Consolas, monospace';
+    const g = geom();
+    const vis = [];
+    for (let i = Math.max(0, g.start); i < Math.min(bars.length, Math.ceil(view.end)); i++) vis.push(i);
+    if (!vis.length) {
+      ctx.fillStyle = '#8a96a3'; ctx.textAlign = 'center';
+      ctx.font = '14px sans-serif';
+      ctx.fillText('在左侧录入价格，K线会自动生成', W / 2, H / 2);
+      $('tip').innerHTML = ''; return;
+    }
+    let lo = Infinity, hi = -Infinity;
+    const showMA = $('showMA').checked;
+    for (const i of vis) {
+      const b = bars[i]; lo = Math.min(lo, b.l); hi = Math.max(hi, b.h);
+      if (showMA) for (const k of ['ma5', 'ma10', 'ma20']) if (b[k] != null) { lo = Math.min(lo, b[k]); hi = Math.max(hi, b[k]); }
+    }
+    if (hi === lo) { hi += Math.abs(hi) * 0.01 || 1; lo -= Math.abs(lo) * 0.01 || 1; }
+    const padv = (hi - lo) * 0.08; hi += padv; lo -= padv;
+    const y = v => TOP + (hi - v) / (hi - lo) * g.ph;
+    g.y = y; g.lo = lo; g.hi = hi;
+
+    // 网格 + 价格轴
+    const step = niceStep((hi - lo) / 6);
+    ctx.strokeStyle = '#1e262f'; ctx.fillStyle = '#8a96a3'; ctx.textAlign = 'left'; ctx.lineWidth = 1;
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+      const yy = Math.round(y(v)) + 0.5;
+      ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(g.pw, yy); ctx.stroke();
+      ctx.fillText(fmt(v), g.pw + 6, yy + 4);
+    }
+    // 时间轴
+    ctx.textAlign = 'center';
+    const labelEvery = Math.max(1, Math.ceil(90 / g.bw));
+    for (const i of vis) {
+      if (i % labelEvery) continue;
+      const x = Math.round(xOf(i, g)) + 0.5;
+      if (x < 40 || x > g.pw - 40) continue;
+      ctx.beginPath(); ctx.moveTo(x, TOP); ctx.lineTo(x, TOP + g.ph); ctx.stroke();
+      ctx.fillText(timeLabel(i), x, H - 8);
+    }
+    ctx.strokeStyle = '#26303b';
+    ctx.beginPath(); ctx.moveTo(g.pw + 0.5, 0); ctx.lineTo(g.pw + 0.5, H); ctx.moveTo(0, H - AXIS_B + 0.5); ctx.lineTo(W, H - AXIS_B + 0.5); ctx.stroke();
+
+    // 蜡烛
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, g.pw, H - AXIS_B); ctx.clip();
+    const bodyW = Math.max(1, Math.min(g.bw * 0.7, 40));
+    for (const i of vis) {
+      const b = bars[i], x = xOf(i, g), col = b.c >= b.o ? up : down;
+      ctx.strokeStyle = ctx.fillStyle = col;
+      const xx = Math.round(x) + 0.5;
+      ctx.beginPath(); ctx.moveTo(xx, y(b.h)); ctx.lineTo(xx, y(b.l)); ctx.stroke();
+      const top = y(Math.max(b.o, b.c)), hgt = Math.max(1, y(Math.min(b.o, b.c)) - top);
+      ctx.fillRect(Math.round(x - bodyW / 2), top, Math.max(1, Math.round(bodyW)), hgt);
+    }
+    if (showMA) for (const k of ['ma5', 'ma10', 'ma20']) {
+      ctx.strokeStyle = MA_COLORS[k]; ctx.lineWidth = 1.2; ctx.beginPath();
+      let started = false;
+      for (const i of vis) { const v = bars[i][k]; if (v == null) continue; const x = xOf(i, g); started ? ctx.lineTo(x, y(v)) : ctx.moveTo(x, y(v)); started = true; }
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // 十字光标
+    const hi_ = hover >= 0 && hover < bars.length ? hover : vis[vis.length - 1];
+    if (hover >= 0 && hover < bars.length && crossY != null) {
+      const x = Math.round(xOf(hover, g)) + 0.5;
+      ctx.strokeStyle = '#5b6875'; ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, TOP); ctx.lineTo(x, TOP + g.ph); ctx.moveTo(0, crossY + 0.5); ctx.lineTo(g.pw, crossY + 0.5); ctx.stroke();
+      ctx.setLineDash([]);
+      const pv = hi - (crossY - TOP) / g.ph * (hi - lo);
+      ctx.fillStyle = '#2b3642'; ctx.fillRect(g.pw, crossY - 9, AXIS_R, 18);
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.fillText(fmt(pv), g.pw + 6, crossY + 4);
+      const tl = bars[hover].t; const tw = ctx.measureText(tl).width + 12;
+      ctx.fillStyle = '#2b3642'; ctx.fillRect(x - tw / 2, H - AXIS_B, tw, AXIS_B);
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(tl, x, H - 8);
+    }
+    const b = bars[hi_], prev = bars[hi_ - 1];
+    const chg = prev ? (b.c - prev.c) / prev.c * 100 : (b.c - b.o) / b.o * 100;
+    const cc = b.c >= b.o ? up : down;
+    $('tip').innerHTML = `<span style="color:var(--muted)">${b.t}</span>&nbsp; 开 <b style="color:${cc}">${fmt(b.o)}</b> 高 <b style="color:${cc}">${fmt(b.h)}</b> 低 <b style="color:${cc}">${fmt(b.l)}</b> 收 <b style="color:${cc}">${fmt(b.c)}</b> 涨跌 <b style="color:${chg >= 0 ? up : down}">${isFinite(chg) ? chg.toFixed(2) + '%' : '-'}</b>` +
+      (showMA ? `&nbsp; ${['ma5', 'ma10', 'ma20'].map(k => `<span style="color:${MA_COLORS[k]}">${k.toUpperCase()} ${b[k] != null ? fmt(b[k]) : '-'}</span>`).join(' ')}` : '');
+  }
+  function niceStep(raw) {
+    const p = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / p;
+    return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * p;
+  }
+  function timeLabel(i) {
+    const t = bars[i].t;
+    if (period === 'D' || period === 'W') return t.slice(5);
+    const newDay = i === 0 || bars[i - 1].t.slice(0, 10) !== t.slice(0, 10);
+    return newDay ? t.slice(5) : t.slice(11);
+  }
+
+  // 交互：悬停、滚轮缩放、拖动平移
+  let crossY = null, drag = null;
+  cv.addEventListener('mousemove', e => {
+    const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+    const g = geom();
+    if (drag) { view.end = drag.end - (mx - drag.x) / g.bw; hover = -1; crossY = null; draw(); return; }
+    if (mx > g.pw || my < TOP || my > TOP + g.ph) { hover = -1; crossY = null; draw(); return; }
+    hover = Math.floor(mx / g.bw) + g.start; crossY = my; draw();
+  });
+  cv.addEventListener('mouseleave', () => { hover = -1; crossY = null; drag = null; draw(); });
+  cv.addEventListener('mousedown', e => { drag = { x: e.clientX - cv.getBoundingClientRect().left, end: view.end }; cv.style.cursor = 'grabbing'; });
+  window.addEventListener('mouseup', () => { drag = null; cv.style.cursor = 'crosshair'; });
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const r = cv.getBoundingClientRect(), g = geom();
+    const frac = Math.min(1, (e.clientX - r.left) / g.pw);
+    const anchor = g.start + frac * view.count;
+    const nc = Math.max(10, Math.min(1000, view.count * (e.deltaY > 0 ? 1.15 : 1 / 1.15)));
+    view.end = anchor + (1 - frac) * nc; view.count = nc; draw();
+  }, { passive: false });
+  // 触摸拖动
+  let touch = null;
+  cv.addEventListener('touchstart', e => { touch = { x: e.touches[0].clientX, end: view.end }; }, { passive: true });
+  cv.addEventListener('touchmove', e => { if (!touch) return; e.preventDefault(); view.end = touch.end - (e.touches[0].clientX - touch.x) / geom().bw; draw(); }, { passive: false });
+
+  // 周期按钮
+  PERIODS.forEach(([name, v]) => {
+    const b = document.createElement('button'); b.textContent = name; b.dataset.v = v;
+    b.onclick = () => { period = v; save(); markPeriod(); build(); fitView(); };
+    $('periods').appendChild(b);
+  });
+  function markPeriod() { [...$('periods').children].forEach(b => b.classList.toggle('on', String(period) === b.dataset.v)); }
+  $('showMA').onchange = $('redUp').onchange = draw;
+  $('fit').onclick = fitView;
+  $('png').onclick = () => cv.toBlob(b => download(b, 'kline.png'));
+  new ResizeObserver(resize).observe(cv.parentElement);
+
+  markPeriod(); renderList(); build(); fitView();
+})();
+</script>
+</body>
+</html>
