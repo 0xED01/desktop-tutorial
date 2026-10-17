@@ -27,6 +27,9 @@ button:disabled{opacity:.4}
 font-size:11px;font-weight:700;color:#2a0a1c;text-align:center;line-height:1.1}
 .cell .n{position:absolute;top:2px;left:4px;font-size:9px;opacity:.6}
 .lv1{background:var(--l1)}.lv2{background:var(--l2)}.lv3{background:var(--l3);color:#fff}.lv4{background:var(--l4);color:#fff}
+.lv5{background:#111;color:#ff4f8b;border:1px solid #ff4f8b}
+.chk{display:flex;flex-wrap:wrap;gap:6px}.chk label{display:flex;align-items:center;gap:4px;margin:0;background:#1a0b16;padding:6px 10px;border-radius:99px;color:var(--ink);font-size:13px}.chk input{width:auto}
+.light{display:flex;gap:6px;margin-top:10px}.light button{flex:1;padding:8px;font-size:14px}
 .fly{background:var(--fly);color:#fff}.back{background:#555;color:#fff}.swap{background:#f9c74f}
 .start{background:#90e0ef}.end{background:linear-gradient(135deg,#ffd166,#ff4f8b);color:#fff}
 .tok{position:absolute;width:42%;aspect-ratio:1;border-radius:50%;border:2px solid #fff;bottom:3px;box-shadow:0 0 8px #000a;transition:all .3s}
@@ -67,9 +70,23 @@ font-size:11px;font-weight:700;color:#2a0a1c;text-align:center;line-height:1.1}
       <option value="2">微醺（甜蜜 + 暧昧）</option>
       <option value="3">上头（到火热为止）</option>
       <option value="4" selected>失控（全部解锁，含狂野）</option>
+      <option value="5">🖤 调教（SM，全部 + 主从调教档）</option>
     </select>
     <label>🛑 安全词（任何一方说出，当前任务立即作废，不罚）</label>
     <input id="safe" value="菠萝" maxlength="10">
+    <div id="smbox" style="display:none">
+      <label>👑 谁是主（S）</label>
+      <select id="role">
+        <option value="roll">掷到格子的人当主</option>
+        <option value="rand">每张卡随机决定</option>
+        <option value="0">玩家一固定当主</option>
+        <option value="1">玩家二固定当主</option>
+      </select>
+      <label>✅ 你们都同意玩的项目（没勾的不会抽到）</label>
+      <div class="chk" id="cats"></div>
+      <p class="small">🚦 调教档用红黄绿灯：<b style="color:#4ade80">绿灯</b>=继续/可以更重，<b style="color:#facc15">黄灯</b>=轻一点/慢一点，<b style="color:#f87171">红灯</b>=立刻停止，进入照顾环节。任务卡上有对应按钮。</p>
+      <button class="ghost" style="width:100%" onclick="showSafety()">📖 开始前必读：安全须知</button>
+    </div>
     <label>🙅 跳过任务的代价</label>
     <select id="skipcost">
       <option value="back">后退 3 格</option>
@@ -80,14 +97,14 @@ font-size:11px;font-weight:700;color:#2a0a1c;text-align:center;line-height:1.1}
   <div class="card">
     <div class="small">✍️ <b>自定义任务</b>：你们最懂彼此的口味，把专属玩法写进去，会混进对应等级随机抽到。</div>
     <div class="row" style="margin-top:8px">
-      <select id="clv" style="flex:0 0 96px"><option value="1">甜蜜</option><option value="2">暧昧</option><option value="3">火热</option><option value="4" selected>狂野</option></select>
+      <select id="clv" style="flex:0 0 96px"><option value="1">甜蜜</option><option value="2">暧昧</option><option value="3">火热</option><option value="4" selected>狂野</option><option value="5">调教</option></select>
       <input id="ctext" placeholder="比如：用口红在对方身上签名">
     </div>
     <button class="ghost" style="width:100%;margin-top:8px" onclick="addCustom()">＋ 加入任务池</button>
     <div class="list" id="clist"></div>
   </div>
   <button style="width:100%" onclick="startGame()">开始游戏 🎲</button>
-  <p class="small">规则：轮流掷骰子前进，停在哪格就做哪格的任务（执行者是掷骰子的人，除非任务另有说明）。紫色✈️格直接起飞前进 4 格并再抽任务；灰色格后退；黄色格交换位置。先到终点的人，可以向对方提一个“终点大奖”要求。<br>任何时候任何一方不舒服，喊安全词即可，开心最重要 ❤️</p>
+  <p class="small">规则：轮流掷骰子前进，停在哪格就做哪格的任务（执行者是掷骰子的人，除非任务另有说明）。紫色✈️格直接起飞前进 4 格并再抽任务；灰色格后退；黄色格交换位置。先到终点的人，可以向对方提一个“终点大奖”要求。<br>任何时候任何一方不舒服，喊安全词即可，开心最重要 ❤️<br>选“调教”档后，棋盘最后一段是 🖤 格，会抽主从调教任务。</p>
 </div>
 
 <!-- 游戏页 -->
@@ -104,7 +121,7 @@ font-size:11px;font-weight:700;color:#2a0a1c;text-align:center;line-height:1.1}
   <div class="board" id="board"></div>
   <div class="legend">
     <span><i style="background:var(--l1)"></i>甜蜜</span><span><i style="background:var(--l2)"></i>暧昧</span>
-    <span><i style="background:var(--l3)"></i>火热</span><span><i style="background:var(--l4)"></i>狂野</span>
+    <span><i style="background:var(--l3)"></i>火热</span><span><i style="background:var(--l4)"></i>狂野</span><span id="lg5" style="display:none"><i style="background:#111;border:1px solid #ff4f8b"></i>调教</span>
     <span><i style="background:var(--fly)"></i>起飞</span><span><i style="background:#555"></i>后退</span><span><i style="background:#f9c74f"></i>换位</span>
   </div>
   <div class="row" style="margin-top:12px">
@@ -192,8 +209,50 @@ const T = {
 "和对方玩“1 分钟木头人”：TA 做什么你都不能有反应，动了就再抽一张",
 ],
 };
-const LVNAME={1:"💗 甜蜜",2:"💞 暧昧",3:"🔥 火热",4:"😈 狂野"};
-const LVCOL={1:"var(--l1)",2:"var(--l2)",3:"var(--l3)",4:"var(--l4)"};
+// 调教档：{主}/{从} 会替换成名字；c 为项目分类
+const SM=[
+{c:"cmd",t:"{从} 跪在 {主} 面前，双手放在大腿上，没有 {主} 的允许不许起身（最多到下一轮）"},
+{c:"cmd",t:"{主} 给 {从} 戴上项圈（或领带），接下来 3 轮 {从} 每句话结尾都要加“主人”，漏一次罚 3 下"},
+{c:"cmd",t:"{从} 爬到 {主} 脚边，抬头请求：“请主人给我下一个命令”"},
+{c:"cmd",t:"{主} 连下 3 个指令，{从} 每个都要先回答“是，主人”再执行"},
+{c:"cmd",t:"{从} 亲吻 {主} 的手背和脚背，感谢主人的调教"},
+{c:"cmd",t:"{主} 摆好一个姿势，{从} 保持 1 分钟不许动，动一次加 5 下惩罚"},
+{c:"cmd",t:"{从} 伺候 {主}：捏肩、倒水、喂零食 2 分钟，伺候不周 {主} 可以当场惩罚"},
+{c:"cmd",t:"{主} 规定 {从} 接下来 2 轮的着装（或者不穿什么），{从} 不许讨价还价"},
+{c:"spank",t:"{从} 趴在 {主} 腿上，接受 10 下打屁股，每一下都要大声报数并说“谢谢主人”"},
+{c:"spank",t:"{主} 用手掌打 {从} 的屁股 5 下，从轻到重；{从} 可以随时喊黄灯"},
+{c:"spank",t:"{从} 自己报一个惩罚数（3~15），{主} 再加上一次骰子点数，然后执行"},
+{c:"spank",t:"{主} 用对折的皮带/戒尺轻打 {从} 6 下（只打屁股和大腿后侧）"},
+{c:"spank",t:"{主} 打 8 下，{从} 必须数清楚，数错就从头开始"},
+{c:"spank",t:"{从} 撅好姿势等着，{主} 让 TA 等 30 秒再决定打不打、打几下"},
+{c:"bind",t:"用领带/丝巾把 {从} 的双手绑在身后 3 分钟（能塞进两根手指的松紧）"},
+{c:"bind",t:"把 {从} 的手腕绑在床头，{主} 随意挑逗 2 分钟"},
+{c:"bind",t:"{从} 双手被绑 + 蒙眼，接下来 1 分钟发生什么全由 {主} 决定"},
+{c:"bind",t:"{主} 用腰带/丝巾把 {从} 的脚踝绑在一起，直到下一轮结束"},
+{c:"bind",t:"{主} 把 {从} 绑成 TA 喜欢的样子，拍照欣赏（只给你们俩看，{从} 同意才拍）"},
+{c:"sense",t:"蒙上 {从} 的眼睛，{主} 交替用冰块和热呼吸在 TA 身上游走 1 分钟"},
+{c:"sense",t:"{主} 用低温蜡烛在 {从} 背上滴 5 滴（必须是情趣低温蜡，先滴自己手腕试温，离皮肤 30cm 以上）"},
+{c:"sense",t:"{从} 蒙眼 + 戴耳机听白噪音，感官全被剥夺 2 分钟，{主} 随意触碰"},
+{c:"sense",t:"{主} 用羽毛和指甲交替划过 {从} 的皮肤，{从} 猜是哪种，猜错一次罚 3 下"},
+{c:"sense",t:"{从} 蒙眼，{主} 喂 TA 3 样东西，猜错一样罚一次"},
+{c:"deny",t:"{主} 撩拨 {从} 1 分钟，{从} 不许碰 {主}、不许出声，出声就罚"},
+{c:"deny",t:"{从} 求 {主} 吻一下，一直求到 {主} 满意为止"},
+{c:"deny",t:"{主} 宣布：接下来 3 轮 {从} 没有允许不许碰 {主} 任何地方"},
+{c:"deny",t:"{主} 把嘴唇停在离 {从} 一厘米的地方 30 秒，就是不吻"},
+{c:"deny",t:"{主} 把 {从} 撩到最想要的时候突然叫停，{从} 要说“谢谢主人”"},
+{c:"word",t:"{从} 大声说三遍：“我是 {主} 的专属小奴隶”"},
+{c:"word",t:"{主} 用最让人害羞的话描述 {从} 现在的样子，{从} 只能回答“是”"},
+{c:"word",t:"{从} 说出 3 件“希望主人对我做的事”，{主} 选一件马上执行"},
+{c:"word",t:"{主} 给 {从} 起一个专属的羞耻称呼，今晚只能这么叫"},
+{c:"word",t:"{从} 看着 {主} 的眼睛，讲出自己最想被怎么“惩罚”"},
+{c:"tool",t:"用晾衣夹夹在 {从} 的耳垂或手臂内侧 30 秒（不超过 1 分钟）"},
+{c:"tool",t:"{主} 从房间里挑一件东西当“刑具”，给 {从} 展示怎么用，然后用一次"},
+{c:"tool",t:"{主} 用领带当牵引绳，牵着 {从} 在房间里走一圈"},
+];
+const CATS={cmd:"命令服从",spank:"打屁股",bind:"束缚",sense:"蒙眼/冰/低温蜡",deny:"挑逗与禁止",word:"言语羞辱",tool:"夹子/道具"};
+const CARE=["抱紧 TA 5 分钟，什么都不用说","一起喝点水、吃点甜的","看看身上有没有勒痕、红印，帮 TA 揉一揉、涂点乳液","互相说一句：“刚才你很棒，我很爱你”","聊一聊：今晚最喜欢哪一个？哪一个下次不要了？","盖好被子，让 TA 靠在你怀里休息一会"];
+const LVNAME={1:"💗 甜蜜",2:"💞 暧昧",3:"🔥 火热",4:"😈 狂野",5:"🖤 调教"};
+const LVCOL={1:"var(--l1)",2:"var(--l2)",3:"var(--l3)",4:"var(--l4)",5:"#111"};
 const PRIZE=["今晚你说了算，对方无条件配合你一个愿望","让对方给你提供 10 分钟“全套服务”","对方明天要穿你挑的衣服出门","获得一张“随时兑现券”：任何时候喊出就生效"];
 const N=36;
 let custom=[];try{custom=JSON.parse(localStorage.getItem("fc_custom")||"[]")}catch(e){}
@@ -207,10 +266,13 @@ function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;
 function addCustom(){const t=document.getElementById("ctext").value.trim();if(!t)return;
  custom.push({lv:+document.getElementById("clv").value,t});saveCustom();renderCustom();document.getElementById("ctext").value=""}
 renderCustom();
+document.getElementById("cats").innerHTML=Object.entries(CATS).map(([k,v])=>`<label><input type="checkbox" value="${k}" ${k==="word"||k==="tool"?"":"checked"}>${v}</label>`).join("");
+const heatSel=document.getElementById("heat");
+heatSel.onchange=()=>{document.getElementById("smbox").style.display=heatSel.value==="5"?"block":"none"};
 
 function buildCells(maxLv){const cells=[];
  for(let i=0;i<N;i++){
-  let lv=Math.min(maxLv,1+Math.floor(i/(N/maxLv)));
+  let lv=maxLv===5?(i<8?2:i<15?3:i<21?4:5):Math.min(maxLv,1+Math.floor(i/(N/maxLv)));
   let type="task";
   if(i===0)type="start";else if(i===N-1)type="end";
   else if([5,14,23,30].includes(i))type="fly";
@@ -223,7 +285,10 @@ function pathIndex(i){const r=Math.floor(i/6),c=i%6;return r*6+(r%2?5-c:c)} // �
 function startGame(){
  const heat=+document.getElementById("heat").value;
  S={names:[val("n1")||"A",val("n2")||"B"],pos:[0,0],turn:0,cells:buildCells(heat),heat,
-   safe:val("safe")||"菠萝",skip:val("skipcost"),owe:[0,0],busy:false,used:{}};
+   safe:val("safe")||"菠萝",skip:val("skipcost"),owe:[0,0],busy:false,used:{},
+   role:val("role"),cats:[...document.querySelectorAll("#cats input:checked")].map(x=>x.value)};
+ if(heat===5&&!S.cats.length){alert("调教档至少勾选一个你们都同意的项目");return}
+ document.getElementById("lg5").style.display=heat===5?"flex":"none";
  document.getElementById("setup").classList.remove("on");document.getElementById("game").classList.add("on");
  drawBoard();upd()}
 function val(id){return document.getElementById(id).value.trim()}
@@ -234,7 +299,7 @@ function drawBoard(){const b=document.getElementById("board");b.innerHTML="";con
   let cls="cell ",txt="";
   if(c.type==="start"){cls+="start";txt="起点"}else if(c.type==="end"){cls+="end";txt="🏁终点"}
   else if(c.type==="fly"){cls+="fly";txt="✈️起飞"}else if(c.type==="back"){cls+="back";txt="⬅️退2"}
-  else if(c.type==="swap"){cls+="swap";txt="🔄换位"}else{cls+="lv"+c.lv;txt=["","💗","💞","🔥","😈"][c.lv]}
+  else if(c.type==="swap"){cls+="swap";txt="🔄换位"}else{cls+="lv"+c.lv;txt=["","💗","💞","🔥","😈","🖤"][c.lv]}
   d.className=cls;d.innerHTML=`<span class="n">${i}</span>${txt}`;
   if(S.pos[0]===i)d.innerHTML+='<div class="tok a"></div>';
   if(S.pos[1]===i)d.innerHTML+='<div class="tok b"></div>';
@@ -244,7 +309,8 @@ function upd(){const t=S.turn;document.getElementById("who").innerHTML=`<span st
  const o=[];S.owe.forEach((n,i)=>{if(n)o.push(`${S.names[i]} 欠对方 ${n} 个愿望`)});
  document.getElementById("owe").textContent=o.join("；")}
 
-function pick(lv){const pool=T[lv].map(t=>({t})).concat(custom.filter(c=>c.lv===lv));
+function pick(lv){const base=lv===5?SM.filter(x=>S.cats.includes(x.c)):T[lv].map(t=>({t}));
+ const pool=base.concat(custom.filter(c=>c.lv===lv));
  let fresh=pool.filter(p=>!S.used[p.t]);if(!fresh.length){pool.forEach(p=>delete S.used[p.t]);fresh=pool}
  const p=fresh[Math.floor(Math.random()*fresh.length)];S.used[p.t]=1;return p.t}
 
@@ -266,13 +332,16 @@ function land(p){const c=S.cells[S.pos[p]];
  if(c.type==="swap"){return show({tag:"🔄 换位",col:"#f9c74f",text:"和对方交换位置！交换前先来一个拥抱。",btns:[["交换",()=>{S.pos.reverse();drawBoard();upd();close();next()}]]})}
  taskCard(p,c.lv)}
 
-function taskCard(p,lv){const text=pick(lv);const m=text.match(/(\d+)\s*(秒|分钟)/);
+function domOf(p){if(S.role==="0")return 0;if(S.role==="1")return 1;if(S.role==="rand")return Math.random()<.5?0:1;return p}
+function fill(text,p){const d=domOf(p);return {text:text.replace(/\{主\}/g,S.names[d]).replace(/\{从\}/g,S.names[1-d]),d}}
+function taskCard(p,lv){let text=pick(lv),who=`${S.names[p]} 执行 · 对象是 ${S.names[1-p]}`;
+ if(lv===5||/\{主\}|\{从\}/.test(text)){const f=fill(text,p);text=f.text;who=`👑 主：${S.names[f.d]} · 🔗 从：${S.names[1-f.d]}`}const m=text.match(/(\d+)\s*(秒|分钟)/);
  const secs=m?(+m[1])*(m[2]==="分钟"?60:1):0;
  const btns=[];
  if(secs)btns.push(["⏱ 计时",()=>timer(secs)]);
  btns.push(["✅ 完成",()=>{close();next()}]);
  btns.push(["🙅 跳过",()=>skip(p)]);
- show({tag:LVNAME[lv],col:LVCOL[lv],who:`${S.names[p]} 执行 · 对象是 ${S.names[1-p]}`,text,btns})}
+ show({tag:LVNAME[lv],col:LVCOL[lv],who,text,btns,lights:lv===5})}
 
 function skip(p){close();
  if(S.skip==="back"){step(p,Math.max(0,S.pos[p]-3),()=>{next()})}
@@ -287,18 +356,44 @@ function next(){S.turn=1-S.turn;S.busy=false;document.getElementById("rollBtn").
 
 function win(p){const prize=PRIZE[Math.floor(Math.random()*PRIZE.length)];
  show({tag:"🏆 终点大奖",col:"var(--l2)",who:`${S.names[p]} 赢了！`,text:`${prize}<br><span class="small">输家 ${esc(S.names[1-p])} 愿赌服输 😏</span>`,
-  btns:[["再来一局",()=>location.reload()],["继续抽卡",()=>{close();S.busy=false}]]})}
+  btns:[["再来一局",()=>location.reload()],["继续抽卡",()=>{close();S.busy=false}]].concat(S.heat===5?[["🤍 照顾环节",aftercare]]:[])})}
+function aftercare(){clearInterval(tm);const list=CARE.map(c=>"· "+c).join("<br>");
+ show({tag:"🤍 事后照顾",col:"#4ade80",who:"游戏暂停 · 现在只有温柔",text:`<div style="text-align:left;font-size:15px">${list}</div>`,
+  btns:[["好了，继续玩",()=>{close();if(S.busy&&S.turn!=null)next()}],["今天到这",()=>location.reload()]]})}
+function showSafety(){show({tag:"📖 安全须知",col:"#facc15",text:`<div style="text-align:left;font-size:14px;line-height:1.8">
+1. 开始前先聊清楚：哪些可以，哪些绝对不行。只勾选两个人都同意的项目。<br>
+2. 红灯 = 立刻停，不问原因，不生气。黄灯 = 慢一点、轻一点。<br>
+3. <b>绝对不碰脖子</b>：不掐、不勒，不玩任何限制呼吸的动作。<br>
+4. 拍打只打屁股和大腿后侧，避开腰、后背、脊椎、关节和脸。<br>
+5. 绑的松紧要能塞进两根手指；手脚发麻、发凉、变色就马上解开。旁边放一把剪刀。<br>
+6. 被绑或者被蒙眼的人，绝对不能留下一个人。<br>
+7. 蜡烛只用情趣专用低温蜡，普通蜡烛会烫伤。<br>
+8. 喝多了不玩：喝醉了判断力会下降，也说不清楚感受。<br>
+9. 结束后一定要有照顾环节，被调教的一方情绪可能会掉下来。</div>`,btns:[["我们都读完了",close]]})}
 
 function randomOne(){if(S.busy)return;S.busy=true;const lv=1+Math.floor(Math.random()*S.heat);
- const text=pick(lv);show({tag:LVNAME[lv]+" · 随机",col:LVCOL[lv],who:`${S.names[S.turn]} 执行`,text,btns:[["完成",()=>{close();S.busy=false}]]})}
+ let text=pick(lv),who=`${S.names[S.turn]} 执行`;
+ if(lv===5||/\{主\}|\{从\}/.test(text)){const f=fill(text,S.turn);text=f.text;who=`👑 主：${S.names[f.d]} · 🔗 从：${S.names[1-f.d]}`}
+ show({tag:LVNAME[lv]+" · 随机",col:LVCOL[lv],who,text,btns:[["完成",()=>{close();S.busy=false}]],lights:lv===5})}
 
 function show(o){document.getElementById("mtag").textContent=o.tag;document.getElementById("mtag").style.background=o.col;
  document.getElementById("mwho").textContent=o.who||"";document.getElementById("mtask").innerHTML=o.text.includes("<")?o.text:esc(o.text);
  document.getElementById("mtimer").style.display="none";clearInterval(tm);
  const b=document.getElementById("mbtns");b.innerHTML="";
  o.btns.forEach(([t,f],i)=>{const x=document.createElement("button");x.textContent=t;if(i&&o.btns.length>2&&t.includes("跳过"))x.className="ghost";x.onclick=f;b.appendChild(x)});
- document.getElementById("msafe").textContent=S.safe?`安全词「${S.safe}」：说出即作废，不受罚`:"";
+ const old=document.getElementById("mlight");if(old)old.remove();
+ if(o.lights){const l=document.createElement("div");l.className="light";l.id="mlight";
+  l.innerHTML='<button style="background:#16a34a">🟢 绿灯</button><button style="background:#ca8a04">🟡 黄灯</button><button style="background:#dc2626">🔴 红灯</button>';
+  const bs=l.querySelectorAll("button");
+  bs[0].onclick=()=>toast("🟢 收到，可以继续/更重一点");
+  bs[1].onclick=()=>toast("🟡 放慢、放轻，先确认一下 TA 的感受");
+  bs[2].onclick=aftercare;
+  b.after(l)}
+ document.getElementById("msafe").textContent=S.safe?`安全词「${S.safe}」：说出即作废，不受罚`+(o.lights?" · 红灯同样有效":""):"";
  document.getElementById("modal").classList.add("on")}
+function toast(m){const t=document.createElement("div");t.textContent=m;
+ t.style.cssText="position:fixed;left:50%;bottom:40px;transform:translateX(-50%);background:#000e;color:#fff;padding:10px 16px;border-radius:99px;z-index:99;font-size:14px";
+ document.body.appendChild(t);setTimeout(()=>t.remove(),1800)}
 function close(){clearInterval(tm);document.getElementById("modal").classList.remove("on")}
 </script>
 </body>
