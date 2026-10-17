@@ -220,7 +220,7 @@ class Monitor(threading.Thread):
     """
 
     def __init__(self, parts, location, store_filter, interval, emit,
-                 repeat_minutes=5, client=None, outage_minutes=3):
+                 repeat_minutes=5, client=None):
         super().__init__(daemon=True)
         self.parts = parts
         self.location = location
@@ -236,9 +236,6 @@ class Monitor(threading.Thread):
         self.errors = 0
         self.rounds = 0
         self.cur_interval = self.interval   # 自动降速后的实际间隔
-        self.outage_seconds = max(1, outage_minutes) * 60
-        self.fail_since = None              # 连续失败开始时间
-        self.outage_notified = False
         self.last_error = None
         self.invalid_warned = set()
 
@@ -255,17 +252,10 @@ class Monitor(threading.Thread):
             self.stop_event.wait(self.after_round(ok))
         self.emit("log", "监控已停止")
 
-    def after_round(self, ok, now=None):
-        """根据本轮结果调整间隔、发出中断/恢复通知，返回下次检查前要等待的秒数。"""
-        now = time.time() if now is None else now
+    def after_round(self, ok):
+        """根据本轮结果调整间隔，返回下次检查前要等待的秒数。"""
         if ok:
-            if self.outage_notified:
-                lasted = int((now - self.fail_since) / 60)
-                self.emit("recovered", {"minutes": lasted})
-                self.emit("log", f"监控已恢复（中断约 {lasted} 分钟）")
             self.errors = 0
-            self.fail_since = None
-            self.outage_notified = False
             if self.cur_interval > self.interval:
                 # 恢复后慢慢调回设定的间隔，避免马上又被限制
                 self.cur_interval = max(self.interval, self.cur_interval * 0.8)
@@ -273,8 +263,6 @@ class Monitor(threading.Thread):
             return self.cur_interval * random.uniform(0.85, 1.15)
 
         self.errors += 1
-        if self.fail_since is None:
-            self.fail_since = now
         kind = getattr(self.last_error, "kind", "other")
         if kind == "limited":
             # 被限制：间隔翻倍，最长 5 分钟
@@ -284,9 +272,6 @@ class Monitor(threading.Thread):
             # 断网/其他错误：不必降速，按设定间隔（最长 1 分钟）重试，网络一恢复马上能查
             wait = min(self.interval, 60)
         self.emit("log", f"连续失败 {self.errors} 次，{int(wait)} 秒后重试")
-        if not self.outage_notified and now - self.fail_since >= self.outage_seconds:
-            self.outage_notified = True
-            self.emit("outage", {"minutes": int((now - self.fail_since) / 60), "reason": str(self.last_error or "未知错误")})
         return wait
 
     def check_round(self):

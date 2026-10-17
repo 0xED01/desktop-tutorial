@@ -362,10 +362,6 @@ class App:
                         text=f"监控中…… 已检查 {payload['count']} 轮，最近 {payload['time']}"
                              + (f"（被限制，已自动降速到 {payload['interval']} 秒）" if slow else ""),
                         foreground="#b36b00" if slow else "#0a7d00")
-                elif event == "outage":
-                    self.notify_outage(payload)
-                elif event == "recovered":
-                    self.notify_recovered(payload)
                 elif event == "alert":
                     self.fire_alert(payload)
 
@@ -407,25 +403,6 @@ class App:
             webbrowser.open(info["url"])
         if cfg["popup"]:
             self.show_popup(title, body, info["url"])
-
-    def notify_outage(self, info):
-        """连续查询失败：推送到手机（不用最高级别铃声，免得半夜被误吵醒）。"""
-        title = "监控中断：查询一直失败"
-        body = f"已连续失败约 {info['minutes']} 分钟，原因：{info['reason']}\n程序会自动重试，恢复后会再通知你。"
-        self.log("⚠ " + title + "，" + body.replace("\n", " "))
-        self.status.config(text="⚠ 查询一直失败，自动重试中……", foreground="#c00000")
-        threading.Thread(target=mc.send_push, args=(self.cfg, title, body, mc.BASE_URL),
-                         kwargs={"log": lambda s: self.events.put(("log", s)), "urgent": False},
-                         daemon=True).start()
-        if self.cfg["toast"]:
-            threading.Thread(target=show_toast, args=(title, body, mc.BASE_URL), daemon=True).start()
-
-    def notify_recovered(self, info):
-        title = "监控已恢复"
-        body = f"查询恢复正常（中断约 {info['minutes']} 分钟），继续监控中。"
-        threading.Thread(target=mc.send_push, args=(self.cfg, title, body, mc.BASE_URL),
-                         kwargs={"log": lambda s: self.events.put(("log", s)), "urgent": False},
-                         daemon=True).start()
 
     def show_popup(self, title, body, url):
         w = tk.Toplevel(self.root)
