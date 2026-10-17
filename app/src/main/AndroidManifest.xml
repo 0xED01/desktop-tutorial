@@ -2,32 +2,27 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
-        This prank app uses NO special permissions.
-        It does not draw over other apps and does not run in the background:
-        the effect lives in a normal Activity, so leaving the app (Home / Recents)
-        ends the prank. This is intentional - the gag is a joke, not a device lock.
+        NO permissions required. No overlay over other apps, no background
+        service: the effect lives in one normal Activity, so leaving the app
+        (Home / Recents) ends the prank. Intentional - a joke, not a lock.
     -->
 
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:theme="@style/Theme.LiquidPrank">
+        android:theme="@style/Theme.LiquidPrank.Fullscreen">
 
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@style/Theme.LiquidPrank.Fullscreen">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <activity
-            android:name=".PrankActivity"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@style/Theme.LiquidPrank.Fullscreen" />
 
     </application>
 

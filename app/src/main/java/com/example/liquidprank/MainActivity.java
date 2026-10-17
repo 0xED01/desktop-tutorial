@@ -1,53 +1,119 @@
 package com.example.liquidprank;
 
 import android.app.Activity;
-import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
-import android.os.CountDownTimer;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Button;
-import android.widget.TextView;
+import android.view.WindowManager;
+import android.widget.Toast;
 
 /**
- * Launcher screen. Explains the gag and the exit gestures, then starts the
- * effect after a short countdown so you have time to hand the phone over.
+ * Opening the app immediately shows the full-screen "broken LCD" effect.
+ *
+ * Deliberately a single normal Activity with NO special permissions and no
+ * background service / overlay: Home, Recents-swipe, triple-Back or a ~3s
+ * long-press all exit at once. A joke you can always escape, never a lock.
  */
 public class MainActivity extends Activity {
 
-    private CountDownTimer timer;
+    private static final int BACK_PRESSES_TO_EXIT = 3;
+    private static final long LONG_PRESS_MS = 3000;
+    private static final long BACK_WINDOW_MS = 2000;
+
+    private int backCount = 0;
+    private long lastBackTime = 0;
+
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable longPressExit = this::finishPrank;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
 
-        final Button startButton = findViewById(R.id.startButton);
-        final TextView status = findViewById(R.id.status);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        startButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startButton.setEnabled(false);
-                timer = new CountDownTimer(3000, 1000) {
-                    @Override
-                    public void onTick(long msLeft) {
-                        status.setText(getString(R.string.countdown, (msLeft / 1000) + 1));
-                    }
+        setContentView(new LiquidLeakView(this));
+        enterImmersive();
+        buzz(120);
 
-                    @Override
-                    public void onFinish() {
-                        startActivity(new Intent(MainActivity.this, PrankActivity.class));
-                        status.setText("");
-                        startButton.setEnabled(true);
-                    }
-                }.start();
+        Toast.makeText(this, getString(R.string.exit_hint), Toast.LENGTH_LONG).show();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) enterImmersive();
+    }
+
+    @SuppressWarnings("deprecation")
+    private void enterImmersive() {
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                handler.postDelayed(longPressExit, LONG_PRESS_MS);
+                return true;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                handler.removeCallbacks(longPressExit);
+                return true;
+            default:
+                return super.onTouchEvent(event);
+        }
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            long now = System.currentTimeMillis();
+            if (now - lastBackTime > BACK_WINDOW_MS) backCount = 0;
+            lastBackTime = now;
+            backCount++;
+            if (backCount >= BACK_PRESSES_TO_EXIT) finishPrank();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    private void finishPrank() {
+        handler.removeCallbacksAndMessages(null);
+        buzz(40);
+        finish();
+    }
+
+    @SuppressWarnings("deprecation")
+    private void buzz(long ms) {
+        try {
+            Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+            if (v == null || !v.hasVibrator()) return;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                v.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE));
+            } else {
+                v.vibrate(ms);
             }
-        });
+        } catch (Exception ignored) {
+            // Vibration is optional; never let it crash the app.
+        }
     }
 
     @Override
     protected void onDestroy() {
-        if (timer != null) timer.cancel();
+        handler.removeCallbacksAndMessages(null);
         super.onDestroy();
     }
 }

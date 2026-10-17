@@ -190,6 +190,11 @@ public class LiquidLeakView extends View {
         int h = getHeight();
         if (w == 0 || h == 0) return;
 
+        if (blooms.isEmpty() && stripes.isEmpty()) {
+            // Scene not built yet (e.g. onSizeChanged not delivered): build now.
+            buildScene(w, h);
+        }
+
         long elapsed = System.currentTimeMillis() - startTime;
         float secs = elapsed / 1000f;
 
