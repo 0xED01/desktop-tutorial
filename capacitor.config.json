@@ -1,0 +1,6 @@
+{
+  "appId": "com.pindou.pattern",
+  "appName": "拼豆图纸",
+  "webDir": "www",
+  "android": { "allowMixedContent": false }
+}

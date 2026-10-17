@@ -1,0 +1,3 @@
+{ "name": "拼豆图纸", "short_name": "拼豆图纸", "start_url": ".", "display": "standalone",
+  "background_color": "#f6f3ef", "theme_color": "#ff7a59",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }] }

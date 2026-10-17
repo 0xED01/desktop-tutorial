@@ -1,0 +1,20 @@
+{
+  "name": "pindou-pattern",
+  "version": "1.0.0",
+  "private": true,
+  "description": "拼豆图纸：把图片转换成拼豆图纸的安卓应用",
+  "scripts": {
+    "sync": "cap sync android",
+    "apk": "cap sync android && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.2",
+    "@capacitor/core": "^6.2.2",
+    "@capacitor/filesystem": "^6.0.4",
+    "@capacitor/share": "^6.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^6.2.2"
+  }
+}

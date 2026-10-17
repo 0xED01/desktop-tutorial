@@ -1,5 +1,35 @@
-# Welcome to GitHub Desktop!
+# 拼豆图纸
 
-This is your README. READMEs are where you can communicate what your project is and how to use it.
+把任意图片一键转换成拼豆（拼拼豆 / Perler / Hama）图纸的安卓应用。图片只在手机本地处理，不需要联网。
 
-Write your name on line 6, save it, and then head back to GitHub Desktop.
+## 安装到安卓手机
+
+1. 在手机上打开本仓库的 [`release/pindou.apk`](release/pindou.apk)，点 **Download / 下载**。
+2. 打开下载好的 `pindou.apk`，如果提示“禁止安装未知来源应用”，按提示允许浏览器（或文件管理器）安装即可。
+3. 桌面上会出现 **拼豆图纸** 图标。
+
+> 也可以在电脑上下载 APK，再用数据线 / 微信 / QQ 传到手机上安装。
+
+## 功能
+
+- **选图即转换**：选一张相册图片，自动生成带色号的图纸。
+- **自定义尺寸**：宽、高以“颗”为单位（最大 200×200），可锁定比例；预设 29×29 小板、52×52 大板及 2×2 拼板。
+- **板子分隔线**：每 N 颗画一条红色粗线，并计算需要几块板。
+- **色卡**：自动提取颜色 / Hama 近似色 / Perler 近似色 / 黑白灰；可限制颜色数量。
+- **图像调整**：饱和度、对比度、去背景（从边缘去除相近颜色）、去杂点。
+- **摆豆助手**：点格子或颜色高亮同色豆子；画笔 / 橡皮手动修改；镜像模式（反面熨烫用）。
+- **用豆清单**：每种颜色需要多少颗。
+- **保存图纸**：导出带坐标、色号和用豆清单的高清 PNG，可保存或分享到微信等。
+
+> 内置 Hama / Perler 色卡的颜色值是近似值，实物颜色以豆子为准。
+
+## 开发
+
+网页代码在 `www/`，用 [Capacitor](https://capacitorjs.com/) 打包成安卓应用。
+
+```bash
+npm install
+npm run apk          # 需要 Android SDK，产物在 android/app/build/outputs/apk/debug/
+```
+
+直接用浏览器打开 `www/index.html` 也能使用。

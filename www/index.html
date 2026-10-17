@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#ff7a59">
+<title>拼豆图纸</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #f6f3ef; --card: #ffffff; --text: #2b2724; --muted: #8a8079;
+    --line: #e6dfd8; --accent: #ff7a59; --accent-2: #ffe4da; --danger: #d64545;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1b1917; --card: #272421; --text: #f1ece7; --muted: #a79d95;
+            --line: #3a3531; --accent: #ff8a6b; --accent-2: #4a2c22; }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 -apple-system, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif; }
+  body { padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+  header { display: flex; align-items: center; gap: 10px; padding: 14px 16px 6px; }
+  header h1 { font-size: 20px; margin: 0; }
+  header .logo { width: 30px; height: 30px; }
+  main { max-width: 900px; margin: 0 auto; padding: 0 16px 40px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin: 12px 0; }
+  .card h2 { font-size: 15px; margin: 0 0 10px; color: var(--muted); font-weight: 600; }
+  .drop { border: 2px dashed var(--line); border-radius: 12px; padding: 22px 12px; text-align: center; cursor: pointer; }
+  .drop.has { padding: 10px; display: flex; gap: 12px; align-items: center; text-align: left; }
+  .drop img { max-width: 84px; max-height: 84px; border-radius: 8px; background: repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 0 0/12px 12px; }
+  .drop .big { font-size: 34px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+  .row label { color: var(--muted); font-size: 14px; }
+  .field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 90px; }
+  input[type=number], select { width: 100%; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); font-size: 16px; }
+  input[type=range] { flex: 1; accent-color: var(--accent); }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--bg); color: var(--text);
+    padding: 8px 12px; border-radius: 999px; cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+  button.on { background: var(--accent-2); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .45; }
+  .lock { min-width: 44px; align-self: flex-end; padding: 8px; font-size: 18px; }
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+  .hint { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+  .stage-wrap { overflow: auto; max-height: 70vh; border-radius: 10px; border: 1px solid var(--line);
+    background: repeating-conic-gradient(#0000000a 0 25%, #0000 0 50%) 0 0/16px 16px; touch-action: pan-x pan-y; }
+  #stage { display: block; image-rendering: pixelated; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+  .toolbar .sp { flex: 1; }
+  .toolbar button { padding: 7px 11px; }
+  .legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+  .sw { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line);
+    border-radius: 10px; cursor: pointer; background: var(--bg); }
+  .sw.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-2); }
+  .sw i { width: 26px; height: 26px; border-radius: 50%; flex: none; border: 1px solid #0002;
+    display: grid; place-items: center; font-style: normal; font-size: 10px; font-weight: 700; }
+  .sw b { font-size: 13px; display: block; }
+  .sw small { color: var(--muted); font-size: 12px; }
+  .stats { font-size: 14px; color: var(--muted); margin-bottom: 10px; }
+  .stats strong { color: var(--text); }
+  .empty { text-align: center; color: var(--muted); padding: 30px 0; }
+  .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    background: #000c; color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 14px; opacity: 0;
+    transition: opacity .2s; pointer-events: none; z-index: 10; max-width: 90vw; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <svg class="logo" viewBox="0 0 64 64"><g fill="none" stroke-width="7">
+    <circle cx="18" cy="18" r="9" stroke="#ff7a59"/><circle cx="46" cy="18" r="9" stroke="#ffc145"/>
+    <circle cx="18" cy="46" r="9" stroke="#4bb3fd"/><circle cx="46" cy="46" r="9" stroke="#5fd068"/></g></svg>
+  <h1>拼豆图纸</h1>
+</header>
+<main>
+  <section class="card">
+    <div id="drop" class="drop">
+      <div class="big">🖼️</div>
+      <div><strong>点这里选择图片</strong></div>
+      <div class="hint">支持相册照片、截图、卡通头像等，图片只在手机本地处理</div>
+    </div>
+    <input id="file" type="file" accept="image/*" hidden>
+  </section>
+
+  <section class="card">
+    <h2>尺寸（单位：颗）</h2>
+    <div class="row">
+      <div class="field"><label for="w">宽</label><input id="w" type="number" min="1" max="200" value="29" inputmode="numeric"></div>
+      <button id="lock" class="lock on" title="锁定比例">🔗</button>
+      <div class="field"><label for="h">高</label><input id="h" type="number" min="1" max="200" value="29" inputmode="numeric"></div>
+    </div>
+    <div class="chips" id="presets">
+      <button data-w="29" data-h="29">29×29 小方板</button>
+      <button data-w="52" data-h="52">52×52 大方板</button>
+      <button data-w="58" data-h="58">2×2 小板</button>
+      <button data-w="104" data-h="104">2×2 大板</button>
+    </div>
+    <p class="hint">锁定比例时，点预设会按图片比例缩放到板子范围内。</p>
+    <div class="row">
+      <div class="field"><label for="board">板子分隔线（每 N 颗画粗线，0 = 不画）</label>
+        <input id="board" type="number" min="0" max="200" value="29" inputmode="numeric"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>颜色</h2>
+    <div class="row">
+      <div class="field"><label for="pal">色卡</label>
+        <select id="pal">
+          <option value="auto">自动提取（按图片取色）</option>
+          <option value="hama">Hama 色卡（近似色）</option>
+          <option value="perler">Perler 色卡（近似色）</option>
+          <option value="gray">黑白灰</option>
+        </select></div>
+    </div>
+    <div class="row"><label>颜色数量上限</label><input id="maxc" type="range" min="2" max="40" value="16"><strong id="maxcv">16</strong></div>
+    <div class="row"><label>饱和度</label><input id="sat" type="range" min="0" max="200" value="100"><strong id="satv">100%</strong></div>
+    <div class="row"><label>对比度</label><input id="con" type="range" min="50" max="150" value="100"><strong id="conv">100%</strong></div>
+    <div class="row">
+      <label class="toggle"><input id="bg" type="checkbox"> 去掉背景（从边缘去除相近颜色）</label>
+    </div>
+    <div class="row">
+      <label class="toggle"><input id="clean" type="checkbox"> 去杂点（把孤立的单颗杂色换成周围的颜色）</label>
+    </div>
+    <div class="row"><label>背景容差</label><input id="bgtol" type="range" min="2" max="40" value="12"><strong id="bgtolv">12</strong></div>
+  </section>
+
+  <section class="card">
+    <h2>图纸</h2>
+    <div id="result" hidden>
+      <div class="stats" id="stats"></div>
+      <div class="toolbar">
+        <button id="tView" class="on">👆 查看</button>
+        <button id="tPaint">🖌️ 画笔</button>
+        <button id="tErase">🧽 橡皮</button>
+        <span class="sp"></span>
+        <button id="zOut">－</button><button id="zIn">＋</button>
+      </div>
+      <div class="toolbar">
+        <label class="toggle"><input id="codes" type="checkbox" checked> 显示色号</label>
+        <label class="toggle"><input id="round" type="checkbox"> 圆豆样式</label>
+        <label class="toggle"><input id="mirror" type="checkbox"> 镜像（反面熨烫）</label>
+      </div>
+      <div class="stage-wrap" id="wrap"><canvas id="stage"></canvas></div>
+      <p class="hint" id="toolHint">点格子：高亮同色豆子，方便一种颜色一种颜色地摆。再点一次取消。</p>
+      <div class="toolbar" style="margin-top:12px">
+        <button class="primary" id="save">💾 保存图纸图片</button>
+        <button id="reset">↺ 撤销所有手动修改</button>
+      </div>
+      <h2 style="margin-top:14px">用豆清单（点颜色可高亮 / 选作画笔色）</h2>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="empty" id="empty">先选一张图片吧</div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script src="palettes.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
