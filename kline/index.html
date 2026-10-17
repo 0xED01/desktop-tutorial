@@ -16,7 +16,7 @@
   main { display: grid; grid-template-columns: 340px 1fr; height: calc(100vh - 53px); }
   aside { border-right: 1px solid var(--line); padding: 12px; overflow: auto; background: var(--panel); }
   section.chart { position: relative; min-height: 300px; }
-  canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+  canvas { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
   h2 { font-size: 13px; color: var(--muted); margin: 14px 0 6px; font-weight: 600; }
   label { font-size: 12px; color: var(--muted); display: block; }
   input, select, textarea, button { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
@@ -43,9 +43,15 @@
   .show-ohlc .ohlc { display: block; }
   .show-ohlc .single { display: none; }
   @media (max-width: 800px) {
+    header { padding: 8px 10px; gap: 8px; }
+    header h1 { display: none; }
+    #periods { display: flex; overflow-x: auto; max-width: 100%; }
+    #periods button { padding: 6px 10px; white-space: nowrap; }
     main { grid-template-columns: 1fr; height: auto; }
-    section.chart { height: 60vh; }
-    aside { border-right: 0; border-bottom: 1px solid var(--line); }
+    section.chart { height: 55vh; order: -1; border-bottom: 1px solid var(--line); }
+    aside { border-right: 0; }
+    input, select, button { padding: 8px 10px; font-size: 16px; }
+    #tip { font-size: 11px; left: 8px; right: 76px; }
   }
 </style>
 </head>
@@ -70,14 +76,14 @@
     <label style="display:flex;align-items:center;gap:4px;margin-top:6px"><input type="checkbox" id="ohlcMode"> 按开/高/低/收录入（否则每分钟填一个价格）</label>
     <div id="priceBox">
       <div class="row single" style="margin-top:6px">
-        <div><label>价格</label><input type="number" step="any" id="price" placeholder="例如 100.25"></div>
+        <div><label>价格</label><input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" id="price" placeholder="例如 100.25"></div>
         <button class="primary" id="add1">添加 ↵</button>
       </div>
       <div class="row ohlc" style="margin-top:6px">
-        <div><label>开</label><input type="number" step="any" id="o"></div>
-        <div><label>高</label><input type="number" step="any" id="h"></div>
-        <div><label>低</label><input type="number" step="any" id="l"></div>
-        <div><label>收</label><input type="number" step="any" id="c"></div>
+        <div><label>开</label><input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" id="o"></div>
+        <div><label>高</label><input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" id="h"></div>
+        <div><label>低</label><input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" id="l"></div>
+        <div><label>收</label><input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" id="c"></div>
       </div>
       <div class="row ohlc" style="margin-top:6px"><button class="primary" id="add4" style="width:100%">添加 ↵</button></div>
     </div>
@@ -209,9 +215,15 @@
   $('file').onchange = async e => { const f = e.target.files[0]; if (f) importText(await f.text()); e.target.value = ''; };
   $('csvOut').onclick = () => {
     const csv = 'date,time,open,high,low,close\n' + recs.map(r => `${r.t.replace(' ', ',')},${r.o},${r.h},${r.l},${r.c}`).join('\n');
-    download(new Blob([csv], { type: 'text/csv' }), 'kline.csv');
+    download(new Blob(['\ufeff' + csv], { type: 'text/csv' }), `kline-${stamp()}.csv`);
   };
-  function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+  function download(blob, name) {
+    if (window.Android && Android.saveFile) {
+      const fr = new FileReader();
+      fr.onload = () => { const [head, b64] = fr.result.split(','); Android.saveFile(name, head.slice(5).split(';')[0], b64); };
+      fr.readAsDataURL(blob); return;
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
 
   $('clearDay').onclick = () => {
     const d = $('date').value;
@@ -232,6 +244,7 @@
     changed(); fitView(); msg('已生成当天 9:30–15:00 示例数据');
   };
 
+  const stamp = () => { const d = new Date(); return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`; };
   const fmt = v => { const a = Math.abs(v); return v.toFixed(a >= 1000 ? 1 : a >= 1 ? 2 : 4); };
 
   function renderList() {
@@ -423,9 +436,41 @@
     view.end = anchor + (1 - frac) * nc; view.count = nc; draw();
   }, { passive: false });
   // 触摸拖动
-  let touch = null;
-  cv.addEventListener('touchstart', e => { touch = { x: e.touches[0].clientX, end: view.end }; }, { passive: true });
-  cv.addEventListener('touchmove', e => { if (!touch) return; e.preventDefault(); view.end = touch.end - (e.touches[0].clientX - touch.x) / geom().bw; draw(); }, { passive: false });
+  // 触摸：单指拖动平移、轻点显示十字光标、双指缩放
+  let touch = null, pinch = null;
+  const tx = t => t.clientX - cv.getBoundingClientRect().left;
+  const ty = t => t.clientY - cv.getBoundingClientRect().top;
+  cv.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) {
+      const [a, b] = e.touches, g = geom();
+      const frac = Math.min(1, ((tx(a) + tx(b)) / 2) / g.pw);
+      pinch = { d: Math.abs(tx(a) - tx(b)) || 1, count: view.count, frac, anchor: g.start + frac * view.count };
+      touch = null;
+    } else if (e.touches.length === 1 && !pinch) {
+      touch = { x: tx(e.touches[0]), y: ty(e.touches[0]), end: view.end, moved: false };
+    }
+  }, { passive: true });
+  cv.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (pinch && e.touches.length === 2) {
+      const [a, b] = e.touches;
+      const nc = Math.max(10, Math.min(1000, pinch.count * pinch.d / (Math.abs(tx(a) - tx(b)) || 1)));
+      view.count = nc; view.end = pinch.anchor + (1 - pinch.frac) * nc; draw();
+    } else if (touch && e.touches.length === 1) {
+      const dx = tx(e.touches[0]) - touch.x;
+      if (Math.abs(dx) > 6) touch.moved = true;
+      if (touch.moved) { hover = -1; crossY = null; view.end = touch.end - dx / geom().bw; draw(); }
+    }
+  }, { passive: false });
+  cv.addEventListener('touchend', e => {
+    if (touch && !touch.moved) {
+      const g = geom();
+      if (touch.x <= g.pw && touch.y >= TOP && touch.y <= TOP + g.ph) { hover = Math.floor(touch.x / g.bw) + g.start; crossY = touch.y; }
+      else { hover = -1; crossY = null; }
+      draw();
+    }
+    if (e.touches.length === 0) { touch = null; pinch = null; }
+  });
 
   // 周期按钮
   PERIODS.forEach(([name, v]) => {
@@ -436,7 +481,7 @@
   function markPeriod() { [...$('periods').children].forEach(b => b.classList.toggle('on', String(period) === b.dataset.v)); }
   $('showMA').onchange = $('redUp').onchange = draw;
   $('fit').onclick = fitView;
-  $('png').onclick = () => cv.toBlob(b => download(b, 'kline.png'));
+  $('png').onclick = () => cv.toBlob(b => download(b, `kline-${stamp()}.png`));
   new ResizeObserver(resize).observe(cv.parentElement);
 
   markPeriod(); renderList(); build(); fitView();

@@ -1,0 +1,44 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.klinemaker.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.klinemaker.app'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    // 直接打包仓库里的网页版，网页和 App 共用一份代码
+    sourceSets {
+        main.assets.srcDirs += '../../kline'
+    }
+
+    // 固定签名：以后重新打包也能覆盖安装，不会丢失已录入的数据
+    signingConfigs {
+        fixed {
+            storeFile file('kline.keystore')
+            storePassword 'klinemaker'
+            keyAlias 'kline'
+            keyPassword 'klinemaker'
+        }
+    }
+
+    buildTypes {
+        debug { signingConfig signingConfigs.fixed }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.fixed
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
