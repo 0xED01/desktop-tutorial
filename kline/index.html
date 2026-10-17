@@ -2,351 +2,690 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>K线制作器</title>
 <style>
   :root {
-    --bg: #0f1419; --panel: #161c23; --line: #26303b; --text: #d6dde5; --muted: #8a96a3;
-    --up: #ef5350; --down: #26a69a; --accent: #4c8dff;
+    --bg: #0f1419; --panel: #161c23; --line: #26303b; --grid: #1e262f; --text: #d6dde5; --muted: #8a96a3;
+    --up: #ef5350; --down: #26a69a; --accent: #4c8dff; --hl: #ff9f43; --cross: #5b6875; --crossbg: #2b3642; --btn: #1f2731;
   }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
-  header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-  header h1 { font-size: 16px; margin: 0 12px 0 0; }
-  main { display: grid; grid-template-columns: 340px 1fr; height: calc(100vh - 53px); }
-  aside { border-right: 1px solid var(--line); padding: 12px; overflow: auto; background: var(--panel); }
-  section.chart { position: relative; min-height: 300px; }
+  :root[data-theme="light"] {
+    --bg: #ffffff; --panel: #f5f7fa; --line: #dde3ea; --grid: #eef1f5; --text: #1f2933; --muted: #6b7785;
+    --cross: #9aa5b1; --crossbg: #3d4752; --btn: #ffffff;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; white-space: nowrap; }
+  main { display: grid; grid-template-columns: 1fr 370px; height: calc(100vh - 51px); }
+  aside { border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+  section.chart { position: relative; min-height: 260px; }
   canvas { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+  .panel { padding: 12px; overflow: auto; flex: 1; display: none; }
+  .panel.on { display: block; }
+  nav.tabs { display: flex; border-bottom: 1px solid var(--line); }
+  nav.tabs button { flex: 1; border: 0; border-radius: 0; background: none; padding: 10px 0; color: var(--muted); border-bottom: 2px solid transparent; }
+  nav.tabs button.on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
   h2 { font-size: 13px; color: var(--muted); margin: 14px 0 6px; font-weight: 600; }
-  label { font-size: 12px; color: var(--muted); display: block; }
+  h2:first-child { margin-top: 0; }
+  label { font-size: 12px; color: var(--muted); }
+  label.chk { flex: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; color: var(--text); font-size: 13px; }
   input, select, textarea, button { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+  input[type=checkbox] { padding: 0; }
   input:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); }
-  button { cursor: pointer; background: #1f2731; }
+  button { cursor: pointer; background: var(--btn); white-space: nowrap; }
   button:hover { border-color: var(--accent); }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .row { display: flex; gap: 6px; align-items: end; flex-wrap: wrap; }
+  button.danger { color: var(--up); }
+  button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .row { display: flex; gap: 6px; align-items: end; flex-wrap: wrap; margin-bottom: 6px; }
   .row > div { flex: 1; min-width: 0; }
-  .row input { width: 100%; }
+  .row input, .row select { width: 100%; }
+  .grow { flex: 1; min-width: 0; }
+  .seg { display: inline-flex; }
   .seg button { border-radius: 0; margin-left: -1px; }
-  .seg button:first-child { border-radius: 6px 0 0 6px; }
+  .seg button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
   .seg button:last-child { border-radius: 0 6px 6px 0; }
-  .seg button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-  textarea { width: 100%; height: 110px; resize: vertical; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  #periods { overflow-x: auto; scrollbar-width: none; }
+  textarea { width: 100%; height: 100px; resize: vertical; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
-  th, td { padding: 3px 4px; border-bottom: 1px solid var(--line); text-align: right; }
+  th, td { padding: 4px 3px; border-bottom: 1px solid var(--line); text-align: right; }
   th:first-child, td:first-child { text-align: left; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover, tbody tr.sel { background: rgba(76, 141, 255, .12); }
   td button { padding: 0 6px; font-size: 12px; }
   .hint { font-size: 12px; color: var(--muted); margin: 4px 0; }
   .msg { font-size: 12px; min-height: 18px; color: var(--accent); }
-  #tip { position: absolute; top: 8px; left: 12px; font-size: 12px; pointer-events: none; font-variant-numeric: tabular-nums; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .stats div { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+  .stats span { display: block; color: var(--muted); font-size: 11px; }
+  #tip { position: absolute; top: 4px; left: 10px; right: 76px; font-size: 12px; pointer-events: none; font-variant-numeric: tabular-nums; line-height: 1.45; }
+  #tools { position: absolute; right: 78px; bottom: 34px; display: flex; gap: 4px; }
+  #tools button { padding: 3px 8px; font-size: 12px; opacity: .9; }
+  .editing #entryBox { outline: 1px dashed var(--hl); outline-offset: 4px; border-radius: 4px; }
   .ohlc { display: none; }
-  .show-ohlc .ohlc { display: block; }
+  .show-ohlc .ohlc { display: flex; }
   .show-ohlc .single { display: none; }
+  .hide { display: none !important; }
+  #symSel { max-width: 150px; }
   @media (max-width: 800px) {
-    header { padding: 8px 10px; gap: 8px; }
+    header { padding: 6px 8px; gap: 6px; }
     header h1 { display: none; }
-    #periods { display: flex; overflow-x: auto; max-width: 100%; }
-    #periods button { padding: 6px 10px; white-space: nowrap; }
-    main { grid-template-columns: 1fr; height: auto; }
-    section.chart { height: 55vh; order: -1; border-bottom: 1px solid var(--line); }
-    aside { border-right: 0; }
-    input, select, button { padding: 8px 10px; font-size: 16px; }
-    #tip { font-size: 11px; left: 8px; right: 76px; }
+    main { display: flex; flex-direction: column; height: auto; }
+    section.chart { height: 46vh; border-bottom: 1px solid var(--line); }
+    aside { border-left: 0; }
+    nav.tabs { position: sticky; top: 0; z-index: 2; background: var(--panel); }
+    .panel { overflow: visible; padding-bottom: 40px; }
+    input, select, button, textarea { font-size: 16px; }
+    .row button { padding: 7px 10px; }
+    #tip { font-size: 11px; left: 6px; }
+    #periods button { padding: 5px 8px; font-size: 14px; }
+    #symSel { max-width: 110px; font-size: 14px; }
   }
 </style>
 </head>
 <body>
 <header>
   <h1>K线制作器</h1>
-  <span style="color:var(--muted);font-size:12px">周期</span>
+  <select id="symSel" title="切换品种"></select>
   <span class="seg" id="periods"></span>
-  <label style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="showMA" checked> 均线 MA5/10/20</label>
-  <label style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="redUp" checked> 红涨绿跌</label>
-  <span style="flex:1"></span>
-  <button id="fit">全部显示</button>
-  <button id="png">导出图片</button>
 </header>
 <main>
-  <aside>
-    <h2>录入价格</h2>
-    <div class="row">
-      <div><label>日期</label><input type="date" id="date"></div>
-      <div><label>时间（分钟）</label><input type="time" id="time" step="60"></div>
-    </div>
-    <label style="display:flex;align-items:center;gap:4px;margin-top:6px"><input type="checkbox" id="ohlcMode"> 按开/高/低/收录入（否则每分钟填一个价格）</label>
-    <div id="priceBox">
-      <div class="row single" style="margin-top:6px">
-        <div><label>价格</label><input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" id="price" placeholder="例如 100.25"></div>
-        <button class="primary" id="add1">添加 ↵</button>
-      </div>
-      <div class="row ohlc" style="margin-top:6px">
-        <div><label>开</label><input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" id="o"></div>
-        <div><label>高</label><input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" id="h"></div>
-        <div><label>低</label><input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" id="l"></div>
-        <div><label>收</label><input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" id="c"></div>
-      </div>
-      <div class="row ohlc" style="margin-top:6px"><button class="primary" id="add4" style="width:100%">添加 ↵</button></div>
-    </div>
-    <p class="hint">按回车即添加，时间自动 +1 分钟，可连续录入。同一分钟重复填写会合并（高低取极值、收盘取最新）。</p>
-    <div class="msg" id="msg"></div>
-
-    <h2>批量粘贴</h2>
-    <textarea id="bulk" placeholder="每行一条，支持：
-09:30 100.5
-2026-10-17 09:31 100.8
-09:32 100 101 99.5 100.7   (开 高 低 收)
-没写日期的行使用上方日期"></textarea>
-    <div class="row" style="margin-top:6px">
-      <button id="bulkAdd">导入粘贴内容</button>
-      <button id="csvOut">导出 CSV</button>
-      <button id="csvIn">导入 CSV</button>
-      <input type="file" id="file" accept=".csv,.txt" hidden>
-    </div>
-
-    <h2>已录入数据 <span id="count"></span></h2>
-    <div class="row" style="margin-bottom:6px">
-      <button id="demo">生成示例数据</button>
-      <button id="clearDay">清空当天</button>
-      <button id="clearAll">清空全部</button>
-    </div>
-    <table>
-      <thead><tr><th>时间</th><th>开</th><th>高</th><th>低</th><th>收</th><th></th></tr></thead>
-      <tbody id="list"></tbody>
-    </table>
-  </aside>
-  <section class="chart">
+  <section class="chart" id="chartBox">
     <canvas id="cv"></canvas>
     <div id="tip"></div>
+    <div id="tools">
+      <button id="drawBtn" title="点击后在图上点一下，画一条水平线">画线</button>
+      <button id="fit">全部</button>
+      <button id="png">截图</button>
+    </div>
   </section>
+  <aside>
+    <nav class="tabs" id="tabs">
+      <button data-tab="entry">录入</button>
+      <button data-tab="data">数据</button>
+      <button data-tab="ind">指标</button>
+      <button data-tab="set">设置</button>
+    </nav>
+
+    <!-- 录入 -->
+    <div class="panel" id="p-entry">
+      <div id="entryBox">
+        <div class="row">
+          <div><label>日期</label><input type="date" id="date"></div>
+          <div><label>时间（分钟）</label><input type="time" id="time" step="60"></div>
+        </div>
+        <div class="row">
+          <button id="tPrev">◀ 上一分钟</button>
+          <button id="tNext">下一分钟 ▶</button>
+          <button id="tNow">现在</button>
+          <span class="grow"></span>
+          <label class="chk"><input type="checkbox" id="ohlcMode"> 开高低收</label>
+        </div>
+        <div id="priceBox">
+          <div class="row single">
+            <div><label>价格</label>
+              <div style="display:flex;gap:4px">
+                <button id="pMinus">−</button>
+                <input type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" id="price" placeholder="例如 100.25" class="grow">
+                <button id="pPlus">+</button>
+                <button id="pSame" title="填入上一条收盘价">同上</button>
+              </div>
+            </div>
+          </div>
+          <div class="row ohlc">
+            <div><label>开</label><input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" id="o"></div>
+            <div><label>高</label><input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" id="h"></div>
+            <div><label>低</label><input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" id="l"></div>
+            <div><label>收</label><input type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" id="c"></div>
+          </div>
+        </div>
+        <div class="row">
+          <div><label>成交量（可不填）</label><input type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" id="vol"></div>
+          <button class="primary" id="addBtn" style="flex:1">添加 ↵</button>
+          <button id="cancelEdit" class="hide">取消</button>
+        </div>
+      </div>
+      <div class="msg" id="msg"></div>
+      <p class="hint">回车即添加，时间自动 +1 分钟，可连续录入。同一分钟多次填写会合并（高低取极值、收盘取最新、成交量累加）。在“数据”里点任意一行可修改。</p>
+
+      <h2>批量粘贴</h2>
+      <textarea id="bulk" placeholder="每行一条，支持：
+09:30 100.5
+09:31 100.8 1200        (价格 成交量)
+2026-10-17 09:32 100 101 99.5 100.7 3000  (开高低收 量)
+没写日期的行使用上方日期"></textarea>
+      <div class="row" style="margin-top:6px"><button id="bulkAdd">导入粘贴内容</button></div>
+    </div>
+
+    <!-- 数据 -->
+    <div class="panel" id="p-data">
+      <h2>统计 <label class="chk" style="float:right"><input type="checkbox" id="statDay"> 只看所选日期</label></h2>
+      <div class="stats" id="stats"></div>
+
+      <h2>已录入数据 <span id="count"></span></h2>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="listDay" checked> 只看所选日期</label>
+        <span class="grow"></span>
+        <button id="undo">撤销</button>
+      </div>
+      <table>
+        <thead><tr><th>时间</th><th>开</th><th>高</th><th>低</th><th>收</th><th>量</th><th></th></tr></thead>
+        <tbody id="list"></tbody>
+      </table>
+
+      <h2>导入 / 导出</h2>
+      <div class="row">
+        <button id="csvOut">导出 CSV</button>
+        <button id="csvIn">导入 CSV</button>
+        <button id="bakOut">备份全部</button>
+        <button id="bakIn">恢复备份</button>
+      </div>
+      <input type="file" id="file" accept=".csv,.txt,text/*" hidden>
+      <input type="file" id="bakFile" accept=".json,application/json,text/*" hidden>
+      <p class="hint">CSV 只含当前品种；“备份全部”包含所有品种、画线和设置。</p>
+
+      <h2>其他</h2>
+      <div class="row">
+        <button id="demo">生成示例数据</button>
+        <button id="clearDay" class="danger">清空所选日期</button>
+        <button id="clearAll" class="danger">清空当前品种</button>
+      </div>
+    </div>
+
+    <!-- 指标 -->
+    <div class="panel" id="p-ind">
+      <h2>主图</h2>
+      <div class="row">
+        <div><label>图形</label>
+          <select id="chartType">
+            <option value="candle">实心K线</option>
+            <option value="hollow">空心K线（涨空跌实）</option>
+            <option value="ohlc">美国线</option>
+            <option value="line">收盘价折线</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="showMA"> 均线 MA</label>
+        <div><input type="text" id="maList" placeholder="5,10,20,60"></div>
+      </div>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="showBoll"> 布林线 BOLL(20,2)</label>
+      </div>
+
+      <h2>副图</h2>
+      <div class="seg" id="subSeg"></div>
+
+      <h2>水平线</h2>
+      <div class="row">
+        <div><input type="text" inputmode="decimal" id="hlPrice" placeholder="输入价格"></div>
+        <button id="hlAdd">添加</button>
+        <button id="hlPick">在图上点选</button>
+      </div>
+      <table><tbody id="hlList"></tbody></table>
+      <p class="hint">水平线可用来标记支撑位、压力位、成本价等，跟随品种保存。</p>
+    </div>
+
+    <!-- 设置 -->
+    <div class="panel" id="p-set">
+      <h2>品种</h2>
+      <div class="row">
+        <div><label>当前品种名称</label><input type="text" id="symName"></div>
+        <button id="symRename">改名</button>
+      </div>
+      <div class="row">
+        <button id="symNew">新建品种</button>
+        <button id="symDel" class="danger">删除当前品种</button>
+      </div>
+
+      <h2>显示</h2>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="redUp"> 红涨绿跌</label>
+        <label class="chk"><input type="checkbox" id="light"> 浅色主题</label>
+      </div>
+      <div class="row">
+        <div><label>价格小数位</label>
+          <select id="dec"><option value="auto">自动</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option></select>
+        </div>
+        <div><label>“+ / −”按钮步长</label><input type="text" inputmode="decimal" id="step"></div>
+      </div>
+      <p class="hint">所有数据只保存在本机。卸载 App 或清除浏览器数据会丢失，请定期在“数据”里备份。</p>
+    </div>
+  </aside>
 </main>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const KEY = 'kline-maker-v1';
-  const PERIODS = [['1分', 1], ['5分', 5], ['15分', 15], ['30分', 30], ['60分', 60], ['日K', 'D'], ['周K', 'W']];
-
-  // 数据：每分钟一条 { t: 'YYYY-MM-DD HH:MM', o, h, l, c }
-  let recs = [];
-  let period = 1;
-  try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s) { recs = s.recs || []; period = s.period ?? 1; } } catch (e) {}
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ recs, period })); } catch (e) {} };
-
+  const KEY = 'kline-maker-v2';
+  const PERIODS = [['1分', 1], ['3分', 3], ['5分', 5], ['15分', 15], ['30分', 30], ['60分', 60], ['日', 'D'], ['周', 'W'], ['月', 'M']];
+  const SUBS = [['成交量', 'VOL'], ['MACD', 'MACD'], ['KDJ', 'KDJ'], ['RSI', 'RSI'], ['无', 'none']];
   const pad = n => String(n).padStart(2, '0');
-  const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-  $('date').value = today();
-  $('time').value = '09:30';
+  const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const today = () => ymd(new Date());
+  const num = s => { s = String(s ?? '').trim(); return s === '' ? NaN : Number(s); };
+
+  // ---------- 存储 ----------
+  // S.syms[i].recs: 每分钟一条 { t: 'YYYY-MM-DD HH:MM', o, h, l, c, v }
+  const DEF_CFG = { period: 1, type: 'candle', showMA: true, ma: [5, 10, 20], boll: false, sub: 'VOL', redUp: true, light: false, step: 0.01, dec: 'auto', listDay: true, statDay: false, tab: 'entry' };
+  const newSym = name => ({ id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name, recs: [], lines: [] });
+  let S;
+  function load() {
+    try { S = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { S = null; }
+    if (!S || !Array.isArray(S.syms) || !S.syms.length) {
+      const s = newSym('我的K线');
+      S = { syms: [s], cur: s.id, cfg: {} };
+      try { // 迁移旧版数据
+        const old = JSON.parse(localStorage.getItem('kline-maker-v1') || 'null');
+        if (old && old.recs) { s.recs = old.recs.map(r => ({ ...r, v: r.v || 0 })); if (old.period) S.cfg.period = old.period; }
+      } catch (e) {}
+    }
+    S.cfg = { ...DEF_CFG, ...S.cfg };
+    if (!S.syms.find(s => s.id === S.cur)) S.cur = S.syms[0].id;
+  }
+  load();
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { msg('保存失败：存储空间不足', true); } };
+  const sym = () => S.syms.find(s => s.id === S.cur);
+  const cfg = S.cfg;
+
+  // 撤销
+  const undoStack = [];
+  function snapshot() { const s = sym(); undoStack.push({ id: s.id, recs: JSON.stringify(s.recs) }); if (undoStack.length > 50) undoStack.shift(); }
+  $('undo').onclick = () => {
+    const u = undoStack.pop();
+    if (!u) return msg('没有可撤销的操作', true);
+    const s = S.syms.find(x => x.id === u.id);
+    if (s) { s.recs = JSON.parse(u.recs); S.cur = s.id; refreshSyms(); changed(); msg('已撤销'); }
+  };
 
   function msg(t, err) { $('msg').textContent = t; $('msg').style.color = err ? 'var(--up)' : 'var(--accent)'; }
 
-  function upsert(t, o, h, l, c) {
+  // ---------- 录入 ----------
+  $('date').value = today();
+  $('time').value = '09:30';
+
+  function upsert(t, o, h, l, c, v, replace) {
     if (![o, h, l, c].every(Number.isFinite)) return false;
+    v = Number.isFinite(v) && v > 0 ? v : 0;
     h = Math.max(h, o, c, l); l = Math.min(l, o, c, h);
-    const i = recs.findIndex(r => r.t === t);
-    if (i >= 0) { const r = recs[i]; r.h = Math.max(r.h, h); r.l = Math.min(r.l, l); r.c = c; }
-    else recs.push({ t, o, h, l, c });
+    const recs = sym().recs, i = recs.findIndex(r => r.t === t);
+    if (i >= 0 && !replace) { const r = recs[i]; r.h = Math.max(r.h, h); r.l = Math.min(r.l, l); r.c = c; r.v = (r.v || 0) + v; }
+    else if (i >= 0) recs[i] = { t, o, h, l, c, v };
+    else recs.push({ t, o, h, l, c, v });
     return true;
   }
-  const sortRecs = () => recs.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
-  function changed() { sortRecs(); save(); renderList(); build(); draw(); }
+  const sortRecs = () => sym().recs.sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
+  function changed(keepView) { sortRecs(); save(); build(); renderList(); renderStats(); keepView ? draw() : fitView(); }
 
-  function nextMinute() {
-    const [H, M] = $('time').value.split(':').map(Number);
-    let m = H * 60 + M + 1;
-    if (m >= 1440) m = 0;
+  function shiftTime(delta) {
+    const [H, M] = ($('time').value || '00:00').split(':').map(Number);
+    let m = H * 60 + M + delta, d = new Date(($('date').value || today()) + 'T00:00:00');
+    while (m >= 1440) { m -= 1440; d.setDate(d.getDate() + 1); }
+    while (m < 0) { m += 1440; d.setDate(d.getDate() - 1); }
     $('time').value = `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+    if (ymd(d) !== $('date').value) { $('date').value = ymd(d); renderList(); renderStats(); }
   }
+  $('tPrev').onclick = () => shiftTime(-1);
+  $('tNext').onclick = () => shiftTime(1);
+  $('tNow').onclick = () => { const d = new Date(); $('date').value = ymd(d); $('time').value = `${pad(d.getHours())}:${pad(d.getMinutes())}`; renderList(); renderStats(); };
+  $('date').onchange = () => { renderList(); renderStats(); };
 
-  function addFromForm() {
+  function lastClose() {
+    const t = `${$('date').value} ${$('time').value}`, recs = sym().recs;
+    for (let i = recs.length - 1; i >= 0; i--) if (recs[i].t <= t) return recs[i].c;
+    return recs.length ? recs[recs.length - 1].c : NaN;
+  }
+  const decimals = () => cfg.dec !== 'auto' ? +cfg.dec : Math.max(0, Math.min(6, -Math.floor(Math.log10(cfg.step) + 1e-9)));
+  function nudge(dir) {
+    let p = num($('price').value);
+    if (!Number.isFinite(p)) p = lastClose();
+    if (!Number.isFinite(p)) return;
+    $('price').value = (p + dir * cfg.step).toFixed(decimals());
+  }
+  $('pMinus').onclick = () => nudge(-1);
+  $('pPlus').onclick = () => nudge(1);
+  $('pSame').onclick = () => { const p = lastClose(); if (Number.isFinite(p)) $('price').value = p; else msg('还没有上一条数据', true); };
+
+  let editing = null;
+  function setOhlcMode(on) { $('ohlcMode').checked = on; $('priceBox').classList.toggle('show-ohlc', on); }
+  $('ohlcMode').onchange = () => setOhlcMode($('ohlcMode').checked);
+
+  function startEdit(t) {
+    const r = sym().recs.find(x => x.t === t);
+    if (!r) return;
+    editing = t;
+    $('date').value = t.slice(0, 10); $('time').value = t.slice(11);
+    if (r.o === r.h && r.h === r.l && r.l === r.c) { setOhlcMode(false); $('price').value = r.c; }
+    else { setOhlcMode(true); $('o').value = r.o; $('h').value = r.h; $('l').value = r.l; $('c').value = r.c; }
+    $('vol').value = r.v || '';
+    $('addBtn').textContent = '保存修改'; $('cancelEdit').classList.remove('hide');
+    document.body.classList.add('editing');
+    showTab('entry'); msg(`正在修改 ${t}`);
+    renderList();
+  }
+  function endEdit() {
+    editing = null;
+    $('addBtn').textContent = '添加 ↵'; $('cancelEdit').classList.add('hide');
+    document.body.classList.remove('editing');
+    ['price', 'o', 'h', 'l', 'c', 'vol'].forEach(k => $(k).value = '');
+    renderList();
+  }
+  $('cancelEdit').onclick = () => { endEdit(); msg('已取消修改'); };
+
+  function submit() {
     const d = $('date').value, tm = $('time').value;
     if (!d || !tm) return msg('请先填写日期和时间', true);
-    const t = `${d} ${tm.slice(0, 5)}`;
-    let ok;
+    const t = `${d} ${tm.slice(0, 5)}`, v = num($('vol').value);
+    let vals;
     if ($('ohlcMode').checked) {
-      const v = ['o', 'h', 'l', 'c'].map(k => parseFloat($(k).value));
-      ok = upsert(t, ...v);
-      if (ok) { ['o', 'h', 'l', 'c'].forEach(k => $(k).value = ''); $('o').focus(); }
+      vals = ['o', 'h', 'l', 'c'].map(k => num($(k).value));
+      if (vals.every(Number.isNaN)) return msg('请填写价格', true);
+      // 只填了收盘价时，其余按收盘价补齐
+      const c = vals[3]; vals = vals.map(x => Number.isNaN(x) ? c : x);
     } else {
-      const p = parseFloat($('price').value);
-      ok = upsert(t, p, p, p, p);
-      if (ok) { $('price').value = ''; $('price').focus(); }
+      const p = num($('price').value);
+      vals = [p, p, p, p];
     }
-    if (!ok) return msg('价格格式不对', true);
-    msg(`已添加 ${t}`);
-    nextMinute(); changed(); fitView();
+    if (!vals.every(x => Number.isFinite(x))) return msg('价格格式不对', true);
+    if ($('vol').value.trim() && !(v >= 0)) return msg('成交量格式不对', true);
+    snapshot();
+    if (editing) {
+      sym().recs = sym().recs.filter(r => r.t !== editing);
+      upsert(t, ...vals, v, true);
+      endEdit(); msg(`已保存 ${t}`);
+      changed(true);
+      return;
+    }
+    upsert(t, ...vals, v);
+    msg(`已添加 ${t}  ${vals[3]}`);
+    ['price', 'o', 'h', 'l', 'c', 'vol'].forEach(k => $(k).value = '');
+    ($('ohlcMode').checked ? $('o') : $('price')).focus();
+    shiftTime(1); changed();
   }
-  $('add1').onclick = $('add4').onclick = addFromForm;
-  ['price', 'o', 'h', 'l', 'c'].forEach(k => $(k).addEventListener('keydown', e => {
+  $('addBtn').onclick = submit;
+  const order = ['o', 'h', 'l', 'c'];
+  ['price', 'o', 'h', 'l', 'c', 'vol'].forEach(k => $(k).addEventListener('keydown', e => {
     if (e.key !== 'Enter') return;
-    if ($('ohlcMode').checked && k !== 'c') { $(['o', 'h', 'l', 'c'][['o', 'h', 'l', 'c'].indexOf(k) + 1]).focus(); return; }
-    addFromForm();
+    e.preventDefault();
+    if (order.includes(k) && k !== 'c') return $(order[order.indexOf(k) + 1]).focus();
+    submit();
   }));
-  $('ohlcMode').onchange = () => { $('priceBox').classList.toggle('show-ohlc', $('ohlcMode').checked); };
 
-  // 解析一行文本：[日期] 时间 价格 | [日期] 时间 开 高 低 收
+  // ---------- 批量导入 ----------
+  // [日期] 时间 价格 [量] | [日期] 时间 开 高 低 收 [量]
   function parseLine(line, defDate) {
-    const parts = line.trim().split(/[\s,，\t]+/).filter(Boolean);
+    const parts = line.trim().split(/[\s,，;\t]+/).filter(Boolean);
     if (!parts.length) return null;
     let d = defDate;
-    if (/^\d{4}[-/.]\d{1,2}[-/.]\d{1,2}$/.test(parts[0])) {
-      const [y, m, dd] = parts.shift().split(/[-/.]/);
+    if (/^\d{4}[-/.年]\d{1,2}[-/.月]\d{1,2}日?$/.test(parts[0])) {
+      const [y, m, dd] = parts.shift().split(/[-/.年月日]/);
       d = `${y}-${pad(+m)}-${pad(+dd)}`;
     }
     const tm = parts.shift();
-    if (!/^\d{1,2}:\d{2}(:\d{2})?$/.test(tm || '')) return null;
-    const [H, M] = tm.split(':').map(Number);
+    if (!/^\d{1,2}[:：]\d{2}([:：]\d{2})?$/.test(tm || '')) return null;
+    const [H, M] = tm.split(/[:：]/).map(Number);
     if (H > 23 || M > 59) return null;
-    const nums = parts.map(Number);
-    if (nums.length === 1) return [`${d} ${pad(H)}:${pad(M)}`, nums[0], nums[0], nums[0], nums[0]];
-    if (nums.length >= 4) return [`${d} ${pad(H)}:${pad(M)}`, ...nums.slice(0, 4)];
+    const n = parts.map(Number), t = `${d} ${pad(H)}:${pad(M)}`;
+    if (n.some(Number.isNaN)) return null;
+    if (n.length === 1 || n.length === 2) return [t, n[0], n[0], n[0], n[0], n[1]];
+    if (n.length === 4 || n.length === 5) return [t, ...n];
     return null;
   }
   function importText(text) {
+    snapshot();
     let n = 0, bad = 0;
     for (const line of text.split(/\r?\n/)) {
-      if (!line.trim() || /^(time|时间|date|日期)/i.test(line.trim())) continue;
-      const r = parseLine(line, $('date').value || today());
+      const s = line.replace(/^﻿/, '').trim();
+      if (!s || /^(time|时间|date|日期)/i.test(s)) continue;
+      const r = parseLine(s, $('date').value || today());
       if (r && upsert(...r)) n++; else bad++;
     }
-    changed(); fitView();
+    changed();
     msg(`导入 ${n} 条` + (bad ? `，${bad} 行无法识别` : ''), bad && !n);
+    return n;
   }
-  $('bulkAdd').onclick = () => { importText($('bulk').value); $('bulk').value = ''; };
+  $('bulkAdd').onclick = () => { if (importText($('bulk').value)) $('bulk').value = ''; };
   $('csvIn').onclick = () => $('file').click();
-  $('file').onchange = async e => { const f = e.target.files[0]; if (f) importText(await f.text()); e.target.value = ''; };
-  $('csvOut').onclick = () => {
-    const csv = 'date,time,open,high,low,close\n' + recs.map(r => `${r.t.replace(' ', ',')},${r.o},${r.h},${r.l},${r.c}`).join('\n');
-    download(new Blob(['\ufeff' + csv], { type: 'text/csv' }), `kline-${stamp()}.csv`);
-  };
+  $('file').onchange = async e => { const f = e.target.files[0]; if (f) { importText(await f.text()); showTab('entry'); } e.target.value = ''; };
+
+  const stamp = () => { const d = new Date(); return `${ymd(d).replace(/-/g, '')}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`; };
   function download(blob, name) {
     if (window.Android && Android.saveFile) {
       const fr = new FileReader();
       fr.onload = () => { const [head, b64] = fr.result.split(','); Android.saveFile(name, head.slice(5).split(';')[0], b64); };
       fr.readAsDataURL(blob); return;
     }
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  const safeName = s => s.replace(/[\\/:*?"<>|\s]+/g, '_');
+  $('csvOut').onclick = () => {
+    const csv = 'date,time,open,high,low,close,volume\n' + sym().recs.map(r => `${r.t.replace(' ', ',')},${r.o},${r.h},${r.l},${r.c},${r.v || 0}`).join('\n');
+    download(new Blob(['﻿' + csv], { type: 'text/csv' }), `${safeName(sym().name)}-${stamp()}.csv`);
+  };
+  $('bakOut').onclick = () => download(new Blob([JSON.stringify({ app: 'kline-maker', ver: 2, ...S })], { type: 'application/json' }), `K线备份-${stamp()}.json`);
+  $('bakIn').onclick = () => $('bakFile').click();
+  $('bakFile').onchange = async e => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    try {
+      const b = JSON.parse(await f.text());
+      if (!Array.isArray(b.syms) || !b.syms.length) throw new Error('不是有效的备份文件');
+      if (!confirm(`恢复备份将覆盖当前全部数据（备份含 ${b.syms.length} 个品种），继续？`)) return;
+      S.syms = b.syms.map(s => ({ ...newSym(s.name || '未命名'), ...s, lines: s.lines || [], recs: s.recs || [] }));
+      S.cur = S.syms.find(s => s.id === b.cur) ? b.cur : S.syms[0].id;
+      Object.assign(cfg, b.cfg || {});
+      undoStack.length = 0;
+      applyCfg(); refreshSyms(); changed(); msg('已恢复备份'); showTab('entry');
+    } catch (err) { alert('恢复失败：' + err.message); }
+  };
 
   $('clearDay').onclick = () => {
     const d = $('date').value;
-    if (!confirm(`清空 ${d} 的全部数据？`)) return;
-    recs = recs.filter(r => !r.t.startsWith(d)); changed(); fitView();
+    if (!confirm(`清空「${sym().name}」${d} 的全部数据？（可撤销）`)) return;
+    snapshot(); sym().recs = sym().recs.filter(r => !r.t.startsWith(d)); changed();
   };
-  $('clearAll').onclick = () => { if (confirm('清空全部数据？此操作不可撤销')) { recs = []; changed(); fitView(); } };
+  $('clearAll').onclick = () => {
+    if (!confirm(`清空「${sym().name}」的全部数据？（可撤销）`)) return;
+    snapshot(); sym().recs = []; changed();
+  };
   $('demo').onclick = () => {
-    let p = 100;
-    const d = $('date').value || today();
-    for (let m = 9 * 60 + 30; m < 15 * 60; m++) {
+    snapshot();
+    let p = Number.isFinite(lastClose()) ? lastClose() : 100;
+    const end = new Date(($('date').value || today()) + 'T00:00:00');
+    const days = [];
+    for (const d = new Date(end); days.length < 5; d.setDate(d.getDate() - 1)) if (d.getDay() % 6) days.unshift(ymd(d));
+    for (const d of days) for (let m = 9 * 60 + 30; m < 15 * 60; m++) {
       if (m >= 11 * 60 + 30 && m < 13 * 60) continue;
+      const o = p, c = +(p * (1 + (Math.random() - 0.49) * 0.004)).toFixed(2);
+      const v = Math.round(500 + Math.random() * 3000 + Math.abs(c - o) * 4000);
       const t = `${d} ${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
-      const o = p; const c = +(p + (Math.random() - 0.48) * 0.6).toFixed(2);
-      upsert(t, o, +(Math.max(o, c) + Math.random() * 0.3).toFixed(2), +(Math.min(o, c) - Math.random() * 0.3).toFixed(2), c);
+      if (sym().recs.some(r => r.t === t)) continue; // 不覆盖已录入的数据
+      upsert(t, o, +(Math.max(o, c) + Math.random() * p * 0.0015).toFixed(2), +(Math.min(o, c) - Math.random() * p * 0.0015).toFixed(2), c, v, true);
       p = c;
     }
-    changed(); fitView(); msg('已生成当天 9:30–15:00 示例数据');
+    changed(); msg(`已生成 ${days[0]} ~ ${days[4]} 共 5 个交易日的分钟示例数据（可撤销）`);
   };
 
-  const stamp = () => { const d = new Date(); return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`; };
-  const fmt = v => { const a = Math.abs(v); return v.toFixed(a >= 1000 ? 1 : a >= 1 ? 2 : 4); };
+  // ---------- 格式化 ----------
+  function fmt(v) {
+    if (v == null || !Number.isFinite(v)) return '-';
+    if (cfg.dec !== 'auto') return v.toFixed(+cfg.dec);
+    const a = Math.abs(v); return v.toFixed(a >= 10000 ? 0 : a >= 1000 ? 1 : a >= 1 ? 2 : 4);
+  }
+  function fmtV(v) {
+    if (!v) return '0';
+    const a = Math.abs(v);
+    return a >= 1e8 ? (v / 1e8).toFixed(2) + '亿' : a >= 1e4 ? (v / 1e4).toFixed(2) + '万' : String(Math.round(v * 100) / 100);
+  }
+  const pct = v => Number.isFinite(v) ? (v >= 0 ? '+' : '') + v.toFixed(2) + '%' : '-';
 
+  // ---------- 列表与统计 ----------
+  function viewRecs(dayOnly) { const d = $('date').value; return dayOnly ? sym().recs.filter(r => r.t.startsWith(d)) : sym().recs; }
   function renderList() {
-    $('count').textContent = `（${recs.length} 条）`;
-    const rows = recs.slice(-300).reverse();
+    const all = viewRecs(cfg.listDay);
+    $('count').textContent = `（${cfg.listDay ? $('date').value + ' ' : ''}${all.length} 条）`;
+    const rows = all.slice(-500).reverse();
     $('list').innerHTML = rows.map(r =>
-      `<tr><td>${r.t.slice(5)}</td><td>${fmt(r.o)}</td><td>${fmt(r.h)}</td><td>${fmt(r.l)}</td><td>${fmt(r.c)}</td><td><button data-t="${r.t}" title="删除">×</button></td></tr>`
-    ).join('') + (recs.length > 300 ? `<tr><td colspan="6" class="hint">仅显示最近 300 条</td></tr>` : '');
+      `<tr data-t="${r.t}" class="${r.t === editing ? 'sel' : ''}"><td>${cfg.listDay ? r.t.slice(11) : r.t.slice(5)}</td><td>${fmt(r.o)}</td><td>${fmt(r.h)}</td><td>${fmt(r.l)}</td><td>${fmt(r.c)}</td><td>${fmtV(r.v)}</td><td><button data-del="${r.t}" title="删除">×</button></td></tr>`
+    ).join('') + (all.length > 500 ? `<tr><td colspan="7" class="hint">仅显示最近 500 条</td></tr>` : '')
+      + (!all.length ? `<tr><td colspan="7" class="hint">${cfg.listDay ? '所选日期' : ''}暂无数据</td></tr>` : '');
   }
   $('list').onclick = e => {
-    const t = e.target.dataset && e.target.dataset.t;
-    if (t) { recs = recs.filter(r => r.t !== t); changed(); }
+    const del = e.target.dataset && e.target.dataset.del;
+    if (del) { snapshot(); sym().recs = sym().recs.filter(r => r.t !== del); if (editing === del) endEdit(); changed(true); msg(`已删除 ${del}（可撤销）`); return; }
+    const tr = e.target.closest('tr[data-t]');
+    if (tr) startEdit(tr.dataset.t);
   };
+  $('listDay').onchange = () => { cfg.listDay = $('listDay').checked; save(); renderList(); };
+  $('statDay').onchange = () => { cfg.statDay = $('statDay').checked; save(); renderStats(); };
 
-  // ---- 按周期聚合 ----
+  function renderStats() {
+    const r = viewRecs(cfg.statDay);
+    if (!r.length) { $('stats').innerHTML = '<div style="grid-column:1/-1" class="hint">暂无数据</div>'; return; }
+    const o = r[0].o, c = r[r.length - 1].c;
+    let h = -Infinity, l = Infinity, v = 0;
+    for (const x of r) { h = Math.max(h, x.h); l = Math.min(l, x.l); v += x.v || 0; }
+    const cells = [['开盘', fmt(o)], ['最新', fmt(c)], ['最高', fmt(h)], ['最低', fmt(l)],
+      ['涨跌', fmt(c - o)], ['涨跌幅', pct((c - o) / o * 100)], ['振幅', pct((h - l) / o * 100)], ['成交量', fmtV(v)],
+      ['记录数', r.length], ['K线根数', bars.length], ['起始', r[0].t.slice(5)], ['结束', r[r.length - 1].t.slice(5)]];
+    const col = c >= o ? 'var(--up)' : 'var(--down)';
+    $('stats').innerHTML = cells.map(([k, val], i) => `<div><span>${k}</span><b style="${i === 1 || i === 4 || i === 5 ? 'color:' + col : ''}">${val}</b></div>`).join('');
+  }
+
+  // ---------- 聚合与指标 ----------
   let bars = [];
   function bucketKey(t) {
-    const d = t.slice(0, 10);
-    if (period === 'D') return d;
-    if (period === 'W') {
-      const dt = new Date(d + 'T00:00:00'); const wd = (dt.getDay() + 6) % 7; dt.setDate(dt.getDate() - wd);
-      return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
-    }
-    const m = +t.slice(11, 13) * 60 + +t.slice(14, 16);
-    const b = Math.floor(m / period) * period;
+    const d = t.slice(0, 10), p = cfg.period;
+    if (p === 'D') return d;
+    if (p === 'M') return d.slice(0, 7);
+    if (p === 'W') { const dt = new Date(d + 'T00:00:00'); dt.setDate(dt.getDate() - (dt.getDay() + 6) % 7); return ymd(dt); }
+    const m = +t.slice(11, 13) * 60 + +t.slice(14, 16), b = Math.floor(m / p) * p;
     return `${d} ${pad(Math.floor(b / 60))}:${pad(b % 60)}`;
   }
+  function ema(arr, n) { const k = 2 / (n + 1); let e; return arr.map((x, i) => (e = i ? x * k + e * (1 - k) : x)); }
   function build() {
     bars = [];
     let cur = null;
-    for (const r of recs) {
+    for (const r of sym().recs) {
       const k = bucketKey(r.t);
-      if (!cur || cur.t !== k) { cur = { t: k, o: r.o, h: r.h, l: r.l, c: r.c }; bars.push(cur); }
-      else { cur.h = Math.max(cur.h, r.h); cur.l = Math.min(cur.l, r.l); cur.c = r.c; }
+      if (!cur || cur.t !== k) { cur = { t: k, o: r.o, h: r.h, l: r.l, c: r.c, v: r.v || 0 }; bars.push(cur); }
+      else { cur.h = Math.max(cur.h, r.h); cur.l = Math.min(cur.l, r.l); cur.c = r.c; cur.v += r.v || 0; }
     }
-    for (const n of [5, 10, 20]) {
-      let s = 0;
-      bars.forEach((b, i) => { s += b.c; if (i >= n) s -= bars[i - n].c; b['ma' + n] = i >= n - 1 ? s / n : null; });
-    }
+    const C = bars.map(b => b.c), N = bars.length;
+    const sma = (arr, n) => { let s = 0; return arr.map((x, i) => { s += x; if (i >= n) s -= arr[i - n]; return i >= n - 1 ? s / n : null; }); };
+    // MA
+    bars.ma = cfg.ma.map(n => ({ n, v: sma(C, n) }));
+    bars.vma = sma(bars.map(b => b.v), 5);
+    // BOLL(20,2)
+    const mid = sma(C, 20);
+    bars.boll = mid.map((m, i) => {
+      if (m == null) return null;
+      let s = 0; for (let j = i - 19; j <= i; j++) s += (C[j] - m) ** 2;
+      const sd = Math.sqrt(s / 20); return { mid: m, up: m + 2 * sd, dn: m - 2 * sd };
+    });
+    // MACD(12,26,9)
+    const e12 = ema(C, 12), e26 = ema(C, 26), dif = C.map((_, i) => e12[i] - e26[i]), dea = ema(dif, 9);
+    bars.macd = dif.map((d, i) => ({ dif: d, dea: dea[i], hist: 2 * (d - dea[i]) }));
+    // KDJ(9,3,3)
+    let K = 50, D = 50;
+    bars.kdj = bars.map((b, i) => {
+      let hh = -Infinity, ll = Infinity;
+      for (let j = Math.max(0, i - 8); j <= i; j++) { hh = Math.max(hh, bars[j].h); ll = Math.min(ll, bars[j].l); }
+      const rsv = hh === ll ? 50 : (b.c - ll) / (hh - ll) * 100;
+      K = K * 2 / 3 + rsv / 3; D = D * 2 / 3 + K / 3;
+      return { k: K, d: D, j: 3 * K - 2 * D };
+    });
+    // RSI(6,12,24)，Wilder 平滑
+    const rsi = n => {
+      let g = 0, l = 0;
+      return C.map((c, i) => {
+        if (!i) return null;
+        const ch = c - C[i - 1], up = Math.max(ch, 0), dn = Math.max(-ch, 0);
+        if (i <= n) { g += up; l += dn; if (i < n) return null; g /= n; l /= n; }
+        else { g = (g * (n - 1) + up) / n; l = (l * (n - 1) + dn) / n; }
+        return l === 0 ? (g === 0 ? 50 : 100) : 100 - 100 / (1 + g / l);
+      });
+    };
+    bars.rsi = [6, 12, 24].map(n => ({ n, v: rsi(n) }));
+    if (!N) bars.rsi = [];
   }
 
-  // ---- 绘图 ----
+  // ---------- 绘图 ----------
   const cv = $('cv'), ctx = cv.getContext('2d');
-  let W = 0, H = 0, view = { count: 80, end: 0 }, hover = -1;
-  const AXIS_R = 70, AXIS_B = 26, TOP = 30;
-  const MA_COLORS = { ma5: '#f5c542', ma10: '#c77dff', ma20: '#4c8dff' };
-  const colors = () => {
-    const red = getComputedStyle(document.documentElement).getPropertyValue('--up').trim();
-    const green = getComputedStyle(document.documentElement).getPropertyValue('--down').trim();
-    return $('redUp').checked ? { up: red, down: green } : { up: green, down: red };
-  };
-
+  let W = 0, H = 0, view = { count: 80, end: 0 }, hover = -1, crossY = null, drawMode = false;
+  const AXIS_R = 70, AXIS_B = 24;
+  const LINE_COLORS = ['#f5c542', '#c77dff', '#4c8dff', '#ff7aa2', '#2ec4b6', '#a0a0a0'];
+  let C_ = {};
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement), g = k => cs.getPropertyValue(k).trim();
+    const red = g('--up'), green = g('--down');
+    C_ = { bg: g('--bg'), grid: g('--grid'), line: g('--line'), muted: g('--muted'), text: g('--text'), cross: g('--cross'), crossbg: g('--crossbg'), hl: g('--hl'), accent: g('--accent'),
+      up: cfg.redUp ? red : green, down: cfg.redUp ? green : red };
+  }
   function resize() {
     const r = cv.parentElement.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
     W = r.width; H = r.height;
-    cv.width = W * dpr; cv.height = H * dpr;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     draw();
   }
-  function fitView() { view.count = Math.max(20, Math.min(bars.length, 200)); view.end = bars.length; draw(); }
+  function fitView() { view.count = Math.max(30, Math.min(bars.length + 2, 150)); view.end = bars.length + 2; draw(); }
   function clampView() {
-    view.count = Math.max(10, Math.min(view.count, Math.max(10, bars.length + 5)));
-    view.end = Math.max(Math.min(view.end, bars.length + Math.floor(view.count / 3)), Math.min(bars.length, 5));
+    view.count = Math.max(10, Math.min(view.count, Math.max(10, bars.length + 10), 2000));
+    view.end = Math.max(Math.min(view.end, bars.length + view.count / 3), Math.min(bars.length, 5));
   }
   function geom() {
-    const pw = W - AXIS_R, ph = H - AXIS_B - TOP;
-    const bw = pw / view.count;
-    const start = Math.floor(view.end - view.count);
-    return { pw, ph, bw, start };
+    const top = W < 560 ? 42 : 40, pw = W - AXIS_R, avail = H - top - AXIS_B;
+    const subH = cfg.sub === 'none' ? 0 : Math.round(avail * 0.27), gap = subH ? 8 : 0;
+    const mainH = avail - subH - gap;
+    return { top, pw, mainH, subTop: top + mainH + gap, subH, bw: pw / view.count, start: Math.floor(view.end - view.count) };
   }
-  const xOf = (i, g) => (i - g.start + 0.5) * g.bw;
+  const xOf = (i, g) => (i - (view.end - view.count) + 0.5) * g.bw;
+  const idxAt = (x, g) => Math.floor(x / g.bw + view.end - view.count);
+  function niceStep(raw) { const p = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / p; return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * p; }
+  function timeLabel(i) {
+    const t = bars[i].t;
+    if (cfg.period === 'M') return t;
+    if (cfg.period === 'D' || cfg.period === 'W') return t.slice(5);
+    return i === 0 || bars[i - 1].t.slice(0, 10) !== t.slice(0, 10) ? t.slice(5, 10) : t.slice(11);
+  }
+  function polyline(vis, get, yf, g, color, width) {
+    ctx.strokeStyle = color; ctx.lineWidth = width || 1.2; ctx.beginPath();
+    let on = false;
+    for (const i of vis) { const v = get(i); if (v == null || !Number.isFinite(v)) { on = false; continue; } const x = xOf(i, g); on ? ctx.lineTo(x, yf(v)) : ctx.moveTo(x, yf(v)); on = true; }
+    ctx.stroke(); ctx.lineWidth = 1;
+  }
 
   function draw() {
     if (!W) return;
+    readColors();
     clampView();
-    const { up, down } = colors();
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#0f1419'; ctx.fillRect(0, 0, W, H);
-    ctx.font = '11px ui-monospace, Consolas, monospace';
     const g = geom();
+    ctx.fillStyle = C_.bg; ctx.fillRect(0, 0, W, H);
+    ctx.font = '11px ui-monospace, Consolas, monospace'; ctx.lineWidth = 1;
     const vis = [];
-    for (let i = Math.max(0, g.start); i < Math.min(bars.length, Math.ceil(view.end)); i++) vis.push(i);
+    for (let i = Math.max(0, g.start); i < Math.min(bars.length, Math.ceil(view.end) + 1); i++) vis.push(i);
     if (!vis.length) {
-      ctx.fillStyle = '#8a96a3'; ctx.textAlign = 'center';
-      ctx.font = '14px sans-serif';
-      ctx.fillText('在左侧录入价格，K线会自动生成', W / 2, H / 2);
-      $('tip').innerHTML = ''; return;
+      ctx.fillStyle = C_.muted; ctx.textAlign = 'center'; ctx.font = '14px sans-serif';
+      ctx.fillText(bars.length ? '没有在可见范围内的K线，点“全部”' : '在下方录入价格，K线会自动生成', W / 2, H / 2);
+      $('tip').innerHTML = `<b>${esc(sym().name)}</b>`; return;
     }
-    let lo = Infinity, hi = -Infinity;
-    const showMA = $('showMA').checked;
-    for (const i of vis) {
-      const b = bars[i]; lo = Math.min(lo, b.l); hi = Math.max(hi, b.h);
-      if (showMA) for (const k of ['ma5', 'ma10', 'ma20']) if (b[k] != null) { lo = Math.min(lo, b[k]); hi = Math.max(hi, b[k]); }
-    }
-    if (hi === lo) { hi += Math.abs(hi) * 0.01 || 1; lo -= Math.abs(lo) * 0.01 || 1; }
-    const padv = (hi - lo) * 0.08; hi += padv; lo -= padv;
-    const y = v => TOP + (hi - v) / (hi - lo) * g.ph;
-    g.y = y; g.lo = lo; g.hi = hi;
 
-    // 网格 + 价格轴
-    const step = niceStep((hi - lo) / 6);
-    ctx.strokeStyle = '#1e262f'; ctx.fillStyle = '#8a96a3'; ctx.textAlign = 'left'; ctx.lineWidth = 1;
+    // 主图价格范围
+    let lo = Infinity, hi = -Infinity;
+    const ext = v => { if (v != null && Number.isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); } };
+    for (const i of vis) {
+      ext(bars[i].h); ext(bars[i].l);
+      if (cfg.showMA) bars.ma.forEach(m => ext(m.v[i]));
+      if (cfg.boll && bars.boll[i]) { ext(bars.boll[i].up); ext(bars.boll[i].dn); }
+    }
+    if (hi === lo) { const d = Math.abs(hi) * 0.01 || 1; hi += d; lo -= d; }
+    const padv = (hi - lo) * 0.08; hi += padv; lo -= padv;
+    const y = v => g.top + (hi - v) / (hi - lo) * g.mainH;
+
+    // 网格、价格轴
+    ctx.strokeStyle = C_.grid; ctx.fillStyle = C_.muted; ctx.textAlign = 'left';
+    const step = niceStep((hi - lo) / Math.max(3, Math.floor(g.mainH / 55)));
     for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
       const yy = Math.round(y(v)) + 0.5;
       ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(g.pw, yy); ctx.stroke();
@@ -354,137 +693,345 @@
     }
     // 时间轴
     ctx.textAlign = 'center';
-    const labelEvery = Math.max(1, Math.ceil(90 / g.bw));
+    const every = Math.max(1, Math.ceil(80 / g.bw));
+    let lastDay = null;
     for (const i of vis) {
-      if (i % labelEvery) continue;
+      if (i % every) continue;
       const x = Math.round(xOf(i, g)) + 0.5;
-      if (x < 40 || x > g.pw - 40) continue;
-      ctx.beginPath(); ctx.moveTo(x, TOP); ctx.lineTo(x, TOP + g.ph); ctx.stroke();
-      ctx.fillText(timeLabel(i), x, H - 8);
+      if (x < 30 || x > g.pw - 30) continue;
+      ctx.beginPath(); ctx.moveTo(x, g.top); ctx.lineTo(x, H - AXIS_B); ctx.stroke();
+      const day = bars[i].t.slice(0, 10);
+      ctx.fillText(typeof cfg.period === 'number' && lastDay && day !== lastDay ? day.slice(5) : timeLabel(i), x, H - 7);
+      lastDay = day;
     }
-    ctx.strokeStyle = '#26303b';
-    ctx.beginPath(); ctx.moveTo(g.pw + 0.5, 0); ctx.lineTo(g.pw + 0.5, H); ctx.moveTo(0, H - AXIS_B + 0.5); ctx.lineTo(W, H - AXIS_B + 0.5); ctx.stroke();
+    ctx.strokeStyle = C_.line;
+    ctx.beginPath(); ctx.moveTo(g.pw + 0.5, 0); ctx.lineTo(g.pw + 0.5, H); ctx.moveTo(0, H - AXIS_B + 0.5); ctx.lineTo(W, H - AXIS_B + 0.5);
+    if (g.subH) { ctx.moveTo(0, g.subTop - 4.5); ctx.lineTo(g.pw, g.subTop - 4.5); }
+    ctx.stroke();
 
-    // 蜡烛
-    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, g.pw, H - AXIS_B); ctx.clip();
-    const bodyW = Math.max(1, Math.min(g.bw * 0.7, 40));
-    for (const i of vis) {
-      const b = bars[i], x = xOf(i, g), col = b.c >= b.o ? up : down;
+    // 主图
+    ctx.save(); ctx.beginPath(); ctx.rect(0, g.top, g.pw, g.mainH); ctx.clip();
+    const bodyW = Math.max(1, Math.min(g.bw * 0.72, 40));
+    if (cfg.type === 'line') {
+      ctx.beginPath(); vis.forEach((i, k) => k ? ctx.lineTo(xOf(i, g), y(bars[i].c)) : ctx.moveTo(xOf(i, g), y(bars[i].c)));
+      ctx.strokeStyle = C_.accent; ctx.lineWidth = 1.6; ctx.stroke();
+      ctx.lineTo(xOf(vis[vis.length - 1], g), g.top + g.mainH); ctx.lineTo(xOf(vis[0], g), g.top + g.mainH); ctx.closePath();
+      ctx.globalAlpha = 0.12; ctx.fillStyle = C_.accent; ctx.fill(); ctx.globalAlpha = 1; ctx.lineWidth = 1;
+    } else for (const i of vis) {
+      const b = bars[i], x = xOf(i, g), up = b.c >= b.o, col = up ? C_.up : C_.down, xx = Math.round(x) + 0.5;
       ctx.strokeStyle = ctx.fillStyle = col;
-      const xx = Math.round(x) + 0.5;
-      ctx.beginPath(); ctx.moveTo(xx, y(b.h)); ctx.lineTo(xx, y(b.l)); ctx.stroke();
-      const top = y(Math.max(b.o, b.c)), hgt = Math.max(1, y(Math.min(b.o, b.c)) - top);
-      ctx.fillRect(Math.round(x - bodyW / 2), top, Math.max(1, Math.round(bodyW)), hgt);
+      if (cfg.type === 'ohlc') {
+        const tw = Math.max(2, bodyW / 2);
+        ctx.beginPath(); ctx.moveTo(xx, y(b.h)); ctx.lineTo(xx, y(b.l));
+        ctx.moveTo(xx - tw, Math.round(y(b.o)) + 0.5); ctx.lineTo(xx, Math.round(y(b.o)) + 0.5);
+        ctx.moveTo(xx, Math.round(y(b.c)) + 0.5); ctx.lineTo(xx + tw, Math.round(y(b.c)) + 0.5); ctx.stroke();
+        continue;
+      }
+      const top = y(Math.max(b.o, b.c)), bot = y(Math.min(b.o, b.c)), hgt = Math.max(1, bot - top);
+      const bx = Math.round(x - bodyW / 2), bw = Math.max(1, Math.round(bodyW));
+      if (cfg.type === 'hollow' && up && bw > 2) {
+        ctx.beginPath(); ctx.moveTo(xx, y(b.h)); ctx.lineTo(xx, top); ctx.moveTo(xx, top + hgt); ctx.lineTo(xx, y(b.l)); ctx.stroke();
+        ctx.strokeRect(bx + 0.5, Math.round(top) + 0.5, bw - 1, Math.max(1, Math.round(hgt) - 1));
+      } else {
+        ctx.beginPath(); ctx.moveTo(xx, y(b.h)); ctx.lineTo(xx, y(b.l)); ctx.stroke();
+        ctx.fillRect(bx, top, bw, hgt);
+      }
     }
-    if (showMA) for (const k of ['ma5', 'ma10', 'ma20']) {
-      ctx.strokeStyle = MA_COLORS[k]; ctx.lineWidth = 1.2; ctx.beginPath();
-      let started = false;
-      for (const i of vis) { const v = bars[i][k]; if (v == null) continue; const x = xOf(i, g); started ? ctx.lineTo(x, y(v)) : ctx.moveTo(x, y(v)); started = true; }
-      ctx.stroke();
+    if (cfg.showMA) bars.ma.forEach((m, k) => polyline(vis, i => m.v[i], y, g, LINE_COLORS[k % 6]));
+    if (cfg.boll) {
+      polyline(vis, i => bars.boll[i] && bars.boll[i].mid, y, g, '#f5c542');
+      polyline(vis, i => bars.boll[i] && bars.boll[i].up, y, g, '#c77dff');
+      polyline(vis, i => bars.boll[i] && bars.boll[i].dn, y, g, '#2ec4b6');
     }
+    // 可见区最高、最低标注
+    if (cfg.type !== 'line') {
+      let hiI = vis[0], loI = vis[0];
+      for (const i of vis) { if (bars[i].h > bars[hiI].h) hiI = i; if (bars[i].l < bars[loI].l) loI = i; }
+      ctx.fillStyle = C_.text; ctx.font = '11px sans-serif';
+      const mark = (i, v, yy) => { const x = xOf(i, g), left = x > g.pw * 0.7; ctx.textAlign = left ? 'right' : 'left'; ctx.fillText(left ? `${fmt(v)} →` : `← ${fmt(v)}`, left ? x - 4 : x + 4, yy); };
+      mark(hiI, bars[hiI].h, y(bars[hiI].h) + 4); mark(loI, bars[loI].l, y(bars[loI].l) + 4);
+      ctx.font = '11px ui-monospace, Consolas, monospace';
+    }
+    // 水平线
+    ctx.setLineDash([6, 4]);
+    for (const p of sym().lines) {
+      if (p < lo || p > hi) continue;
+      const yy = Math.round(y(p)) + 0.5;
+      ctx.strokeStyle = C_.hl; ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(g.pw, yy); ctx.stroke();
+    }
+    ctx.setLineDash([]);
     ctx.restore();
+    for (const p of sym().lines) {
+      if (p < lo || p > hi) continue;
+      const yy = Math.round(y(p)) + 0.5;
+      ctx.fillStyle = C_.hl; ctx.fillRect(g.pw + 1, yy - 8, AXIS_R - 1, 16);
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.fillText(fmt(p), g.pw + 6, yy + 4);
+    }
+    // 最新价
+    const last = bars[bars.length - 1];
+    if (last.c >= lo && last.c <= hi) {
+      const yy = Math.round(y(last.c)) + 0.5, col = last.c >= last.o ? C_.up : C_.down;
+      ctx.strokeStyle = col; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(g.pw, yy); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = col; ctx.fillRect(g.pw + 1, yy - 8, AXIS_R - 1, 16);
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.fillText(fmt(last.c), g.pw + 6, yy + 4);
+    }
+
+    const cur = hover >= 0 && hover < bars.length ? hover : bars.length - 1;
+    // 副图
+    let subY = null, subLo, subHi;
+    if (g.subH) {
+      ctx.save(); ctx.beginPath(); ctx.rect(0, g.subTop, g.pw, g.subH); ctx.clip();
+      const range = (vals) => { let a = Infinity, b = -Infinity; for (const v of vals) if (v != null && Number.isFinite(v)) { a = Math.min(a, v); b = Math.max(b, v); } return [a, b]; };
+      const setY = (a, b) => { if (!(b > a)) { b = (b || 0) + 1; a = (a || 0) - 1; } const p = (b - a) * 0.08; subLo = a - p; subHi = b + p; subY = v => g.subTop + (subHi - v) / (subHi - subLo) * g.subH; };
+      let label = [];
+      if (cfg.sub === 'VOL') {
+        const [, mx] = range(vis.map(i => bars[i].v)); setY(0, mx > 0 ? mx : 1); subLo = 0;
+        subY = v => g.subTop + g.subH - v / (subHi || 1) * g.subH;
+        for (const i of vis) { const b = bars[i]; if (!b.v) continue; ctx.fillStyle = b.c >= b.o ? C_.up : C_.down; const t = subY(b.v); ctx.fillRect(Math.round(xOf(i, g) - bodyW / 2), t, Math.max(1, Math.round(bodyW)), g.subTop + g.subH - t); }
+        polyline(vis, i => bars.vma[i], subY, g, LINE_COLORS[0]);
+        label = [['VOL', fmtV(bars[cur].v), C_.text], ['MA5', bars.vma[cur] != null ? fmtV(bars.vma[cur]) : '-', LINE_COLORS[0]]];
+        if (!(mx > 0)) { ctx.fillStyle = C_.muted; ctx.textAlign = 'center'; ctx.fillText('未录入成交量', g.pw / 2, g.subTop + g.subH / 2 + 4); }
+      } else if (cfg.sub === 'MACD') {
+        const m = bars.macd, [a, b] = range(vis.flatMap(i => [m[i].dif, m[i].dea, m[i].hist])); setY(Math.min(a, 0), Math.max(b, 0));
+        const z = subY(0);
+        for (const i of vis) { const h = m[i].hist; ctx.fillStyle = h >= 0 ? C_.up : C_.down; const yy = subY(h); ctx.fillRect(Math.round(xOf(i, g)) - Math.max(0.5, bodyW / 6), Math.min(z, yy), Math.max(1, bodyW / 3), Math.max(1, Math.abs(yy - z))); }
+        polyline(vis, i => m[i].dif, subY, g, LINE_COLORS[0]); polyline(vis, i => m[i].dea, subY, g, LINE_COLORS[1]);
+        label = [['MACD(12,26,9)', '', C_.muted], ['DIF', m[cur].dif.toFixed(3), LINE_COLORS[0]], ['DEA', m[cur].dea.toFixed(3), LINE_COLORS[1]], ['MACD', m[cur].hist.toFixed(3), m[cur].hist >= 0 ? C_.up : C_.down]];
+      } else if (cfg.sub === 'KDJ') {
+        const k = bars.kdj, [a, b] = range(vis.flatMap(i => [k[i].k, k[i].d, k[i].j])); setY(Math.min(a, 0), Math.max(b, 100));
+        ctx.strokeStyle = C_.grid; ctx.setLineDash([3, 3]); ctx.beginPath(); [20, 80].forEach(v => { ctx.moveTo(0, subY(v)); ctx.lineTo(g.pw, subY(v)); }); ctx.stroke(); ctx.setLineDash([]);
+        ['k', 'd', 'j'].forEach((key, n) => polyline(vis, i => k[i][key], subY, g, LINE_COLORS[n]));
+        label = [['KDJ(9,3,3)', '', C_.muted], ['K', k[cur].k.toFixed(2), LINE_COLORS[0]], ['D', k[cur].d.toFixed(2), LINE_COLORS[1]], ['J', k[cur].j.toFixed(2), LINE_COLORS[2]]];
+      } else if (cfg.sub === 'RSI') {
+        setY(0, 100);
+        ctx.strokeStyle = C_.grid; ctx.setLineDash([3, 3]); ctx.beginPath(); [30, 50, 70].forEach(v => { ctx.moveTo(0, subY(v)); ctx.lineTo(g.pw, subY(v)); }); ctx.stroke(); ctx.setLineDash([]);
+        bars.rsi.forEach((r, n) => polyline(vis, i => r.v[i], subY, g, LINE_COLORS[n]));
+        label = bars.rsi.map((r, n) => [`RSI${r.n}`, r.v[cur] != null ? r.v[cur].toFixed(2) : '-', LINE_COLORS[n]]);
+      }
+      ctx.restore();
+      // 副图坐标与标签
+      ctx.fillStyle = C_.muted; ctx.textAlign = 'left';
+      const sv = v => cfg.sub === 'VOL' ? fmtV(v) : Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2);
+      ctx.fillText(sv(subHi), g.pw + 6, g.subTop + 10);
+      if (cfg.sub !== 'VOL') ctx.fillText(sv(subLo), g.pw + 6, g.subTop + g.subH - 2);
+      let lx = 6;
+      ctx.font = '11px sans-serif';
+      for (const [k, v, col] of label) { const s = v === '' ? k : `${k} ${v}`; ctx.fillStyle = col; ctx.fillText(s, lx, g.subTop + 11); lx += ctx.measureText(s).width + 10; }
+      ctx.font = '11px ui-monospace, Consolas, monospace';
+    }
 
     // 十字光标
-    const hi_ = hover >= 0 && hover < bars.length ? hover : vis[vis.length - 1];
     if (hover >= 0 && hover < bars.length && crossY != null) {
       const x = Math.round(xOf(hover, g)) + 0.5;
-      ctx.strokeStyle = '#5b6875'; ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(x, TOP); ctx.lineTo(x, TOP + g.ph); ctx.moveTo(0, crossY + 0.5); ctx.lineTo(g.pw, crossY + 0.5); ctx.stroke();
+      ctx.strokeStyle = C_.cross; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(x, g.top); ctx.lineTo(x, H - AXIS_B); ctx.moveTo(0, crossY + 0.5); ctx.lineTo(g.pw, crossY + 0.5); ctx.stroke();
       ctx.setLineDash([]);
-      const pv = hi - (crossY - TOP) / g.ph * (hi - lo);
-      ctx.fillStyle = '#2b3642'; ctx.fillRect(g.pw, crossY - 9, AXIS_R, 18);
-      ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.fillText(fmt(pv), g.pw + 6, crossY + 4);
-      const tl = bars[hover].t; const tw = ctx.measureText(tl).width + 12;
-      ctx.fillStyle = '#2b3642'; ctx.fillRect(x - tw / 2, H - AXIS_B, tw, AXIS_B);
-      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(tl, x, H - 8);
+      let pv = null;
+      if (crossY <= g.top + g.mainH) pv = fmt(hi - (crossY - g.top) / g.mainH * (hi - lo));
+      else if (subY && crossY >= g.subTop) { const v = subHi - (crossY - g.subTop) / g.subH * (subHi - subLo); pv = cfg.sub === 'VOL' ? fmtV(v) : v.toFixed(2); }
+      if (pv != null) { ctx.fillStyle = C_.crossbg; ctx.fillRect(g.pw + 1, crossY - 9, AXIS_R, 18); ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.fillText(pv, g.pw + 5, crossY + 4); }
+      const tl = bars[hover].t, tw = ctx.measureText(tl).width + 12, tx0 = Math.max(0, Math.min(g.pw - tw, x - tw / 2));
+      ctx.fillStyle = C_.crossbg; ctx.fillRect(tx0, H - AXIS_B + 1, tw, AXIS_B - 1);
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(tl, tx0 + tw / 2, H - 7);
     }
-    const b = bars[hi_], prev = bars[hi_ - 1];
-    const chg = prev ? (b.c - prev.c) / prev.c * 100 : (b.c - b.o) / b.o * 100;
-    const cc = b.c >= b.o ? up : down;
-    $('tip').innerHTML = `<span style="color:var(--muted)">${b.t}</span>&nbsp; 开 <b style="color:${cc}">${fmt(b.o)}</b> 高 <b style="color:${cc}">${fmt(b.h)}</b> 低 <b style="color:${cc}">${fmt(b.l)}</b> 收 <b style="color:${cc}">${fmt(b.c)}</b> 涨跌 <b style="color:${chg >= 0 ? up : down}">${isFinite(chg) ? chg.toFixed(2) + '%' : '-'}</b>` +
-      (showMA ? `&nbsp; ${['ma5', 'ma10', 'ma20'].map(k => `<span style="color:${MA_COLORS[k]}">${k.toUpperCase()} ${b[k] != null ? fmt(b[k]) : '-'}</span>`).join(' ')}` : '');
-  }
-  function niceStep(raw) {
-    const p = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / p;
-    return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * p;
-  }
-  function timeLabel(i) {
-    const t = bars[i].t;
-    if (period === 'D' || period === 'W') return t.slice(5);
-    const newDay = i === 0 || bars[i - 1].t.slice(0, 10) !== t.slice(0, 10);
-    return newDay ? t.slice(5) : t.slice(11);
-  }
+    if (drawMode) { ctx.fillStyle = C_.hl; ctx.textAlign = 'center'; ctx.font = '13px sans-serif'; ctx.fillText('点击图上任意位置画水平线', g.pw / 2, g.top + 16); }
 
-  // 交互：悬停、滚轮缩放、拖动平移
-  let crossY = null, drag = null;
-  cv.addEventListener('mousemove', e => {
-    const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+    // 顶部信息
+    const b = bars[cur], prev = bars[cur - 1], base = prev ? prev.c : b.o;
+    const cc = b.c >= b.o ? C_.up : C_.down, chg = (b.c - base) / base * 100;
+    const ma = cfg.showMA ? bars.ma.map((m, k) => `<span style="color:${LINE_COLORS[k % 6]}">MA${m.n} ${fmt(m.v[cur])}</span>`).join(' ') : '';
+    const bo = cfg.boll && bars.boll[cur] ? ` <span style="color:#f5c542">BOLL ${fmt(bars.boll[cur].mid)}</span> <span style="color:#c77dff">上 ${fmt(bars.boll[cur].up)}</span> <span style="color:#2ec4b6">下 ${fmt(bars.boll[cur].dn)}</span>` : '';
+    $('tip').innerHTML = `<b>${esc(sym().name)}</b> <span style="color:${C_.muted}">${b.t}</span> 开<b style="color:${cc}">${fmt(b.o)}</b> 高<b style="color:${cc}">${fmt(b.h)}</b> 低<b style="color:${cc}">${fmt(b.l)}</b> 收<b style="color:${cc}">${fmt(b.c)}</b> <b style="color:${chg >= 0 ? C_.up : C_.down}">${pct(chg)}</b> <span style="color:${C_.muted}">振幅 ${pct((b.h - b.l) / base * 100)}${b.v ? ' 量 ' + fmtV(b.v) : ''}</span><br>${ma}${bo}`;
+  }
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // ---------- 图表交互 ----------
+  function pointAt(x, y) {
     const g = geom();
-    if (drag) { view.end = drag.end - (mx - drag.x) / g.bw; hover = -1; crossY = null; draw(); return; }
-    if (mx > g.pw || my < TOP || my > TOP + g.ph) { hover = -1; crossY = null; draw(); return; }
-    hover = Math.floor(mx / g.bw) + g.start; crossY = my; draw();
+    if (x > g.pw || y < g.top || y > H - AXIS_B) { hover = -1; crossY = null; return; }
+    hover = idxAt(x, g); crossY = y;
+  }
+  function addLineAt(y) {
+    const g = geom();
+    if (y < g.top || y > g.top + g.mainH || !bars.length) return false;
+    // 用与 draw() 相同的范围换算价格
+    let lo = Infinity, hi = -Infinity;
+    for (let i = Math.max(0, g.start); i < Math.min(bars.length, Math.ceil(view.end) + 1); i++) {
+      lo = Math.min(lo, bars[i].l); hi = Math.max(hi, bars[i].h);
+      if (cfg.showMA) bars.ma.forEach(m => { const v = m.v[i]; if (v != null) { lo = Math.min(lo, v); hi = Math.max(hi, v); } });
+      if (cfg.boll && bars.boll[i]) { lo = Math.min(lo, bars.boll[i].dn); hi = Math.max(hi, bars.boll[i].up); }
+    }
+    if (!Number.isFinite(lo)) return false;
+    if (hi === lo) { const d = Math.abs(hi) * 0.01 || 1; hi += d; lo -= d; }
+    const p = (hi - lo) * 0.08; hi += p; lo -= p;
+    addLine(+(hi - (y - g.top) / g.mainH * (hi - lo)).toFixed(decimals()));
+    return true;
+  }
+  function setDrawMode(on) { drawMode = on; $('drawBtn').classList.toggle('on', on); $('hlPick').classList.toggle('on', on); draw(); }
+  $('drawBtn').onclick = $('hlPick').onclick = () => setDrawMode(!drawMode);
+
+  let drag = null;
+  const rel = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  cv.addEventListener('mousemove', e => {
+    const [mx, my] = rel(e);
+    if (drag) {
+      if (Math.abs(mx - drag.x) > 4) drag.moved = true;
+      if (drag.moved) { view.end = drag.end - (mx - drag.x) / geom().bw; hover = -1; crossY = null; draw(); }
+      return;
+    }
+    pointAt(mx, my); draw();
   });
-  cv.addEventListener('mouseleave', () => { hover = -1; crossY = null; drag = null; draw(); });
-  cv.addEventListener('mousedown', e => { drag = { x: e.clientX - cv.getBoundingClientRect().left, end: view.end }; cv.style.cursor = 'grabbing'; });
-  window.addEventListener('mouseup', () => { drag = null; cv.style.cursor = 'crosshair'; });
+  cv.addEventListener('mouseleave', () => { hover = -1; crossY = null; draw(); });
+  cv.addEventListener('mousedown', e => { const [x] = rel(e); drag = { x, end: view.end, moved: false }; });
+  window.addEventListener('mouseup', e => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    if (!d.moved && drawMode && e.target === cv) { if (addLineAt(rel(e)[1])) setDrawMode(false); }
+  });
   cv.addEventListener('wheel', e => {
     e.preventDefault();
-    const r = cv.getBoundingClientRect(), g = geom();
-    const frac = Math.min(1, (e.clientX - r.left) / g.pw);
-    const anchor = g.start + frac * view.count;
-    const nc = Math.max(10, Math.min(1000, view.count * (e.deltaY > 0 ? 1.15 : 1 / 1.15)));
-    view.end = anchor + (1 - frac) * nc; view.count = nc; draw();
+    const g = geom(), frac = Math.max(0, Math.min(1, rel(e)[0] / g.pw)), anchor = view.end - view.count + frac * view.count;
+    const nc = Math.max(10, Math.min(2000, view.count * (e.deltaY > 0 ? 1.15 : 1 / 1.15)));
+    view.count = nc; view.end = anchor + (1 - frac) * nc; draw();
   }, { passive: false });
-  // 触摸拖动
-  // 触摸：单指拖动平移、轻点显示十字光标、双指缩放
+  cv.addEventListener('dblclick', fitView);
+
+  // 触摸：单指拖动、轻点显示十字光标、双指缩放
   let touch = null, pinch = null;
-  const tx = t => t.clientX - cv.getBoundingClientRect().left;
-  const ty = t => t.clientY - cv.getBoundingClientRect().top;
+  const tpos = t => { const r = cv.getBoundingClientRect(); return [t.clientX - r.left, t.clientY - r.top]; };
   cv.addEventListener('touchstart', e => {
     if (e.touches.length === 2) {
-      const [a, b] = e.touches, g = geom();
-      const frac = Math.min(1, ((tx(a) + tx(b)) / 2) / g.pw);
-      pinch = { d: Math.abs(tx(a) - tx(b)) || 1, count: view.count, frac, anchor: g.start + frac * view.count };
+      const a = tpos(e.touches[0]), b = tpos(e.touches[1]), g = geom(), frac = Math.max(0, Math.min(1, (a[0] + b[0]) / 2 / g.pw));
+      pinch = { d: Math.abs(a[0] - b[0]) || 1, count: view.count, frac, anchor: view.end - view.count + frac * view.count };
       touch = null;
     } else if (e.touches.length === 1 && !pinch) {
-      touch = { x: tx(e.touches[0]), y: ty(e.touches[0]), end: view.end, moved: false };
+      const [x, y] = tpos(e.touches[0]);
+      touch = { x, y, end: view.end, moved: false };
     }
   }, { passive: true });
   cv.addEventListener('touchmove', e => {
     e.preventDefault();
     if (pinch && e.touches.length === 2) {
-      const [a, b] = e.touches;
-      const nc = Math.max(10, Math.min(1000, pinch.count * pinch.d / (Math.abs(tx(a) - tx(b)) || 1)));
+      const a = tpos(e.touches[0]), b = tpos(e.touches[1]);
+      const nc = Math.max(10, Math.min(2000, pinch.count * pinch.d / (Math.abs(a[0] - b[0]) || 1)));
       view.count = nc; view.end = pinch.anchor + (1 - pinch.frac) * nc; draw();
     } else if (touch && e.touches.length === 1) {
-      const dx = tx(e.touches[0]) - touch.x;
-      if (Math.abs(dx) > 6) touch.moved = true;
-      if (touch.moved) { hover = -1; crossY = null; view.end = touch.end - dx / geom().bw; draw(); }
+      const [x, y] = tpos(e.touches[0]);
+      if (!touch.moved && crossY != null && Math.abs(x - touch.x) > 2) { pointAt(x, y); draw(); touch.cross = true; return; } // 已有十字光标时拖动移动光标
+      if (touch.cross) { pointAt(x, y); draw(); return; }
+      if (Math.abs(x - touch.x) > 6) touch.moved = true;
+      if (touch.moved) { hover = -1; crossY = null; view.end = touch.end - (x - touch.x) / geom().bw; draw(); }
     }
   }, { passive: false });
   cv.addEventListener('touchend', e => {
-    if (touch && !touch.moved) {
-      const g = geom();
-      if (touch.x <= g.pw && touch.y >= TOP && touch.y <= TOP + g.ph) { hover = Math.floor(touch.x / g.bw) + g.start; crossY = touch.y; }
-      else { hover = -1; crossY = null; }
-      draw();
+    if (touch && !touch.moved && !touch.cross) {
+      if (drawMode) { if (addLineAt(touch.y)) setDrawMode(false); }
+      else if (crossY != null) { hover = -1; crossY = null; draw(); }
+      else { pointAt(touch.x, touch.y); draw(); }
     }
     if (e.touches.length === 0) { touch = null; pinch = null; }
   });
 
-  // 周期按钮
+  $('fit').onclick = fitView;
+  $('png').onclick = () => cv.toBlob(b => download(b, `${safeName(sym().name)}-${stamp()}.png`));
+
+  // ---------- 水平线 ----------
+  function addLine(p) {
+    if (!Number.isFinite(p)) return msg('价格格式不对', true);
+    const s = sym(); if (!s.lines.includes(p)) s.lines.push(p);
+    s.lines.sort((a, b) => b - a); save(); renderLines(); draw();
+  }
+  function renderLines() {
+    $('hlList').innerHTML = sym().lines.map((p, i) => `<tr><td style="color:var(--hl)">— ${fmt(p)}</td><td><button data-i="${i}">删除</button></td></tr>`).join('')
+      || '<tr><td class="hint">暂无水平线</td></tr>';
+  }
+  $('hlAdd').onclick = () => { addLine(num($('hlPrice').value)); $('hlPrice').value = ''; };
+  $('hlList').onclick = e => { const i = e.target.dataset.i; if (i != null) { sym().lines.splice(+i, 1); save(); renderLines(); draw(); } };
+
+  // ---------- 品种 ----------
+  function refreshSyms() {
+    $('symSel').innerHTML = S.syms.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    $('symSel').value = S.cur; $('symName').value = sym().name;
+    renderLines();
+  }
+  $('symSel').onchange = () => { S.cur = $('symSel').value; if (editing) endEdit(); refreshSyms(); changed(); };
+  $('symRename').onclick = () => { const n = $('symName').value.trim(); if (!n) return; sym().name = n; save(); refreshSyms(); draw(); };
+  $('symNew').onclick = () => {
+    const n = prompt('新品种名称', `品种${S.syms.length + 1}`);
+    if (!n || !n.trim()) return;
+    const s = newSym(n.trim()); S.syms.push(s); S.cur = s.id; refreshSyms(); changed(); showTab('entry'); msg(`已新建「${s.name}」`);
+  };
+  $('symDel').onclick = () => {
+    if (S.syms.length === 1) return alert('至少保留一个品种');
+    if (!confirm(`删除「${sym().name}」及其全部 ${sym().recs.length} 条数据？此操作不可撤销`)) return;
+    S.syms = S.syms.filter(s => s.id !== S.cur); S.cur = S.syms[0].id; refreshSyms(); changed();
+  };
+
+  // ---------- 设置 / 指标 ----------
   PERIODS.forEach(([name, v]) => {
     const b = document.createElement('button'); b.textContent = name; b.dataset.v = v;
-    b.onclick = () => { period = v; save(); markPeriod(); build(); fitView(); };
+    b.onclick = () => { cfg.period = v; save(); markSegs(); build(); renderStats(); fitView(); };
     $('periods').appendChild(b);
   });
-  function markPeriod() { [...$('periods').children].forEach(b => b.classList.toggle('on', String(period) === b.dataset.v)); }
-  $('showMA').onchange = $('redUp').onchange = draw;
-  $('fit').onclick = fitView;
-  $('png').onclick = () => cv.toBlob(b => download(b, `kline-${stamp()}.png`));
-  new ResizeObserver(resize).observe(cv.parentElement);
+  SUBS.forEach(([name, v]) => {
+    const b = document.createElement('button'); b.textContent = name; b.dataset.v = v;
+    b.onclick = () => { cfg.sub = v; save(); markSegs(); draw(); };
+    $('subSeg').appendChild(b);
+  });
+  function markSegs() {
+    [...$('periods').children].forEach(b => b.classList.toggle('on', String(cfg.period) === b.dataset.v));
+    [...$('subSeg').children].forEach(b => b.classList.toggle('on', cfg.sub === b.dataset.v));
+  }
+  function applyCfg() {
+    $('chartType').value = cfg.type; $('showMA').checked = cfg.showMA; $('maList').value = cfg.ma.join(',');
+    $('showBoll').checked = cfg.boll; $('redUp').checked = cfg.redUp; $('light').checked = cfg.light;
+    $('dec').value = cfg.dec; $('step').value = cfg.step; $('listDay').checked = cfg.listDay; $('statDay').checked = cfg.statDay;
+    document.documentElement.dataset.theme = cfg.light ? 'light' : 'dark';
+    if (window.Android && Android.setTheme) Android.setTheme(cfg.light);
+    markSegs();
+  }
+  const setCfg = (k, v, rebuild) => { cfg[k] = v; save(); applyCfg(); if (rebuild) build(); renderList(); renderStats(); draw(); };
+  $('chartType').onchange = () => setCfg('type', $('chartType').value);
+  $('showMA').onchange = () => setCfg('showMA', $('showMA').checked);
+  $('maList').onchange = () => {
+    const ma = [...new Set($('maList').value.split(/[^\d]+/).map(Number).filter(n => n >= 2 && n <= 500))].slice(0, 6);
+    setCfg('ma', ma.length ? ma : [5, 10, 20], true);
+  };
+  $('showBoll').onchange = () => setCfg('boll', $('showBoll').checked);
+  $('redUp').onchange = () => setCfg('redUp', $('redUp').checked);
+  $('light').onchange = () => setCfg('light', $('light').checked);
+  $('dec').onchange = () => setCfg('dec', $('dec').value);
+  $('step').onchange = () => { const s = num($('step').value); setCfg('step', s > 0 ? s : 0.01); };
 
-  markPeriod(); renderList(); build(); fitView();
+  // ---------- 分页 ----------
+  function showTab(t) {
+    cfg.tab = t; save();
+    [...$('tabs').children].forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.id === 'p-' + t));
+  }
+  $('tabs').onclick = e => { const t = e.target.dataset.tab; if (t) showTab(t); };
+
+  // 安卓返回键：先退出画线/编辑/十字光标，再退出 App
+  window.onAndroidBack = () => {
+    if (drawMode) { setDrawMode(false); return true; }
+    if (editing) { endEdit(); msg('已取消修改'); return true; }
+    if (crossY != null) { hover = -1; crossY = null; draw(); return true; }
+    if (cfg.tab !== 'entry') { showTab('entry'); return true; }
+    return false;
+  };
+
+  // 手机上图表高度按启动时的屏幕固定，避免弹出键盘时图表被压扁
+  const mobile = matchMedia('(max-width: 800px)');
+  let lastW = 0;
+  function sizeChart() {
+    if (mobile.matches) { if (innerWidth !== lastW) { $('chartBox').style.height = Math.round(Math.max(260, innerHeight * 0.46)) + 'px'; lastW = innerWidth; } }
+    else { $('chartBox').style.height = ''; lastW = 0; }
+  }
+  window.addEventListener('resize', sizeChart);
+  new ResizeObserver(resize).observe($('chartBox'));
+
+  sizeChart(); applyCfg(); refreshSyms(); showTab(cfg.tab || 'entry');
+  renderList(); build(); renderStats(); fitView();
 })();
 </script>
 </body>

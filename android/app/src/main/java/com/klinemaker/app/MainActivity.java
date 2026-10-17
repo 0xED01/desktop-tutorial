@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Base64;
+import android.view.View;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -29,6 +30,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         web = new WebView(this);
+        web.setBackgroundColor(0xFF0F1419);
         setContentView(web);
 
         WebSettings s = web.getSettings();
@@ -68,6 +70,16 @@ public class MainActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
     }
 
+    // 返回键先交给网页处理（退出画线、取消修改等），网页不处理再退出
+    @Override
+    public void onBackPressed() {
+        web.evaluateJavascript("window.onAndroidBack ? window.onAndroidBack() : false", new ValueCallback<String>() {
+            public void onReceiveValue(String handled) {
+                if (!"true".equals(handled)) MainActivity.super.onBackPressed();
+            }
+        });
+    }
+
     @Override
     protected void onSaveInstanceState(Bundle out) {
         super.onSaveInstanceState(out);
@@ -82,6 +94,23 @@ public class MainActivity extends Activity {
 
     /** 网页导出 CSV / PNG 时调用，文件保存到手机“下载”目录 */
     class Bridge {
+        @JavascriptInterface
+        public void setTheme(final boolean light) {
+            runOnUiThread(new Runnable() {
+                public void run() {
+                    int c = light ? 0xFFF5F7FA : 0xFF0F1419;
+                    getWindow().setStatusBarColor(c);
+                    getWindow().setNavigationBarColor(c);
+                    if (Build.VERSION.SDK_INT >= 23) {
+                        int f = light ? View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR : 0;
+                        if (light && Build.VERSION.SDK_INT >= 26) f |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+                        getWindow().getDecorView().setSystemUiVisibility(f);
+                    }
+                    web.setBackgroundColor(c);
+                }
+            });
+        }
+
         @JavascriptInterface
         public void saveFile(String name, String mime, String base64) {
             byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
