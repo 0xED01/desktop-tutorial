@@ -1,0 +1,75 @@
+# 用 XcodeGen 生成 Xcode 工程：brew install xcodegen && xcodegen generate
+# 生成后打开 IslandPet.xcodeproj，在 Signing & Capabilities 里选择你自己的 Team。
+name: IslandPet
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    # 改成你自己的 Apple 开发者 Team ID（Xcode 里选择 Team 后会自动填）
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  IslandPet:
+    type: application
+    platform: iOS
+    sources:
+      - App
+      - Shared
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: 灵动岛宠物
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: true
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [com.islandpet.refresh]
+        CFBundleURLTypes:
+          - CFBundleURLName: islandpet
+            CFBundleURLSchemes: [islandpet]
+    settings:
+      base:
+        # 免费 Apple ID 签名时 Bundle ID 必须全球唯一，建议改成 com.你的名字.islandpet
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.islandpet
+        TARGETED_DEVICE_FAMILY: "1"
+    dependencies:
+      - target: IslandPetWidget
+
+  IslandPetWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Widget
+      - Shared
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: 灵动岛宠物
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.islandpet.widget
+        TARGETED_DEVICE_FAMILY: "1"
+
+schemes:
+  IslandPet:
+    build:
+      targets:
+        IslandPet: all
+        IslandPetWidget: all
+    run:
+      config: Debug
+    archive:
+      config: Release

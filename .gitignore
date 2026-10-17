@@ -1,0 +1,6 @@
+IslandPet/*.xcodeproj/
+IslandPet/build/
+IslandPet/App/Info.plist
+IslandPet/Widget/Info.plist
+.DS_Store
+xcuserdata/
