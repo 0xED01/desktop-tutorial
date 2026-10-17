@@ -44,3 +44,9 @@
 | `Watermark/WatermarkSettings.swift` | 水印样式、日期格式等设置 |
 | `Watermark/PhotoSaver.swift` | 带 EXIF 保存到相册 |
 | `Views/` | SwiftUI 界面：取景、预览保存、设置 |
+
+## 网页版（不需要 Mac）
+
+`docs/` 是一个可以“添加到主屏幕”的网页 App（PWA）：实时取景、拍照加玻璃水印、通过分享菜单存进相册。
+用 GitHub Pages 发布：仓库 Settings → Pages → Source 选 “Deploy from a branch”，分支选这个分支、目录选 `/docs`。
+然后在 iPhone 的 Safari 打开网址 → 分享 → 添加到主屏幕。
