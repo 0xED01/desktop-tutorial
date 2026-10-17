@@ -115,14 +115,16 @@ fun HomeScreen(snackbar: SnackbarHostState) {
                 WaterBall(
                     progress = if (goal > 0) total / goal.toFloat() else 0f,
                     modifier = Modifier.width(270.dp).padding(vertical = 8.dp)
-                ) { underwater ->
-                    val main = underwaterColor(underwater, cs.onSurface)
-                    val sub = underwaterColor(underwater, cs.onSurfaceVariant)
+                ) { level ->
+                    // 各行文字在球内的大致高度（自下而上）
+                    val big = underwaterColor(level > 0.50f, cs.onSurface)
+                    val sub = underwaterColor(level > 0.36f, cs.onSurfaceVariant)
+                    val main = underwaterColor(level > 0.30f, cs.onSurface)
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         val pct = if (goal > 0) total * 100 / goal else 0
                         Row(verticalAlignment = Alignment.Bottom) {
-                            Text("$pct", fontSize = 56.sp, fontWeight = FontWeight.Bold, color = main, style = Mono)
-                            Text("%", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = main,
+                            Text("$pct", fontSize = 56.sp, fontWeight = FontWeight.Bold, color = big, style = Mono)
+                            Text("%", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = big,
                                 modifier = Modifier.padding(bottom = 12.dp, start = 2.dp))
                         }
                         Text("$total / $goal ml", color = sub, style = MaterialTheme.typography.bodyMedium.merge(Mono))

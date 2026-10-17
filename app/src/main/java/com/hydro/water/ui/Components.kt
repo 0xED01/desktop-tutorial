@@ -37,12 +37,12 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.sin
 
-/** 圆形水波进度 */
+/** 圆形水波进度；content 拿到当前水位 (0~1)，可按文字所在高度切换颜色 */
 @Composable
 fun WaterBall(
     progress: Float,
     modifier: Modifier = Modifier,
-    content: @Composable BoxScope.(underwater: Boolean) -> Unit,
+    content: @Composable BoxScope.(level: Float) -> Unit,
 ) {
     val p by animateFloatAsState(progress.coerceIn(0f, 1f), tween(1100), label = "level")
     val inf = rememberInfiniteTransition(label = "wave")
@@ -99,7 +99,7 @@ fun WaterBall(
                 )
             }
         }
-        content(p > 0.56f)
+        content(p)
     }
 }
 
