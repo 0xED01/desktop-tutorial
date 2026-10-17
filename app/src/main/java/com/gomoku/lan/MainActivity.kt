@@ -223,7 +223,7 @@ class MainActivity : Activity() {
             background = roundedBg(Palette.SURFACE, dp(16).toFloat(), Palette.HAIRLINE, dp(1))
             setPadding(dp(20), dp(16), dp(20), dp(18))
         }
-        ipCard.addView(label("本机地址", 11f, Palette.MUTED, Fonts.sansMedium, 0.2f))
+        ipCard.addView(label("本机地址", 11f, Palette.MUTED, Fonts.sansMedium, 0.2f), LinearLayout.LayoutParams(WRAP, WRAP))
         val ipText = label("", 22f, Palette.INK, Fonts.sansMedium, 0.04f).apply { gravity = Gravity.CENTER }
         ipCard.addView(ipText, LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = dp(8) })
         body.addView(ipCard, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(28) })
@@ -297,7 +297,7 @@ class MainActivity : Activity() {
             background = roundedBg(Color.TRANSPARENT, dp(16).toFloat(), Palette.HAIRLINE, dp(1))
             setPadding(dp(20), dp(28), dp(20), dp(28))
         }
-        empty.addView(label("正在搜索…", 15f, Palette.INK_SOFT, Fonts.serif))
+        empty.addView(label("正在搜索…", 15f, Palette.INK_SOFT, Fonts.serif), LinearLayout.LayoutParams(WRAP, WRAP))
         empty.addView(label("房主点击「创建房间」后会出现在这里", 12f, Palette.MUTED).apply { gravity = Gravity.CENTER },
             LinearLayout.LayoutParams(WRAP, WRAP).apply { topMargin = dp(8) })
 
@@ -539,13 +539,13 @@ class MainActivity : Activity() {
             LinearLayout.LayoutParams(WRAP, WRAP).apply { leftMargin = dp(8) })
         card.addView(buttons, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(24) })
 
-        scrim.addView(card, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.CENTER).apply {
-            leftMargin = dp(28); rightMargin = dp(28)
+        scrim.addView(card, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM).apply {
+            leftMargin = dp(14); rightMargin = dp(14); bottomMargin = dp(14)
         })
         root.addView(scrim, FrameLayout.LayoutParams(MATCH, MATCH))
         scrim.animate().alpha(1f).setDuration(180).start()
-        card.scaleX = 0.94f; card.scaleY = 0.94f
-        card.animate().scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(DecelerateInterpolator()).start()
+        card.translationY = dp(40).toFloat()
+        card.animate().translationY(0f).setDuration(260).setInterpolator(DecelerateInterpolator()).start()
 
         val onCancel = onSecondary
         handle = DialogHandle(cancelable, cancel = { close(onCancel) }, dismiss = { close(null) })

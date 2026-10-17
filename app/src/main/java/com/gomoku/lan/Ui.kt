@@ -239,8 +239,8 @@ class HeroView(ctx: Context) : View(ctx) {
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         fade.shader = RadialGradient(
-            w / 2f, h / 2f, minOf(w, h) * 0.55f,
-            intArrayOf(Color.BLACK, Color.BLACK, Color.TRANSPARENT), floatArrayOf(0f, 0.55f, 1f),
+            w / 2f, h / 2f, minOf(w, h) * 0.5f,
+            intArrayOf(Color.BLACK, Color.BLACK, Color.TRANSPARENT), floatArrayOf(0f, 0.45f, 1f),
             Shader.TileMode.CLAMP,
         )
     }

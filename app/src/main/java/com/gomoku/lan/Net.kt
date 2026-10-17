@@ -223,7 +223,7 @@ class Scanner(ctx: Context, private val onRooms: (List<Room>) -> Unit) {
                 while (!stopped) {
                     val pkt = DatagramPacket(buf, buf.size)
                     sock.receive(pkt)
-                    val parts = String(pkt.data, 0, pkt.length, Charsets.UTF_8).split('|')
+                    val parts = String(pkt.data, 0, pkt.length, Charsets.UTF_8).trim().split('|')
                     if (parts.size < 3 || parts[0] != PROTO) continue
                     val ip = pkt.address?.hostAddress ?: continue
                     val port = parts[2].toIntOrNull() ?: continue

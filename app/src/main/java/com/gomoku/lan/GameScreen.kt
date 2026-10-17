@@ -82,7 +82,7 @@ class GameScreen(
         againBtn = act.pill("再来一局", PillStyle.PRIMARY) { requestAgain() }
         actions.addView(undoBtn, LinearLayout.LayoutParams(0, WRAP, 1f))
         actions.addView(resignBtn, LinearLayout.LayoutParams(0, WRAP, 1f).apply { leftMargin = act.dp(12) })
-        actions.addView(againBtn, LinearLayout.LayoutParams(0, WRAP, 1f).apply { leftMargin = act.dp(12) })
+        actions.addView(againBtn, LinearLayout.LayoutParams(0, WRAP, 1f))
         col.addView(actions, LinearLayout.LayoutParams(MATCH, WRAP))
         view = col
     }
