@@ -85,7 +85,7 @@ import com.shiji.footprint.ui.theme.Indigo
 import com.shiji.footprint.ui.theme.Mint
 import com.shiji.footprint.ui.theme.Rose
 import com.shiji.footprint.util.Fmt
-import com.shiji.footprint.util.Gpx
+import com.shiji.footprint.util.TrackImport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -126,10 +126,10 @@ fun SettingsScreen(recorder: RecordController) {
         Toast.makeText(ctx, "正在导入…", Toast.LENGTH_SHORT).show()
         scope.launch {
             val segs = withContext(Dispatchers.IO) {
-                runCatching { ctx.contentResolver.openInputStream(uri)?.use { Gpx.parse(it) } }.getOrNull()
+                runCatching { ctx.contentResolver.openInputStream(uri)?.use { TrackImport.parse(it) } }.getOrNull()
             }
             if (segs.isNullOrEmpty()) {
-                Toast.makeText(ctx, "未能读取轨迹，请选择 GPX 文件", Toast.LENGTH_LONG).show()
+                Toast.makeText(ctx, "未能读取轨迹，请选择 GPX 或 CSV 文件（CSV 需包含经纬度列）", Toast.LENGTH_LONG).show()
             } else {
                 Repository.importSegments(segs) { n ->
                     Toast.makeText(ctx, "导入完成，新增 $n 个足迹点", Toast.LENGTH_LONG).show()
@@ -250,7 +250,7 @@ fun SettingsScreen(recorder: RecordController) {
             SettingRow(Icons.Rounded.FileUpload, Indigo, "导出 GPX", "备份全部足迹，可导入其他应用") {
                 exportLauncher.launch("拾迹足迹_${LocalDate.now()}.gpx")
             }
-            SettingRow(Icons.Rounded.FileDownload, Mint, "导入 GPX", "从其他足迹 / 运动应用导入轨迹") {
+            SettingRow(Icons.Rounded.FileDownload, Mint, "导入轨迹", "支持 GPX、CSV（含一生足迹等导出格式）") {
                 importLauncher.launch(arrayOf("*/*"))
             }
             SettingRow(Icons.Rounded.DeleteOutline, Rose, "清除所有数据", "删除全部足迹，不可恢复") {
@@ -261,7 +261,7 @@ fun SettingsScreen(recorder: RecordController) {
 
         SectionCard(title = "关于") {
             SettingRow(Icons.Rounded.Cloud, Indigo, "数据仅保存在本机", "足迹不会上传到任何服务器，地名解析除外", trailing = "")
-            SettingRow(Icons.Rounded.Info, Mint, "版本", "拾迹 1.0.0 · 地图数据 © 高德 / OpenStreetMap / CARTO", trailing = "")
+            SettingRow(Icons.Rounded.Info, Mint, "版本", "拾迹 1.1.0 · 地图数据 © 高德 / OpenStreetMap / CARTO", trailing = "")
         }
     }
 
