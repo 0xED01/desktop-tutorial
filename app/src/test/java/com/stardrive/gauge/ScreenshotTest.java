@@ -19,7 +19,7 @@ import java.time.Duration;
 /** Renders key screens to PNG files under build/screens for visual review. */
 @RunWith(RobolectricTestRunner.class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = 34, qualifiers = "w400dp-h860dp-port-xhdpi")
+@Config(sdk = 34, qualifiers = "w860dp-h400dp-land-xhdpi")
 public class ScreenshotTest {
     private static final File OUT = new File("build/screens");
 
@@ -42,12 +42,12 @@ public class ScreenshotTest {
             public void onSplashDone() {}
             public void onNeedlePeak() {}
         });
-        save(v, 800, 1720, "splash_0");
+        save(v, 1720, 800, "splash_0");
         long prev = 0;
         for (long ms : new long[]{700, 1300, 2000, 2400, 3300, 4100}) {
             ShadowSystemClock.advanceBy(Duration.ofMillis(ms - prev));
             prev = ms;
-            save(v, 800, 1720, "splash_" + ms);
+            save(v, 1720, 800, "splash_" + ms);
         }
     }
 
@@ -79,14 +79,6 @@ public class ScreenshotTest {
     }
 
     @Test
-    public void mainPortrait() throws Exception {
-        MainActivity m = Robolectric.buildActivity(MainActivity.class).setup().get();
-        View root = m.findViewById(R.id.root);
-        save(root, 800, 1720, "main_port");
-    }
-
-    @Test
-    @Config(qualifiers = "w860dp-h400dp-land-xhdpi")
     public void mainLandscape() throws Exception {
         MainActivity m = Robolectric.buildActivity(MainActivity.class).setup().get();
         View root = m.findViewById(R.id.root);

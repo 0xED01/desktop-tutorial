@@ -4,9 +4,7 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.SharedPreferences;
-import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
-import android.content.res.Configuration;
 import android.graphics.drawable.GradientDrawable;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -59,7 +57,7 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
     private float atResult;
 
     private SharedPreferences prefs;
-    private int accentIdx, style, unit, limit, scaleIdx, orient;
+    private int accentIdx, style, unit, limit, scaleIdx;
     private boolean demo, fullscreen, mirror, askedPerm, hasPermission, gpsHeading;
 
     private GaugeView gauge;
@@ -99,12 +97,7 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
             stateLoaded = true;
         }
         loadPrefs();
-        applyOrientation();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        if (Build.VERSION.SDK_INT >= 28) {
-            getWindow().getAttributes().layoutInDisplayCutoutMode =
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
-        }
         setContentView(R.layout.activity_main);
 
         gauge = findViewById(R.id.gauge);
@@ -173,7 +166,7 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus && fullscreen) setSystemBarsHidden(true);
+        if (hasFocus) setSystemBarsHidden(true);
     }
 
     @Override
@@ -196,18 +189,10 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
         limit = prefs.getInt("limit", 0);
         scaleIdx = prefs.getInt("scale", 1);
         demo = prefs.getBoolean("demo", false);
-        orient = prefs.getInt("orient", 0);
     }
 
     private void saveTotals() {
         prefs.edit().putLong("odo", Double.doubleToLongBits(odoM)).putFloat("best", best0100).apply();
-    }
-
-    private void applyOrientation() {
-        int o = orient == 1 ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                : orient == 2 ? ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                : ActivityInfo.SCREEN_ORIENTATION_FULL_USER;
-        if (getRequestedOrientation() != o) setRequestedOrientation(o);
     }
 
     private int accent() {
@@ -267,16 +252,12 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
 
     private void buildInfoGrid() {
         LinearLayout grid = findViewById(R.id.info_grid);
-        boolean land = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
         String[] names = {"本次里程", "行驶时间", "平均速度", "最高速度", "海拔",
                 "方向", "G 值 / 峰值", "总里程", "0-100 最佳"};
         for (int r = 0; r < 3; r++) {
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
-            grid.addView(row, land
-                    ? new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
-                    : new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT));
+            grid.addView(row, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
             for (int col = 0; col < 3; col++) {
                 int i = r * 3 + col;
                 LinearLayout cell = new LinearLayout(this);
@@ -320,7 +301,7 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
 
     private void buildButtons() {
         LinearLayout bar = findViewById(R.id.button_bar);
-        String[] names = {"全屏", "HUD", "0-100", "风格", "重置", "设置"};
+        String[] names = {"大表盘", "HUD", "0-100", "风格", "重置", "设置"};
         Runnable[] actions = {
                 this::toggleFullscreen, this::toggleMirror, this::toggleSprint,
                 this::cycleStyle, this::confirmReset, this::showSettings
@@ -363,7 +344,7 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
 
             @Override
             public boolean onSingleTapConfirmed(MotionEvent e) {
-                if (fullscreen) toast("双击退出全屏 · 长按切换 HUD 镜像");
+                if (fullscreen) toast("双击退出大表盘 · 长按切换 HUD 镜像");
                 return true;
             }
         });
@@ -375,7 +356,7 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
     private void toggleFullscreen() {
         fullscreen = !fullscreen;
         applyFullscreen();
-        if (fullscreen) toast("全屏码表 · 双击退出");
+        if (fullscreen) toast("大表盘模式 · 双击或按返回键退出");
     }
 
     private void applyFullscreen() {
@@ -385,7 +366,7 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
             if (v != null) v.setVisibility(vis);
         }
         gauge.setExtras(fullscreen);
-        setSystemBarsHidden(fullscreen);
+        setSystemBarsHidden(true);
     }
 
     @SuppressWarnings("deprecation")
@@ -463,7 +444,6 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
                 "超速提醒：" + (limit == 0 ? "关闭" : limit + " " + speedUnit()),
                 "表盘量程：0 - " + Cfg.SCALES[unit][scaleIdx],
                 "演示模式：" + (demo ? "开启" : "关闭"),
-                "屏幕方向：" + Cfg.ORIENT_NAMES[orient],
                 "重置总里程",
                 "使用说明"
         };
@@ -520,13 +500,6 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
                             toast(demo ? "演示模式已开启：模拟驾驶数据" : "演示模式已关闭，使用 GPS 车速");
                             break;
                         case 6:
-                            choose("屏幕方向", Cfg.ORIENT_NAMES, orient, i -> {
-                                orient = i;
-                                prefs.edit().putInt("orient", i).apply();
-                                applyOrientation();
-                            });
-                            break;
-                        case 7:
                             new AlertDialog.Builder(this, DIALOG_THEME)
                                     .setTitle("重置总里程")
                                     .setMessage("确定将总里程清零吗？")
@@ -561,7 +534,7 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
         new AlertDialog.Builder(this, DIALOG_THEME)
                 .setTitle("使用说明")
                 .setMessage("• 车速来自手机 GPS，请在室外开阔处使用并允许定位权限。\n\n"
-                        + "• 双击码表：进入 / 退出全屏码表。\n"
+                        + "• 全程横屏全屏显示。双击码表：进入 / 退出大表盘（只显示码表）。\n"
                         + "• 长按码表：HUD 镜像模式（手机放在挡风玻璃下，通过反射看车速）。\n"
                         + "• 风格：经典指针 / 运动光环 / HUD 数字 三种表盘。\n"
                         + "• 0-100：点一下进入加速测试，停车后起步自动计时，到 100 km/h 自动出成绩。长按“最佳”格子可清除成绩。\n"

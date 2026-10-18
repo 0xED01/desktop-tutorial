@@ -17,7 +17,6 @@ final class Cfg {
     };
 
     static final String[] STYLE_NAMES = {"经典指针", "运动光环", "HUD 数字"};
-    static final String[] ORIENT_NAMES = {"自动旋转", "锁定横屏", "锁定竖屏"};
     static final int[] LIMITS = {0, 40, 60, 80, 100, 120, 130, 140};
     /** Dial range per unit (km/h, mph). */
     static final int[][] SCALES = {{180, 260, 320}, {120, 160, 200}};
