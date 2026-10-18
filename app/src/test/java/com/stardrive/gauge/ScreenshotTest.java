@@ -58,7 +58,6 @@ public class ScreenshotTest {
             GaugeView g = new GaugeView(a);
             g.setStyle(style);
             g.setLimit(120);
-            g.setMax(156);
             g.setNote(style == 1 ? "0-100 · 6.84s" : null);
             g.setSpeed(98);
             g.setAccent(Cfg.ACCENTS[style == 1 ? 1 : 0]);
@@ -68,7 +67,7 @@ public class ScreenshotTest {
                 save(g, 800, 800, "gauge_" + style);
             }
             g.setExtras(true);
-            g.setCorners("21:08:45", "GPS ● 14/22", "TRIP 23.4 km", "AVG 64 · 东北 45°");
+            g.setCorners("21:08:45", "", "", "");
             g.setSpeed(132);
             for (int i = 0; i < 40; i++) {
                 ShadowSystemClock.advanceBy(Duration.ofMillis(100));
@@ -83,5 +82,13 @@ public class ScreenshotTest {
         MainActivity m = Robolectric.buildActivity(MainActivity.class).setup().get();
         View root = m.findViewById(R.id.root);
         save(root, 1720, 800, "main_land");
+    }
+
+    @Test
+    public void mainPanel() throws Exception {
+        org.robolectric.RuntimeEnvironment.getApplication()
+                .getSharedPreferences(Cfg.PREFS, 0).edit().putBoolean("bigDefault", false).commit();
+        MainActivity m = Robolectric.buildActivity(MainActivity.class).setup().get();
+        save(m.findViewById(R.id.root), 1720, 800, "main_panel");
     }
 }

@@ -24,7 +24,7 @@ public class GaugeView extends View {
     private int style = STYLE_CLASSIC;
     private int accent = Cfg.ACCENTS[0];
     private float maxScale = 260f;
-    private float target, shown, maxReached, limit;
+    private float target, shown, limit;
     private boolean overspeed, extras;
     private String unit = "km/h", note;
     private String tl = "", tr = "", bl = "", br = "";
@@ -61,13 +61,6 @@ public class GaugeView extends View {
     public void setSpeed(float v) {
         target = Math.max(0f, v);
         invalidate();
-    }
-
-    public void setMax(float v) {
-        if (v != maxReached) {
-            maxReached = v;
-            invalidate();
-        }
     }
 
     public void setStyle(int s) {
@@ -272,8 +265,7 @@ public class GaugeView extends View {
         c.drawCircle(cx, cy, R * 0.052f, stroke);
 
         // texts
-        logo.draw(c, cx, cy - R * 0.43f, R * 0.085f);
-        drawTopNote(c, acc, cy - R * 0.25f, R * 0.058f);
+        logo.draw(c, cx, cy - R * 0.36f, R * 0.15f);
 
         text.setLetterSpacing(0f);
         text.setTypeface(thin);
@@ -284,18 +276,9 @@ public class GaugeView extends View {
         text.setTextSize(R * 0.07f);
         text.setColor(acc);
         c.drawText(unit, cx, cy + R * 0.60f, text);
-        drawBrand(c, cy + R * 0.73f, R * 0.05f);
+        drawNote(c, acc, cy + R * 0.73f, R * 0.058f);
 
         drawOverspeedRing(c, now, R * 0.995f);
-    }
-
-    private void drawBrand(Canvas c, float y, float size) {
-        text.setTypeface(light);
-        text.setTextSize(size);
-        text.setLetterSpacing(0.12f);
-        text.setColor(0xFFC4CAD0);
-        c.drawText("Mercedes-Benz", getWidth() / 2f, y, text);
-        text.setLetterSpacing(0f);
     }
 
     private void drawSport(Canvas c, int acc, long now) {
@@ -346,12 +329,7 @@ public class GaugeView extends View {
             c.drawLine(px(deg, R * 0.75f), py(deg, R * 0.75f), px(deg, R * 0.95f), py(deg, R * 0.95f), stroke);
         }
 
-        text.setTypeface(cond);
-        text.setTextSize(R * 0.06f);
-        text.setLetterSpacing(0.4f);
-        text.setColor(acc);
-        c.drawText("SPORT+", cx, cy - R * 0.28f, text);
-        logo.draw(c, cx, cy - R * 0.45f, R * 0.08f);
+        logo.draw(c, cx, cy - R * 0.40f, R * 0.14f);
 
         text.setLetterSpacing(0f);
         text.setTypeface(thin);
@@ -362,8 +340,7 @@ public class GaugeView extends View {
         text.setTextSize(R * 0.075f);
         text.setColor(acc);
         c.drawText(unit, cx, cy + R * 0.29f, text);
-        drawTopNote(c, acc, cy + R * 0.48f, R * 0.058f);
-        drawBrand(c, cy + R * 0.62f, R * 0.05f);
+        drawNote(c, acc, cy + R * 0.48f, R * 0.058f);
 
         drawOverspeedRing(c, now, R * 0.995f);
     }
@@ -407,19 +384,8 @@ public class GaugeView extends View {
             float lx = bx + bw * frac(limit);
             c.drawRect(lx - bh * 0.3f, by - bh, lx + bh * 0.3f, by + bh * 2, fill);
         }
-        float lr = Math.min(w, h) * 0.045f;
-        text.setTypeface(light);
-        text.setTextSize(lr * 0.9f);
-        text.setLetterSpacing(0.12f);
-        float bw2 = text.measureText("Mercedes-Benz");
-        float gx = w / 2f - (bw2 + lr * 2.6f) / 2f;
-        logo.draw(c, gx + lr, h * 0.08f, lr);
-        text.setColor(0xFFC4CAD0);
-        text.setTextAlign(Paint.Align.LEFT);
-        c.drawText("Mercedes-Benz", gx + lr * 2.6f, h * 0.08f + lr * 0.32f, text);
-        text.setTextAlign(Paint.Align.CENTER);
-        text.setLetterSpacing(0f);
-        drawTopNote(c, acc, h * 0.19f, Math.min(w, h) * 0.045f);
+        logo.draw(c, w / 2f, h * 0.11f, Math.min(w, h) * 0.075f);
+        drawNote(c, acc, h * 0.24f, Math.min(w, h) * 0.045f);
 
         if (overspeed) {
             float p = 0.5f + 0.5f * (float) Math.sin(now * 0.012);
@@ -430,18 +396,14 @@ public class GaugeView extends View {
         }
     }
 
-    /** Small line above/below the digits: 0-100 timer if active, otherwise max speed. */
-    private void drawTopNote(Canvas c, int acc, float y, float size) {
+    /** 0-100 timer status line; drawn only while a sprint test is active. */
+    private void drawNote(Canvas c, int acc, float y, float size) {
+        if (note == null) return;
         text.setTypeface(cond);
         text.setTextSize(size);
         text.setLetterSpacing(0.12f);
-        if (note != null) {
-            text.setColor(acc);
-            c.drawText(note, getWidth() / 2f, y, text);
-        } else {
-            text.setColor(0xFF8E959C);
-            c.drawText("MAX " + Math.round(maxReached), getWidth() / 2f, y, text);
-        }
+        text.setColor(acc);
+        c.drawText(note, getWidth() / 2f, y, text);
         text.setLetterSpacing(0f);
     }
 

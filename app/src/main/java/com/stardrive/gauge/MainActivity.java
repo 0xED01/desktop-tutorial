@@ -61,11 +61,10 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
     private boolean demo, fullscreen, mirror, askedPerm, hasPermission, gpsHeading;
 
     private GaugeView gauge;
-    private TextView tvClock, tvGps, tvHeading;
-    private final TextView[] values = new TextView[9];
-    private final TextView[] labels = new TextView[9];
-    private final View[] cells = new View[9];
-    private final TextView[] buttons = new TextView[6];
+    private TextView tvClock, tvGps;
+    private final TextView[] values = new TextView[4];
+    private final TextView[] labels = new TextView[4];
+    private final TextView[] buttons = new TextView[4];
 
     private LocationManager lm;
     private SensorManager sm;
@@ -103,7 +102,6 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
         gauge = findViewById(R.id.gauge);
         tvClock = findViewById(R.id.tv_clock);
         tvGps = findViewById(R.id.tv_gps);
-        tvHeading = findViewById(R.id.tv_heading);
         buildInfoGrid();
         buildButtons();
         setupGestures();
@@ -115,7 +113,9 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
         } catch (RuntimeException e) {
             tone = null;
         }
-        if (saved != null) {
+        if (saved == null) {
+            fullscreen = prefs.getBoolean("bigDefault", true);
+        } else {
             fullscreen = saved.getBoolean("fs");
             mirror = saved.getBoolean("mirror");
             atState = saved.getInt("at");
@@ -217,10 +217,8 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
         gauge.setUnit(speedUnit());
         gauge.setMaxScale(Cfg.SCALES[unit][scaleIdx]);
         gauge.setLimit(limit);
-        gauge.setMax(toDisplay(maxMs));
         gauge.setSpeed(toDisplay(speedMs));
-        labels[8].setText(sprintLabel() + " 最佳");
-        buttons[2].setText(sprintLabel());
+        buttons[1].setText(sprintLabel());
         int acc = accent();
         for (TextView b : buttons) b.setBackground(buttonBg(acc));
         for (TextView l : labels) l.setTextColor(acc);
@@ -252,14 +250,13 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
 
     private void buildInfoGrid() {
         LinearLayout grid = findViewById(R.id.info_grid);
-        String[] names = {"本次里程", "行驶时间", "平均速度", "最高速度", "海拔",
-                "方向", "G 值 / 峰值", "总里程", "0-100 最佳"};
-        for (int r = 0; r < 3; r++) {
+        String[] names = {"本次里程", "行驶时间", "平均速度", "最高速度"};
+        for (int r = 0; r < 2; r++) {
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             grid.addView(row, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
-            for (int col = 0; col < 3; col++) {
-                int i = r * 3 + col;
+            for (int col = 0; col < 2; col++) {
+                int i = r * 2 + col;
                 LinearLayout cell = new LinearLayout(this);
                 cell.setOrientation(LinearLayout.VERTICAL);
                 cell.setGravity(Gravity.CENTER);
@@ -267,13 +264,13 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
                 cell.setBackground(cellBg());
                 TextView v = new TextView(this);
                 v.setTextColor(0xFFF2F4F6);
-                v.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
+                v.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
                 v.setTypeface(android.graphics.Typeface.create("sans-serif-light", 0));
                 v.setSingleLine(true);
                 v.setGravity(Gravity.CENTER);
                 v.setText("--");
                 TextView l = new TextView(this);
-                l.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+                l.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
                 l.setTypeface(android.graphics.Typeface.create("sans-serif-condensed", 0));
                 l.setText(names[i]);
                 l.setSingleLine(true);
@@ -286,26 +283,14 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
                 row.addView(cell, lp);
                 values[i] = v;
                 labels[i] = l;
-                cells[i] = cell;
             }
         }
-        // long-press the 0-100 cell to clear the best time
-        cells[8].setOnLongClickListener(v -> {
-            best0100 = 0;
-            saveTotals();
-            updatePanels();
-            toast("已清除最佳成绩");
-            return true;
-        });
     }
 
     private void buildButtons() {
         LinearLayout bar = findViewById(R.id.button_bar);
-        String[] names = {"大表盘", "HUD", "0-100", "风格", "重置", "设置"};
-        Runnable[] actions = {
-                this::toggleFullscreen, this::toggleMirror, this::toggleSprint,
-                this::cycleStyle, this::confirmReset, this::showSettings
-        };
+        String[] names = {"大表盘", "0-100", "风格", "设置"};
+        Runnable[] actions = {this::toggleFullscreen, this::toggleSprint, this::cycleStyle, this::showSettings};
         for (int i = 0; i < names.length; i++) {
             TextView b = new TextView(this);
             b.setText(names[i]);
@@ -429,7 +414,6 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
                     movingMs = 0;
                     maxMs = 0;
                     gPeak = 0;
-                    gauge.setMax(0);
                     updatePanels();
                 })
                 .setNegativeButton("取消", null)
@@ -437,11 +421,16 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
     }
 
     private void showSettings() {
+        boolean bigDefault = prefs.getBoolean("bigDefault", true);
         String[] items = {
-                "单位：" + speedUnit(),
-                "氛围灯颜色：" + Cfg.ACCENT_NAMES[accentIdx],
+                "启动默认大码表：" + (bigDefault ? "开启" : "关闭"),
                 "表盘风格：" + Cfg.STYLE_NAMES[style],
+                "氛围灯颜色：" + Cfg.ACCENT_NAMES[accentIdx],
                 "超速提醒：" + (limit == 0 ? "关闭" : limit + " " + speedUnit()),
+                "HUD 镜像：" + (mirror ? "开启" : "关闭"),
+                "更多行车数据",
+                "重置本次行程",
+                "单位：" + speedUnit(),
                 "表盘量程：0 - " + Cfg.SCALES[unit][scaleIdx],
                 "演示模式：" + (demo ? "开启" : "关闭"),
                 "重置总里程",
@@ -452,21 +441,19 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
                 .setItems(items, (d, which) -> {
                     switch (which) {
                         case 0:
-                            choose("单位", new String[]{"公制 km/h", "英制 mph"}, unit, i -> {
-                                unit = i;
-                                prefs.edit().putInt("unit", i).apply();
-                            });
+                            prefs.edit().putBoolean("bigDefault", !bigDefault).apply();
+                            toast(!bigDefault ? "已开启：打开软件直接进入大码表" : "已关闭：打开软件进入主界面");
                             break;
                         case 1:
-                            choose("氛围灯颜色", Cfg.ACCENT_NAMES, accentIdx, i -> {
-                                accentIdx = i;
-                                prefs.edit().putInt("accent", i).apply();
-                            });
-                            break;
-                        case 2:
                             choose("表盘风格", Cfg.STYLE_NAMES, style, i -> {
                                 style = i;
                                 prefs.edit().putInt("style", i).apply();
+                            });
+                            break;
+                        case 2:
+                            choose("氛围灯颜色", Cfg.ACCENT_NAMES, accentIdx, i -> {
+                                accentIdx = i;
+                                prefs.edit().putInt("accent", i).apply();
                             });
                             break;
                         case 3: {
@@ -482,7 +469,22 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
                             });
                             break;
                         }
-                        case 4: {
+                        case 4:
+                            toggleMirror();
+                            break;
+                        case 5:
+                            showTripDetails();
+                            break;
+                        case 6:
+                            confirmReset();
+                            break;
+                        case 7:
+                            choose("单位", new String[]{"公制 km/h", "英制 mph"}, unit, i -> {
+                                unit = i;
+                                prefs.edit().putInt("unit", i).apply();
+                            });
+                            break;
+                        case 8: {
                             int[] sc = Cfg.SCALES[unit];
                             String[] opts = new String[sc.length];
                             for (int k = 0; k < sc.length; k++) opts[k] = "0 - " + sc[k] + " " + speedUnit();
@@ -492,21 +494,20 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
                             });
                             break;
                         }
-                        case 5:
+                        case 9:
                             demo = !demo;
                             prefs.edit().putBoolean("demo", demo).apply();
                             demoSpeed = demo ? speedMs : 0;
                             if (!demo) onSpeedSample(0, 0);
                             toast(demo ? "演示模式已开启：模拟驾驶数据" : "演示模式已关闭，使用 GPS 车速");
                             break;
-                        case 6:
+                        case 10:
                             new AlertDialog.Builder(this, DIALOG_THEME)
                                     .setTitle("重置总里程")
                                     .setMessage("确定将总里程清零吗？")
                                     .setPositiveButton("清零", (d2, w2) -> {
                                         odoM = 0;
                                         saveTotals();
-                                        updatePanels();
                                     })
                                     .setNegativeButton("取消", null)
                                     .show();
@@ -514,6 +515,29 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
                         default:
                             showHelp();
                     }
+                })
+                .show();
+    }
+
+    private void showTripDetails() {
+        boolean metric = unit == 0;
+        double distF = metric ? 1 / 1000.0 : 1 / 1609.344;
+        String alt = Double.isNaN(altitude) ? "--"
+                : metric ? String.format(Locale.US, "%d m", Math.round(altitude))
+                : String.format(Locale.US, "%d ft", Math.round(altitude * 3.28084));
+        String msg = String.format(Locale.US,
+                "海拔：%s\n方向：%s %d°\nG 值 / 峰值：%.2f / %.2f\n总里程：%.1f %s\n%s 最佳：%s\nGPS：%s",
+                alt, direction(heading), Math.round(heading) % 360, gNow, gPeak,
+                odoM * distF, metric ? "km" : "mi", sprintLabel(),
+                best0100 > 0 ? String.format(Locale.US, "%.2f 秒", best0100) : "--", gpsStatus());
+        new AlertDialog.Builder(this, DIALOG_THEME)
+                .setTitle("更多行车数据")
+                .setMessage(msg)
+                .setPositiveButton("关闭", null)
+                .setNeutralButton("清除最佳成绩", (d, w) -> {
+                    best0100 = 0;
+                    saveTotals();
+                    toast("已清除最佳成绩");
                 })
                 .show();
     }
@@ -534,10 +558,10 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
         new AlertDialog.Builder(this, DIALOG_THEME)
                 .setTitle("使用说明")
                 .setMessage("• 车速来自手机 GPS，请在室外开阔处使用并允许定位权限。\n\n"
-                        + "• 全程横屏全屏显示。双击码表：进入 / 退出大表盘（只显示码表）。\n"
+                        + "• 全程横屏全屏显示，默认打开就是大码表（可在设置中关闭）。双击码表：进入 / 退出大表盘。\n"
                         + "• 长按码表：HUD 镜像模式（手机放在挡风玻璃下，通过反射看车速）。\n"
                         + "• 风格：经典指针 / 运动光环 / HUD 数字 三种表盘。\n"
-                        + "• 0-100：点一下进入加速测试，停车后起步自动计时，到 100 km/h 自动出成绩。长按“最佳”格子可清除成绩。\n"
+                        + "• 0-100：点一下进入加速测试，停车后起步自动计时，到 100 km/h 自动出成绩。成绩可在 设置 → 更多行车数据 中查看和清除。\n"
                         + "• 超速提醒：超过设定车速时表盘闪红并发出提示音、震动。\n"
                         + "• 氛围灯颜色：8 种氛围灯配色。\n"
                         + "• 演示模式：无 GPS 时模拟驾驶，用于体验效果。\n\n"
@@ -667,7 +691,6 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
         prevMs = ms;
         prevAt = now;
         gauge.setSpeed(toDisplay(ms));
-        gauge.setMax(toDisplay(maxMs));
         checkOverspeed(now);
     }
 
@@ -818,22 +841,12 @@ public class MainActivity extends Activity implements LocationListener, SensorEv
         values[1].setText(String.format(Locale.US, "%02d:%02d:%02d", s / 3600, (s / 60) % 60, s % 60));
         values[2].setText(String.format(Locale.US, "%d %s", Math.round(toDisplay(avgMs)), speedUnit()));
         values[3].setText(String.format(Locale.US, "%d %s", Math.round(toDisplay(maxMs)), speedUnit()));
-        values[4].setText(Double.isNaN(altitude) ? "--"
-                : metric ? String.format(Locale.US, "%d m", Math.round(altitude))
-                : String.format(Locale.US, "%d ft", Math.round(altitude * 3.28084)));
-        values[5].setText(String.format(Locale.US, "%s %d°", direction(heading), Math.round(heading) % 360));
-        values[6].setText(String.format(Locale.US, "%.2f / %.2f", gNow, gPeak));
-        values[7].setText(String.format(Locale.US, "%.1f %s", odoM * distF, du));
-        values[8].setText(best0100 > 0 ? String.format(Locale.US, "%.2f s", best0100) : "--");
 
         String clock = clockFmt.format(new Date());
         String gps = gpsStatus();
         tvClock.setText(clock);
         tvGps.setText(gps);
-        tvHeading.setText("▲ " + direction(heading) + " " + Math.round(heading) % 360 + "°");
-        gauge.setCorners(clock, gps,
-                String.format(Locale.US, "TRIP %.1f %s", tripM * distF, du),
-                String.format(Locale.US, "AVG %d · %s %d°", Math.round(toDisplay(avgMs)),
-                        direction(heading), Math.round(heading) % 360));
+        // big dial: only the clock, plus a GPS warning while there is no fix
+        gauge.setCorners(clock, gps.startsWith("GPS ●") ? "" : gps, "", "");
     }
 }
