@@ -5,10 +5,9 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RadialGradient;
-import android.graphics.RectF;
 import android.graphics.Shader;
-import android.graphics.SweepGradient;
 import android.graphics.Typeface;
 import android.os.SystemClock;
 import android.view.View;
@@ -16,31 +15,31 @@ import android.view.View;
 import java.util.Random;
 
 /**
- * Startup animation: light streaks converge, the chrome bezel draws itself,
- * ticks light up, the needle does a full sweep and the title fades in with a shine.
+ * Startup animation: light streaks converge, the logo ring draws itself while a halo of
+ * ticks lights up, the star spins into place, a light sweep crosses the emblem and the
+ * Mercedes-Benz lettering fades in with a shine.
  */
 public class SplashView extends View {
     public interface Listener {
         void onSplashDone();
-        void onNeedlePeak();
+        void onLogoLanded();
     }
 
-    private static final float START = 135f, SWEEP = 270f, MAX = 260f;
     private static final float TOTAL = 5.0f;
-    private static final int STREAKS = 70;
+    private static final int STREAKS = 70, HALO_TICKS = 72;
 
     private final int accent;
     private final Listener listener;
     private long t0;
-    private boolean done, peaked;
+    private boolean done, landed;
 
+    private final StarLogo logo = new StarLogo();
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint chrome = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final RectF oval = new RectF();
+    private final Path clip = new Path();
     private final float[] sAng = new float[STREAKS], sDelay = new float[STREAKS], sLen = new float[STREAKS];
-    private final Typeface thin, light, cond;
+    private final Typeface light, cond;
     private float cx, cy, R;
 
     public SplashView(Context c, int accent, Listener l) {
@@ -48,10 +47,7 @@ public class SplashView extends View {
         this.accent = accent;
         this.listener = l;
         stroke.setStyle(Paint.Style.STROKE);
-        chrome.setStyle(Paint.Style.STROKE);
-        chrome.setStrokeCap(Paint.Cap.ROUND);
         text.setTextAlign(Paint.Align.CENTER);
-        thin = Typeface.create("sans-serif-thin", Typeface.NORMAL);
         light = Typeface.create("sans-serif-light", Typeface.NORMAL);
         cond = Typeface.create("sans-serif-condensed", Typeface.NORMAL);
         Random r = new Random(7);
@@ -71,12 +67,9 @@ public class SplashView extends View {
 
     @Override
     protected void onSizeChanged(int w, int h, int ow, int oh) {
-        R = Math.min(w * 0.34f, h * 0.27f);
+        R = Math.min(w * 0.2f, h * 0.22f);
         cx = w / 2f;
-        cy = h * 0.40f;
-        chrome.setShader(new SweepGradient(cx, cy,
-                new int[]{0xFF4A4D52, 0xFFF2F4F6, 0xFF5C6066, 0xFFD9DDE1,
-                        0xFF3E4146, 0xFFECEFF2, 0xFF4A4D52}, null));
+        cy = h * 0.38f;
     }
 
     private static float clamp(float v) {
@@ -92,8 +85,9 @@ public class SplashView extends View {
         return 1 - q * q * q;
     }
 
-    private static float easeInOut(float p) {
-        return p < 0.5f ? 4 * p * p * p : 1 - (float) Math.pow(-2 * p + 2, 3) / 2;
+    private static float easeOutBack(float p) {
+        float c1 = 1.70158f, c3 = c1 + 1f, q = p - 1f;
+        return 1 + c3 * q * q * q + c1 * q * q;
     }
 
     private static int alpha(int color, float a) {
@@ -117,11 +111,11 @@ public class SplashView extends View {
         c.drawColor(Color.BLACK);
         if (R <= 0) return;
 
-        // ambient glow behind the dial
+        // ambient glow behind the emblem
         float glow = phase(t, 0.3f, 1.6f) * (1f - 0.4f * phase(t, 3.2f, 4.2f));
         if (glow > 0) {
-            fill.setShader(new RadialGradient(cx, cy, R * 2.2f,
-                    new int[]{alpha(accent, 0.22f * glow), alpha(accent, 0.06f * glow), 0},
+            fill.setShader(new RadialGradient(cx, cy, R * 3f,
+                    new int[]{alpha(accent, 0.24f * glow), alpha(accent, 0.06f * glow), 0},
                     new float[]{0f, 0.45f, 1f}, Shader.TileMode.CLAMP));
             c.drawRect(0, 0, w, h, fill);
             fill.setShader(null);
@@ -133,139 +127,102 @@ public class SplashView extends View {
         for (int i = 0; i < STREAKS; i++) {
             float p = phase(t, sDelay[i], sDelay[i] + 0.9f);
             if (p <= 0 || p >= 1) continue;
-            float e = p * p;
-            float head = far * 0.7f + (R * 1.02f - far * 0.7f) * e;
+            float head = far * 0.7f + (R * 1.4f - far * 0.7f) * p * p;
             float tail = head + far * sLen[i] * (1 - p);
-            stroke.setStrokeWidth(R * (i % 3 == 0 ? 0.012f : 0.006f));
+            stroke.setStrokeWidth(R * (i % 3 == 0 ? 0.014f : 0.007f));
             stroke.setColor(alpha(i % 4 == 0 ? 0xFFFFFFFF : accent, (float) Math.sin(Math.PI * p)));
             c.drawLine(px(sAng[i], head), py(sAng[i], head), px(sAng[i], tail), py(sAng[i], tail), stroke);
         }
 
-        // chrome bezel draws on
-        float ring = easeOut(phase(t, 0.5f, 1.5f));
-        if (ring > 0) {
-            float rr = R;
-            oval.set(cx - rr, cy - rr, cx + rr, cy + rr);
-            chrome.setStrokeWidth(R * 0.05f);
-            c.drawArc(oval, -90f, 360f * ring, false, chrome);
-        }
-        // flash when the ring closes
-        float flash = phase(t, 1.45f, 2.1f);
-        if (flash > 0 && flash < 1) {
-            stroke.setStrokeWidth(R * 0.04f * (1 - flash));
-            stroke.setColor(alpha(0xFFFFFFFF, 0.8f * (1 - flash)));
-            c.drawCircle(cx, cy, R * (1f + 0.35f * flash), stroke);
-        }
-
-        // ticks light up in order
-        float ticks = phase(t, 1.0f, 1.8f);
-        float needleV = needleValue(t);
-        int n = 52;
+        // halo of gauge ticks lighting up around the emblem
+        float halo = phase(t, 0.9f, 2.0f);
+        float haloFade = 1f - 0.5f * phase(t, 3.0f, 4.0f);
         stroke.setStrokeCap(Paint.Cap.BUTT);
-        text.setTypeface(light);
-        text.setTextSize(R * 0.085f);
-        text.setLetterSpacing(0f);
-        float numAlpha = phase(t, 1.3f, 1.9f);
-        for (int i = 0; i <= n; i++) {
-            if ((float) i / n > ticks) break;
-            float v = MAX * i / n;
-            float deg = START + SWEEP * i / n;
-            boolean major = i % 4 == 0, mid = i % 2 == 0;
-            float r0 = major ? R * 0.75f : mid ? R * 0.79f : R * 0.82f;
-            boolean lit = needleV > 0.5f && v <= needleV;
-            stroke.setStrokeWidth(major ? R * 0.014f : R * 0.007f);
-            stroke.setColor(lit ? accent : major ? 0xFFE8E8E8 : 0xFF7E848A);
-            c.drawLine(px(deg, r0), py(deg, r0), px(deg, R * 0.855f), py(deg, R * 0.855f), stroke);
-            if (major && numAlpha > 0) {
-                text.setColor(alpha(0xFFC9CDD1, numAlpha));
-                c.drawText(String.valueOf(Math.round(v)), px(deg, R * 0.64f),
-                        py(deg, R * 0.64f) + text.getTextSize() * 0.35f, text);
-            }
+        for (int i = 0; i < HALO_TICKS; i++) {
+            float f = (float) i / HALO_TICKS;
+            if (f > halo) break;
+            float deg = -90f + 360f * f;
+            boolean major = i % 6 == 0;
+            float r0 = R * (major ? 1.22f : 1.27f), r1 = R * 1.34f;
+            stroke.setStrokeWidth(R * (major ? 0.022f : 0.01f));
+            float recent = clamp((halo - f) * 6f);
+            int col = major ? 0xFFFFFFFF : accent;
+            stroke.setColor(alpha(col, haloFade * (0.45f + 0.55f * (1f - recent))));
+            c.drawLine(px(deg, r0), py(deg, r0), px(deg, r1), py(deg, r1), stroke);
         }
 
-        // lit arc + needle sweep
-        float needleIn = phase(t, 1.4f, 1.7f);
-        if (needleIn > 0) {
-            float a = START + SWEEP * needleV / MAX;
-            float arcR = R * 0.895f;
-            oval.set(cx - arcR, cy - arcR, cx + arcR, cy + arcR);
-            if (a > START) {
-                stroke.setStrokeWidth(R * 0.07f);
-                stroke.setColor(alpha(accent, 0.15f));
-                c.drawArc(oval, START, a - START, false, stroke);
-                stroke.setStrokeWidth(R * 0.02f);
-                stroke.setColor(accent);
-                c.drawArc(oval, START, a - START, false, stroke);
-            }
+        // emblem: ring draws on, then the star spins in with a bounce
+        float ringP = easeOut(phase(t, 0.4f, 1.4f));
+        float starIn = phase(t, 1.3f, 2.2f);
+        float starP = starIn > 0 ? easeOutBack(starIn) : 0f;
+        float rot = (1f - easeOut(starIn)) * -240f;
+        int logoAlpha = (int) (255 * clamp(t / 0.4f));
+        logo.draw(c, cx, cy, R, ringP, starP, rot, logoAlpha);
+        if (!landed && t >= 2.2f) {
+            landed = true;
+            listener.onLogoLanded();
+        }
+
+        // impact flash
+        float flash = phase(t, 2.1f, 2.8f);
+        if (flash > 0 && flash < 1) {
+            stroke.setStrokeWidth(R * 0.05f * (1 - flash));
+            stroke.setColor(alpha(0xFFFFFFFF, 0.8f * (1 - flash)));
+            c.drawCircle(cx, cy, R * (1f + 0.6f * flash), stroke);
+        }
+
+        // light sweep across the emblem
+        float sweep = phase(t, 2.3f, 3.1f);
+        if (sweep > 0 && sweep < 1) {
             c.save();
-            c.rotate(a, cx, cy);
-            stroke.setStrokeWidth(R * 0.035f);
-            stroke.setStrokeCap(Paint.Cap.ROUND);
-            stroke.setColor(alpha(accent, 0.35f * needleIn));
-            c.drawLine(cx - R * 0.15f, cy, cx + R * 0.80f, cy, stroke);
-            stroke.setStrokeWidth(R * 0.016f);
-            stroke.setColor(alpha(accent, needleIn));
-            c.drawLine(cx - R * 0.15f, cy, cx + R * 0.80f, cy, stroke);
-            stroke.setStrokeWidth(R * 0.005f);
-            stroke.setColor(alpha(0xFFFFFFFF, needleIn));
-            c.drawLine(cx + R * 0.1f, cy, cx + R * 0.77f, cy, stroke);
+            clip.reset();
+            clip.addCircle(cx, cy, R, Path.Direction.CW);
+            c.clipPath(clip);
+            float sx = cx - R * 1.6f + R * 3.2f * sweep;
+            fill.setShader(new LinearGradient(sx - R * 0.35f, cy - R, sx + R * 0.35f, cy + R,
+                    new int[]{0, 0x99FFFFFF, 0}, null, Shader.TileMode.CLAMP));
+            c.drawRect(cx - R, cy - R, cx + R, cy + R, fill);
+            fill.setShader(null);
             c.restore();
-            fill.setColor(alpha(0xFFD0D4D8, needleIn));
-            c.drawCircle(cx, cy, R * 0.08f, fill);
-            fill.setColor(alpha(0xFF0A0B0D, needleIn));
-            c.drawCircle(cx, cy, R * 0.05f, fill);
-
-            text.setTypeface(thin);
-            text.setTextSize(R * 0.26f);
-            text.setColor(alpha(0xFFFFFFFF, needleIn));
-            c.drawText(String.valueOf(Math.round(needleV)), cx, cy + R * 0.47f, text);
-            text.setTypeface(cond);
-            text.setTextSize(R * 0.07f);
-            text.setColor(alpha(accent, needleIn));
-            c.drawText("km/h", cx, cy + R * 0.60f, text);
-        }
-        if (!peaked && t >= 2.35f) {
-            peaked = true;
-            listener.onNeedlePeak();
         }
 
-        // title with shine sweep
-        float title = phase(t, 2.7f, 3.6f);
-        float titleY = cy + R * 1.42f;
+        // Mercedes-Benz lettering with shine
+        float title = phase(t, 2.6f, 3.5f);
+        float titleY = cy + R * 1.78f;
         if (title > 0) {
             text.setTypeface(light);
-            text.setTextSize(R * 0.26f);
-            text.setLetterSpacing(0.9f - 0.55f * easeOut(title));
-            float tw = text.measureText("STAR DRIVE");
-            float shine = phase(t, 3.1f, 4.0f);
+            text.setTextSize(R * 0.34f);
+            text.setLetterSpacing(0.6f - 0.48f * easeOut(title));
+            float tw = text.measureText("Mercedes-Benz");
+            float shine = phase(t, 3.0f, 3.9f);
             float sx = cx - tw / 2f + tw * 1.4f * shine - tw * 0.2f;
             text.setShader(new LinearGradient(sx - tw * 0.18f, 0, sx + tw * 0.18f, 0,
-                    new int[]{0xFFA3A9AF, 0xFFFFFFFF, 0xFFA3A9AF}, null, Shader.TileMode.CLAMP));
+                    new int[]{0xFFB4BAC0, 0xFFFFFFFF, 0xFFB4BAC0}, null, Shader.TileMode.CLAMP));
             text.setAlpha((int) (255 * title));
-            c.drawText("STAR DRIVE", cx, titleY, text);
+            c.drawText("Mercedes-Benz", cx, titleY, text);
             text.setShader(null);
             text.setAlpha(255);
         }
         float line = easeOut(phase(t, 3.0f, 3.7f));
         if (line > 0) {
-            float lw = Math.min(w * 0.7f, R * 2.6f) * line;
-            float ly = titleY + R * 0.12f;
+            float lw = Math.min(w * 0.6f, R * 4.2f) * line;
+            float ly = titleY + R * 0.16f;
             fill.setShader(new LinearGradient(cx - lw / 2, 0, cx + lw / 2, 0,
                     new int[]{0, accent, 0}, null, Shader.TileMode.CLAMP));
-            c.drawRect(cx - lw / 2, ly, cx + lw / 2, ly + Math.max(2f, R * 0.008f), fill);
+            c.drawRect(cx - lw / 2, ly, cx + lw / 2, ly + Math.max(2f, R * 0.01f), fill);
             fill.setShader(null);
         }
         float sub = phase(t, 3.3f, 4.0f);
         if (sub > 0) {
             text.setTypeface(cond);
-            text.setTextSize(R * 0.075f);
+            text.setTextSize(R * 0.1f);
             text.setLetterSpacing(0.35f);
             text.setColor(alpha(0xFF9AA3AD, sub));
-            c.drawText("PERFORMANCE · LUXURY · PRECISION", cx, titleY + R * 0.28f, text);
+            c.drawText("PERFORMANCE · LUXURY · PRECISION", cx, titleY + R * 0.38f, text);
             text.setLetterSpacing(0.2f);
-            text.setTextSize(R * 0.08f);
+            text.setTextSize(R * 0.11f);
             text.setColor(alpha(accent, sub));
-            c.drawText("奔驰风格 · 数字仪表", cx, titleY + R * 0.42f, text);
+            c.drawText("梅赛德斯-奔驰 · 数字仪表", cx, titleY + R * 0.56f, text);
             text.setLetterSpacing(0f);
         }
 
@@ -278,12 +235,5 @@ public class SplashView extends View {
 
         if (t >= TOTAL) skip();
         else postInvalidateOnAnimation();
-    }
-
-    /** Classic cluster self-test sweep: up to full scale, then back to zero. */
-    private float needleValue(float t) {
-        if (t < 1.6f) return 0f;
-        if (t < 2.35f) return MAX * easeOut(phase(t, 1.6f, 2.35f));
-        return MAX * (1f - easeInOut(phase(t, 2.35f, 3.1f)));
     }
 }

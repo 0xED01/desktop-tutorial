@@ -49,10 +49,10 @@ public class SplashActivity extends Activity implements SplashView.Listener {
 
     @Override
     @SuppressWarnings("deprecation")
-    public void onNeedlePeak() {
+    public void onLogoLanded() {
         Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
         if (v == null || !v.hasVibrator()) return;
-        if (Build.VERSION.SDK_INT >= 26) v.vibrate(VibrationEffect.createOneShot(40, 120));
-        else v.vibrate(40);
+        if (Build.VERSION.SDK_INT >= 26) v.vibrate(VibrationEffect.createOneShot(60, 160));
+        else v.vibrate(60);
     }
 }

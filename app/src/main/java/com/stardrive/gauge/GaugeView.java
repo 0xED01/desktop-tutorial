@@ -37,6 +37,7 @@ public class GaugeView extends View {
     private final Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint chrome = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint hub = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final StarLogo logo = new StarLogo();
     private final Path path = new Path();
     private final RectF oval = new RectF();
     private final Typeface thin, light, cond;
@@ -271,12 +272,8 @@ public class GaugeView extends View {
         c.drawCircle(cx, cy, R * 0.052f, stroke);
 
         // texts
-        text.setTypeface(cond);
-        text.setTextSize(R * 0.048f);
-        text.setLetterSpacing(0.35f);
-        text.setColor(0xFFB8BEC4);
-        c.drawText("STAR DRIVE", cx, cy - R * 0.40f, text);
-        drawTopNote(c, acc, cy - R * 0.27f, R * 0.058f);
+        logo.draw(c, cx, cy - R * 0.43f, R * 0.085f);
+        drawTopNote(c, acc, cy - R * 0.25f, R * 0.058f);
 
         text.setLetterSpacing(0f);
         text.setTypeface(thin);
@@ -287,8 +284,18 @@ public class GaugeView extends View {
         text.setTextSize(R * 0.07f);
         text.setColor(acc);
         c.drawText(unit, cx, cy + R * 0.60f, text);
+        drawBrand(c, cy + R * 0.73f, R * 0.05f);
 
         drawOverspeedRing(c, now, R * 0.995f);
+    }
+
+    private void drawBrand(Canvas c, float y, float size) {
+        text.setTypeface(light);
+        text.setTextSize(size);
+        text.setLetterSpacing(0.12f);
+        text.setColor(0xFFC4CAD0);
+        c.drawText("Mercedes-Benz", getWidth() / 2f, y, text);
+        text.setLetterSpacing(0f);
     }
 
     private void drawSport(Canvas c, int acc, long now) {
@@ -343,7 +350,8 @@ public class GaugeView extends View {
         text.setTextSize(R * 0.06f);
         text.setLetterSpacing(0.4f);
         text.setColor(acc);
-        c.drawText("SPORT+", cx, cy - R * 0.30f, text);
+        c.drawText("SPORT+", cx, cy - R * 0.28f, text);
+        logo.draw(c, cx, cy - R * 0.45f, R * 0.08f);
 
         text.setLetterSpacing(0f);
         text.setTypeface(thin);
@@ -354,7 +362,8 @@ public class GaugeView extends View {
         text.setTextSize(R * 0.075f);
         text.setColor(acc);
         c.drawText(unit, cx, cy + R * 0.29f, text);
-        drawTopNote(c, acc, cy + R * 0.55f, R * 0.058f);
+        drawTopNote(c, acc, cy + R * 0.48f, R * 0.058f);
+        drawBrand(c, cy + R * 0.62f, R * 0.05f);
 
         drawOverspeedRing(c, now, R * 0.995f);
     }
@@ -398,7 +407,19 @@ public class GaugeView extends View {
             float lx = bx + bw * frac(limit);
             c.drawRect(lx - bh * 0.3f, by - bh, lx + bh * 0.3f, by + bh * 2, fill);
         }
-        drawTopNote(c, acc, h * 0.13f, Math.min(w, h) * 0.05f);
+        float lr = Math.min(w, h) * 0.045f;
+        text.setTypeface(light);
+        text.setTextSize(lr * 0.9f);
+        text.setLetterSpacing(0.12f);
+        float bw2 = text.measureText("Mercedes-Benz");
+        float gx = w / 2f - (bw2 + lr * 2.6f) / 2f;
+        logo.draw(c, gx + lr, h * 0.08f, lr);
+        text.setColor(0xFFC4CAD0);
+        text.setTextAlign(Paint.Align.LEFT);
+        c.drawText("Mercedes-Benz", gx + lr * 2.6f, h * 0.08f + lr * 0.32f, text);
+        text.setTextAlign(Paint.Align.CENTER);
+        text.setLetterSpacing(0f);
+        drawTopNote(c, acc, h * 0.19f, Math.min(w, h) * 0.045f);
 
         if (overspeed) {
             float p = 0.5f + 0.5f * (float) Math.sin(now * 0.012);

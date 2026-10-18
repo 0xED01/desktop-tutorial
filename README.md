@@ -1,9 +1,9 @@
 # Star Drive 码表（奔驰风格 Android 数字仪表）
 
-黑色系、奔驰风格的 GPS 码表 App。安装包：[`release/StarDrive-v1.1.apk`](release/StarDrive-v1.1.apk)（Android 7.0+）
+黑色系、奔驰风格的 GPS 码表 App。安装包：[`release/StarDrive-v1.2.apk`](release/StarDrive-v1.2.apk)（Android 7.0+）
 
 ## 启动动画
-光线汇聚 → 镀铬表圈绘制 → 刻度逐格点亮 → 指针满量程自检扫表 → 标题流光浮现（点击可跳过）
+光线汇聚 → 奔驰星徽镀铬圆环绘制、外圈刻度逐格点亮 → 三叉星旋转落位 → 流光扫过星徽 → Mercedes-Benz 字标流光浮现（点击可跳过）
 
 ![splash](docs/splash.png)
 
@@ -35,4 +35,5 @@
 ```
 需要 Android SDK（compileSdk 34）。纯 Java + Canvas 自绘，无第三方运行时依赖。
 
-> 驾驶时请勿操作手机。GPS 车速仅供参考，以车辆仪表为准。本项目为风格致敬，与梅赛德斯-奔驰官方无关。
+> 驾驶时请勿操作手机。GPS 车速仅供参考，以车辆仪表为准。
+> 三叉星徽和 Mercedes-Benz 字样是梅赛德斯-奔驰的注册商标。本项目为个人粉丝作品，与官方无关，仅供个人使用，请勿上架应用商店或商用。

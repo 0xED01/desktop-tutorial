@@ -40,11 +40,11 @@ public class ScreenshotTest {
         android.app.Activity a = Robolectric.buildActivity(android.app.Activity.class).setup().get();
         SplashView v = new SplashView(a, Cfg.ACCENTS[0], new SplashView.Listener() {
             public void onSplashDone() {}
-            public void onNeedlePeak() {}
+            public void onLogoLanded() {}
         });
         save(v, 1720, 800, "splash_0");
         long prev = 0;
-        for (long ms : new long[]{700, 1300, 2000, 2400, 3300, 4100}) {
+        for (long ms : new long[]{700, 1500, 1900, 2600, 3300, 4100}) {
             ShadowSystemClock.advanceBy(Duration.ofMillis(ms - prev));
             prev = ms;
             save(v, 1720, 800, "splash_" + ms);
