@@ -4,6 +4,9 @@
 
 ## 怎么用
 
+**安卓手机**：下载仓库里的 [`ZhuanMaiLedger.apk`](ZhuanMaiLedger.apk) 安装即可（需要在手机上允许「安装未知来源应用」）。安卓 7.0 及以上可用。
+
+**电脑或其他手机**：
 1. 双击 `index.html` 用浏览器打开（手机、电脑都可以）。
 2. 点右下角 **＋ 记一单** 记下买入，再点货单上的 **卖出** 记下卖出，利润会自动算好。
 3. 第一次打开可以点「先看看示例数据」看看效果，之后在「设置 → 清空所有数据」里清掉。
@@ -43,3 +46,15 @@
 ## 数据安全
 
 数据只保存在当前浏览器的本地存储（localStorage）里，不会上传。换浏览器、换设备或清理浏览器数据之前，请先在 **设置 → 导出备份** 导出 JSON 文件，之后可以用「导入备份」恢复。货单也可以导出成 CSV，用 Excel 打开。
+
+> 安卓 App 的数据保存在 App 内部，**卸载 App 会清空数据**，卸载前请先导出备份。升级新版本时直接覆盖安装即可，数据会保留。
+
+## 打包安卓 APK
+
+`android/` 目录是一个很薄的 WebView 外壳，直接加载 `index.html`，并补上了导出文件、导入备份和返回键。不需要 Gradle，装好 JDK 和 Android SDK（`platforms;android-35`、`build-tools;35.0.0`）后运行：
+
+```bash
+ANDROID_HOME=/path/to/android-sdk android/build.sh
+```
+
+运行后会在仓库根目录生成 `ZhuanMaiLedger.apk`。修改 `index.html` 后重新打包即可，发新版时可以用 `VERSION_CODE=2 VERSION_NAME=1.1` 递增版本号。签名文件是 `android/release.jks`，请一直用这一个：换了签名就不能覆盖安装，只能卸载重装，数据会丢。

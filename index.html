@@ -602,6 +602,7 @@ document.addEventListener('click', e => {
   if(A[el.dataset.act]) A[el.dataset.act]();
 });
 function download(name, text, type){
+  if(window.Android && Android.saveFile) return Android.saveFile(name, type, text); // 安卓 App 内
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], {type}));
   a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -616,6 +617,12 @@ function openModal(html){ $('#modal').innerHTML = html; $('#mask').classList.add
 function closeModal(){ $('#mask').classList.remove('on'); }
 $('#mask').addEventListener('click', e => { if(e.target.id==='mask' || e.target.closest('.x,[data-close]')) closeModal(); });
 document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+// 安卓返回键：先关弹窗，再回概览；返回 false 表示退出 App
+window.appBack = () => {
+  if($('#mask').classList.contains('on')) { closeModal(); return true; }
+  if(view!=='home') { go('home'); return true; }
+  return false;
+};
 let narrow = window.innerWidth < 640;
 window.addEventListener('resize', () => { const n = window.innerWidth < 640; if(n!==narrow){ narrow = n; render(); } });
 
