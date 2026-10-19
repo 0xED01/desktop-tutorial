@@ -258,6 +258,20 @@ details.more[open] summary{color:var(--sub)}
 .pick .tx{flex:1;min-width:0}
 .pick .tx div{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pick .tx small{color:var(--sub);font-size:12px}
+.tagbox{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.tag{display:inline-flex;align-items:center;gap:2px;background:var(--chip);border-radius:20px;padding:5px 6px 5px 14px;font-size:14px}
+.tag button{border:0;background:none;color:var(--sub);font-size:17px;line-height:1;width:24px;height:24px;border-radius:50%}
+.tag button:active{background:var(--line)}
+.add-row{display:flex;gap:8px}
+.add-row input{flex:1;min-width:0}
+.plat-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.plat-row:first-of-type{border-top:0}
+.plat-row b{flex:1;font-weight:600}
+.pct-in{width:110px;flex:none}
+.pct-in::before{content:'费率'}
+.pct-in input{padding-left:48px;padding-right:26px}
+.pct-in::after{content:'%';position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--sub)}
+.add-row{margin-top:4px}
 .exp-i{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
 .exp-i:first-child{border-top:0}
 .exp-i .tx{flex:1;min-width:0}
@@ -277,7 +291,6 @@ details.more[open] summary{color:var(--sub)}
     <button data-v="list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/></svg><span>货单</span></button>
     <button class="plus" data-v="add" aria-label="记一单"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
     <button data-v="report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11M10 20V5M16 20v-6M21 20H3"/></svg><span>月报</span></button>
-    <button data-v="exp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M16 15h2"/></svg><span>杂费</span></button>
     <button data-v="set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg><span>设置</span></button>
   </nav>
 </div></header>
@@ -331,8 +344,8 @@ const sum = (list, fn) => list.reduce((s,x) => s+fn(x), 0);
 // 计算
 const cost = r => r.buyPrice*r.qty + r.buyShip + r.chanFee - r.rebate;   // 到手总成本
 const gross = r => r.sellPrice*r.qty;                                     // 卖出总额
-const revenue = r => gross(r) - r.fee - r.sellShip;                       // 卖出实收
-const profit = r => r.status==='sold' ? revenue(r) - cost(r) : 0;
+const payout = r => gross(r) - r.fee;                                     // 到账金额：平台扣完手续费打过来的钱（卖出运费自己另付，不从这里扣）
+const profit = r => r.status==='sold' ? payout(r) - r.sellShip - cost(r) : 0;
 const feeRate = plat => num(S.settings.fees[plat||'']) / 100;
 const estProfit = r => {
   if(!r.expectPrice) return null;
@@ -356,7 +369,7 @@ $('#fab').onclick = () => openForm();
 
 function render(){
   document.body.classList.toggle('green-up', !!S.settings.greenUp);
-  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v===view));
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v===(view==='exp'?'set':view)));
   const d = new Date();
   $('#hdrSub').textContent = `${d.getMonth()+1}月${d.getDate()}日 · 周${'日一二三四五六'[d.getDay()]}`;
   $('#main').innerHTML = ({home:vHome, list:vList, report:vReport, exp:vExp, set:vSet})[view]();
@@ -393,7 +406,7 @@ function vHome(){
   const invCost = sum(inv, cost), invEst = sum(inv, r => estProfit(r)||0);
   const stale = inv.filter(isStale);
   const unpaid = S.records.filter(awaiting).sort((a,b) => a.sellDate.localeCompare(b.sellDate));
-  const unpaidAmt = sum(unpaid, revenue);
+  const unpaidAmt = sum(unpaid, payout);
   const unpaidMax = unpaid.length ? days(unpaid[0].sellDate) : 0;
   const transit = inv.filter(r => r.status==='transit').sort((a,b) => a.buyDate.localeCompare(b.buyDate));
   const wins = sold.filter(r => profit(r)>0).length;
@@ -410,7 +423,7 @@ function vHome(){
   const todo = [
     ...unpaid.slice(0,3).map(r => `<div class="ti" data-act="detail" data-id="${r.id}"><div class="ic st-await">💰</div>
       <div class="tx"><div>${esc(r.name)}</div><small>${esc(r.sellPlat)} 卖出 · 等了 <span class="${days(r.sellDate)>=7?'warn':''}">${days(r.sellDate)} 天</span></small></div>
-      <b class="num">${money(revenue(r))}</b><button class="btn okb sm" data-act="pay" data-id="${r.id}">到账</button></div>`),
+      <b class="num">${money(payout(r))}</b><button class="btn okb sm" data-act="pay" data-id="${r.id}">到账</button></div>`),
     ...transit.slice(0,3).map(r => `<div class="ti" data-act="detail" data-id="${r.id}"><div class="ic st-transit">🚚</div>
       <div class="tx"><div>${esc(r.name)}${r.qty>1?` ×${r.qty}`:''}</div><small>${esc(r.buyPlat)} · 已 ${days(r.buyDate)} 天</small></div>
       <button class="btn soft sm" data-act="arrive" data-id="${r.id}">到货</button></div>`)
@@ -526,7 +539,7 @@ function vList(){
   const plats = [...new Set([...S.settings.buyPlats, ...S.settings.sellPlats])];
   const cnt = k => S.records.filter(k==='unsold'?unsold:k==='stale'?isStale:k==='await'?awaiting:k==='all'?()=>true:r=>r.status===k).length;
   const tabs = [['unsold','未出手'],['await','待到账'],['transit','在途'],['stock','在库'],['listed','已上架'],['sold','已售出'],['stale','压货超期'],['returned','已退货'],['all','全部']];
-  const tp = sum(list, profit), tc = sum(list, cost), ta = sum(list.filter(awaiting), revenue);
+  const tp = sum(list, profit), tc = sum(list, cost), ta = sum(list.filter(awaiting), payout);
   return `
   <div class="tabsx" data-seg="status">
     ${tabs.map(([k,l]) => { const n = cnt(k); return `<button data-k="${k}" class="${F.status===k?'on':''} ${(k==='await'||k==='stale')&&n?'hot':''}">${l}<small>${n}</small></button>`; }).join('')}
@@ -583,8 +596,8 @@ function openDetail(r){
     r.rebate ? row('返利/返现', '-'+money(r.rebate)) : '',
     row('到手成本', money(cost(r)), 'tot'),
     sold ? `<div class="hr"></div>` + row('卖出', `${esc(r.sellPlat)} · ${r.sellDate}`) + row('单价 × 数量', `${money(r.sellPrice)} × ${r.qty}`)
-      + (r.fee ? row('手续费', '-'+money(r.fee)) : '') + (r.sellShip ? row('卖出运费', '-'+money(r.sellShip)) : '')
-      + row('实收', money(revenue(r))) + row('货款', r.paid ? `<span class="badge st-sold">已到账 ${r.paidDate||''}</span>` : '<span class="badge st-await">待到账</span>')
+      + (r.fee ? row('平台手续费', '-'+money(r.fee)) : '')
+      + row('到账金额', money(payout(r))) + (r.sellShip ? row('卖出运费（另付）', '-'+money(r.sellShip)) : '') + row('货款', r.paid ? `<span class="badge st-sold">已到账 ${r.paidDate||''}</span>` : '<span class="badge st-await">待到账</span>')
       + row('利润', `${money(profit(r),1)}（${pct(profit(r)/cost(r))}）`, 'tot '+pc(profit(r))) + row('持有', days(r.buyDate, r.sellDate)+' 天') : '',
     !sold && r.expectPrice ? row('预期售价', `${money(r.expectPrice)}，预计赚 ${money(estProfit(r),1)}`) : '',
     !sold ? row('已压', days(r.buyDate)+' 天', isStale(r)?'warn':'') : '',
@@ -657,7 +670,7 @@ function vReport(){
       <tbody>${show.map(o => `<tr class="click" data-act="month" data-m="${o.m}"><td>${+o.m.slice(5)}月</td>${line(o)}</tr>`).join('') || '<tr><td colspan="12" class="muted">暂无数据</td></tr>'}</tbody>
       <tfoot><tr><td>合计</td>${line(T)}</tr></tfoot>
     </table></div>
-    <div class="tip">利润按<b>卖出日期</b>算进当月；卖出成本 = 买入价 × 数量 + 买入运费 + 渠道费用 − 返利；进货支出按<b>买入日期</b>统计，就是当月花出去的钱。</div>
+    <div class="tip">利润按<b>卖出日期</b>算进当月；卖出成本 = 买入价 × 数量 + 买入运费 + 渠道费用 − 返利；卖出运费另算，不从到账金额里扣，但会算进利润；进货支出按<b>买入日期</b>统计，就是当月花出去的钱。</div>
   </div>`;
 }
 
@@ -668,6 +681,7 @@ function vExp(){
   const mon = list.filter(e => e.date.startsWith(m));
   const types = S.settings.expTypes;
   return `
+  <button class="btn sm" data-act="goset" style="margin-bottom:10px">‹ 返回设置</button>
   <div class="card">
     <h3>记一笔杂费 / 其他收入</h3>
     <form id="expForm">
@@ -693,20 +707,25 @@ function vExp(){
 // ---------- 设置 ----------
 function vSet(){
   const st = S.settings;
+  const chipList = (key, ph) => `<div class="tagbox">${st[key].map((v,i) => `<span class="tag">${esc(v)}<button data-act="rmItem" data-k="${key}" data-i="${i}" aria-label="删除">×</button></span>`).join('') || '<span class="muted">还没有，先添加一个</span>'}</div>
+    <div class="add-row"><input id="add-${key}" data-k="${key}" placeholder="${ph}" maxlength="12" autocomplete="off"><button class="btn soft" data-act="addItem" data-k="${key}">＋ 添加</button></div>`;
   return `
-  <div class="card"><h3>平台</h3>
-    <div class="f"><label>进货平台（用逗号分隔）</label><input id="sBuy" value="${esc(st.buyPlats.join('，'))}"></div>
-    <div class="f"><label>出货平台（用逗号分隔）</label><input id="sSell" value="${esc(st.sellPlats.join('，'))}"></div>
-    <div class="f"><label>各出货平台手续费率 %（卖出时自动算手续费，可再手动改）</label>
-      <div class="row">${st.sellPlats.map(p => `<div><small class="muted">${esc(p)}</small><input class="sFee" data-p="${esc(p)}" type="number" step="0.01" min="0" inputmode="decimal" value="${st.fees[p]??''}" placeholder="0"></div>`).join('')}</div></div>
-    <div class="f"><label>杂费类型（用逗号分隔，“其他收入”记为收入）</label><input id="sExp" value="${esc(st.expTypes.join('，'))}"></div>
+  <div class="card"><h3>进货平台 <span class="r">记一单时可选</span></h3>${chipList('buyPlats', '输入新的进货平台，如：小红书')}</div>
+  <div class="card"><h3>出货平台和手续费 <span class="r">卖出时按费率自动算手续费</span></h3>
+    ${st.sellPlats.map((p,i) => `<div class="plat-row"><b>${esc(p)}</b>
+      <div class="money-in pct-in"><input class="sFee" data-p="${esc(p)}" type="number" step="0.01" min="0" inputmode="decimal" value="${st.fees[p]??''}" placeholder="0"></div>
+      <button class="btn sm danger" data-act="rmItem" data-k="sellPlats" data-i="${i}">删除</button></div>`).join('') || '<div class="muted">还没有，先添加一个</div>'}
+    <div class="add-row"><input id="add-sellPlats" data-k="sellPlats" placeholder="输入新的出货平台，如：咸鱼" maxlength="12" autocomplete="off"><button class="btn soft" data-act="addItem" data-k="sellPlats">＋ 添加</button></div>
   </div>
+  <div class="card"><h3>杂费</h3>
+    <button class="btn okb" data-act="goexp" style="width:100%;margin-bottom:12px">记一笔杂费 / 查看杂费记录 ›</button>
+    <div class="f"><label>杂费类型（「其他收入」会记为收入）</label></div>${chipList('expTypes', '输入新的杂费类型')}</div>
   <div class="card"><h3>偏好</h3>
     <div class="row">
-      <div class="f"><label>压货超过多少天提醒</label><input id="sStale" type="number" min="1" value="${st.staleDays}"></div>
+      <div class="f"><label>压货超过多少天提醒</label><input id="sStale" type="number" min="1" inputmode="numeric" value="${st.staleDays}"></div>
       <div class="f"><label>颜色</label><select id="sColor"><option value="0" ${!st.greenUp?'selected':''}>红色盈利 / 绿色亏损</option><option value="1" ${st.greenUp?'selected':''}>绿色盈利 / 红色亏损</option></select></div>
     </div>
-    <button class="btn pri" data-act="saveSet">保存设置</button>
+    <div class="tip" style="margin-top:0">设置改完立即生效，不用点保存。</div>
   </div>
   <div class="card"><h3>数据</h3>
     <p class="muted" style="margin-top:0">数据只保存在这台设备上。换手机、卸载 App 或清理浏览器前，请先导出备份。</p>
@@ -721,7 +740,6 @@ function vSet(){
   </div>
   <div class="tip" style="text-align:center">钱来账本 · 祝你单单都赚钱 🪙</div>`;
 }
-const splitList = s => s.split(/[,，、\s]+/).map(x => x.trim()).filter(Boolean);
 
 // ---------- 事件 ----------
 function bindView(){
@@ -739,17 +757,24 @@ function bindView(){
   });
   const q = $('#q');
   if(q) {
-    q.oninput = () => { F.q = q.value; const pos = q.selectionStart; render(); const n = $('#q'); n.focus(); n.setSelectionRange(pos,pos); };
+    const apply = () => { F.q = q.value; const pos = q.selectionStart; render(); const n = $('#q'); n.focus(); n.setSelectionRange(pos,pos); };
+    q.oninput = e => { if(!e.isComposing) apply(); };
+    q.addEventListener('compositionend', apply);
     $('#fPlat').onchange = e => { F.plat = e.target.value; render(); };
     $('#fMonth').onchange = e => { F.month = e.target.value; render(); };
     $('#fSort').onchange = e => { F.sort = e.target.value; render(); };
   }
+  m.querySelectorAll('.add-row input').forEach(i => i.onkeydown = e => { if(e.key==='Enter') { e.preventDefault(); addSetting(i.dataset.k); } });
+  m.querySelectorAll('.sFee').forEach(i => i.onchange = () => { if(i.value==='') delete S.settings.fees[i.dataset.p]; else S.settings.fees[i.dataset.p] = Math.max(0, num(i.value)); save(); toast('费率已保存'); });
+  const ss = $('#sStale'); if(ss) ss.onchange = () => { S.settings.staleDays = Math.max(1, parseInt(ss.value)||30); save(); toast('已保存'); };
+  const sc = $('#sColor'); if(sc) sc.onchange = () => { S.settings.greenUp = sc.value==='1'; save(); render(); };
   const ef = $('#expForm');
   if(ef) ef.onsubmit = e => {
     e.preventDefault();
     const fd = new FormData(ef);
     const amount = r2(num(fd.get('amount')));
     if(amount<=0) return toast('请输入金额');
+    if(!fd.get('type')) return toast('先在设置里添加杂费类型');
     S.expenses.push({id:uid(), type:fd.get('type'), amount, date:fd.get('date'), note:fd.get('note').trim(), created:Date.now()});
     save(); render(); toast('已记录 ✅');
   };
@@ -783,13 +808,13 @@ document.addEventListener('click', e => {
     clearF(){ F = {...F, month:'', plat:'', q:''}; render(); },
     sell(){ openSell(r); },
     edit(){ openForm(r); },
-    dup(){ const c = {...r}; delete c.id; delete c.created; Object.assign(c, {status:'transit', buyDate:today(), sellPlat:'', sellDate:'', sellPrice:0, fee:0, sellShip:0, paid:false, paidDate:''}); openForm(c); },
+    dup(){ const c = {...r}; delete c.id; delete c.created; Object.assign(c, {orderNo:'', status:'transit', buyDate:today(), sellPlat:'', sellDate:'', sellPrice:0, fee:0, sellShip:0, paid:false, paidDate:''}); openForm(c); },
     arrive(){ r.status = 'stock'; done(); toast(`「${r.name}」已到货`, '撤销', () => { r.status = 'transit'; save(); render(); }); },
     listed(){ r.status = 'listed'; done(); toast('已标记上架'); },
     unsell(){ if(!confirm('撤销卖出，恢复为在库？')) return; Object.assign(r, {status:'stock', sellDate:'', sellPrice:0, fee:0, sellShip:0, paid:false, paidDate:''}); done(); },
-    pay(){ setPaid([r], true); done(); toast(`💰 已到账 ${money(revenue(r))}`, '撤销', () => { setPaid([r], false); save(); render(); }); },
+    pay(){ setPaid([r], true); done(); toast(`💰 已到账 ${money(payout(r))}`, '撤销', () => { setPaid([r], false); save(); render(); }); },
     unpay(){ setPaid([r], false); done(); },
-    payAll(){ const l = filtered().filter(awaiting); if(!confirm(`把这 ${l.length} 单共 ${money(sum(l, revenue))} 都标记为已到账？`)) return;
+    payAll(){ const l = filtered().filter(awaiting); if(!confirm(`把这 ${l.length} 单共 ${money(sum(l, payout))} 都标记为已到账？`)) return;
       setPaid(l, true); done(); toast('已全部确认到账', '撤销', () => { setPaid(l, false); save(); render(); }); },
     return(){ const old = r.status; r.status = 'returned'; r.preReturn = old; done(); toast('已标记退货，不计入统计', '撤销', () => { r.status = old; save(); render(); }); },
     unreturn(){ r.status = r.preReturn || 'stock'; done(); },
@@ -801,21 +826,21 @@ document.addEventListener('click', e => {
       const i = S.expenses.findIndex(x => x.id===id), x = S.expenses[i]; S.expenses.splice(i,1); save(); render();
       toast('已删除', '撤销', () => { S.expenses.splice(i,0,x); save(); render(); });
     },
-    saveSet(){
-      const st = S.settings;
-      st.buyPlats = splitList($('#sBuy').value); st.sellPlats = splitList($('#sSell').value);
-      st.expTypes = splitList($('#sExp').value);
-      document.querySelectorAll('.sFee').forEach(i => { if(i.value==='') delete st.fees[i.dataset.p]; else st.fees[i.dataset.p] = num(i.value); });
-      st.staleDays = Math.max(1, parseInt($('#sStale').value)||30);
-      st.greenUp = $('#sColor').value==='1';
-      save(); render(); toast('设置已保存');
+    goset(){ go('set'); },
+    goexp(){ go('exp'); },
+    addItem(){ addSetting(el.dataset.k); },
+    rmItem(){
+      const st = S.settings, k = el.dataset.k, i = +el.dataset.i, v = st[k][i], fee = st.fees[v];
+      st[k].splice(i, 1); if(k==='sellPlats') delete st.fees[v];
+      save(); render();
+      toast(`已删除「${v}」，以前的记录不受影响`, '撤销', () => { st[k].splice(i, 0, v); if(k==='sellPlats' && fee!=null) st.fees[v] = fee; save(); render(); });
     },
     backup(){ download(`钱来账本备份-${today()}.json`, JSON.stringify(S, null, 1), 'application/json'); },
     restore(){ $('#file').click(); },
     csv(){
-      const head = ['商品','分类','数量','状态','进货平台','买入日期','买入单价','买入运费','渠道费用','返利','总成本','订单号','出货平台','卖出日期','卖出单价','手续费','卖出运费','实收','货款到账','到账日期','利润','利润率','周转天数','预期单价','备注'];
+      const head = ['商品','分类','数量','状态','进货平台','买入日期','买入单价','买入运费','渠道费用','返利','总成本','订单号','出货平台','卖出日期','卖出单价','手续费','卖出运费','到账金额','货款到账','到账日期','利润','利润率','周转天数','预期单价','备注'];
       const rows = S.records.map(r => [r.name,r.cat,r.qty,STATUS[r.status],r.buyPlat,r.buyDate,r.buyPrice,r.buyShip,r.chanFee,r.rebate,r2(cost(r)),r.orderNo,r.sellPlat,r.sellDate,
-        r.status==='sold'?r.sellPrice:'', r.status==='sold'?r.fee:'', r.status==='sold'?r.sellShip:'', r.status==='sold'?r2(revenue(r)):'', r.status==='sold'?(r.paid?'已到账':'待到账'):'', r.paidDate||'', r.status==='sold'?r2(profit(r)):'',
+        r.status==='sold'?r.sellPrice:'', r.status==='sold'?r.fee:'', r.status==='sold'?r.sellShip:'', r.status==='sold'?r2(payout(r)):'', r.status==='sold'?(r.paid?'已到账':'待到账'):'', r.paidDate||'', r.status==='sold'?r2(profit(r)):'',
         r.status==='sold'?pct(profit(r)/cost(r)):'', r.status==='sold'?days(r.buyDate,r.sellDate):'', r.expectPrice||'', r.note]);
       downloadCsv(`钱来货单-${today()}.csv`, [head, ...rows]);
     },
@@ -829,6 +854,13 @@ document.addEventListener('click', e => {
   };
   if(A[el.dataset.act]) { e.stopPropagation(); A[el.dataset.act](); }
 });
+function addSetting(k){
+  const i = $('#add-'+k), v = i.value.trim(), list = S.settings[k];
+  if(!v) { toast('先输入名称'); i.focus(); return; }
+  if(list.includes(v)) { toast(`「${v}」已经有了`); return; }
+  list.push(v); save(); render(); toast(`已添加「${v}」`);
+  const n = $('#add-'+k); if(n) n.focus();
+}
 function download(name, text, type){
   if(window.Android && Android.saveFile) return Android.saveFile(name, type, text); // 安卓 App 内
   const a = document.createElement('a');
@@ -854,6 +886,7 @@ document.addEventListener('keydown', e => { if(e.key==='Escape') $('#mask2').cla
 window.appBack = () => {
   if($('#mask2').classList.contains('on')) { closePicker(); return true; }
   if($('#mask').classList.contains('on')) { closeModal(); return true; }
+  if(view==='exp') { go('set'); return true; }
   if(view!=='home') { go('home'); return true; }
   return false;
 };
@@ -923,7 +956,7 @@ function openForm(r){
       </div>
       <div class="row">
         <div class="f"><label>平台手续费</label>${moneyIn('fee', r.fee)}</div>
-        <div class="f"><label>卖出运费（自己出）</label>${moneyIn('sellShip', r.sellShip)}</div>
+        <div class="f"><label>卖出运费（另付）</label>${moneyIn('sellShip', r.sellShip)}</div>
       </div>
       <div class="row">
         <div class="f"><label>货款</label>${chips('paid', ['待到账','已到账'], r.paid?'已到账':'待到账', 'paid')}</div>
@@ -962,7 +995,7 @@ function openForm(r){
     f.sellPrice.required = x.status==='sold';
     const ep = estProfit(x);
     $('#pv').innerHTML = `<div>到手成本<b>${money(cost(x))}</b></div>` + (x.qty>1?`<div>单件成本<b>${money(cost(x)/x.qty)}</b></div>`:'') +
-      (x.status==='sold' ? `<div>实收<b>${money(revenue(x))}</b></div><div>利润 ${pct(profit(x)/cost(x))}<b class="${pc(profit(x))}">${money(profit(x),1)}</b></div>`
+      (x.status==='sold' ? `<div>到账金额<b>${money(payout(x))}</b></div><div>利润 ${pct(profit(x)/cost(x))}<b class="${pc(profit(x))}">${money(profit(x),1)}</b></div>`
         : ep!=null ? `<div>预计利润<b class="${pc(ep)}">${money(ep,1)}</b></div>` : '');
   };
   f.addEventListener('input', upd); f.addEventListener('change', upd); upd();
@@ -1023,7 +1056,7 @@ function openHistory(onPick){
 
 function openSell(r){
   const st = S.settings;
-  const plat0 = st.sellPlats.includes(st.lastSellPlat) ? st.lastSellPlat : (r.sellPlat || st.sellPlats[0] || '');
+  const plat0 = st.sellPlats.includes(r.sellPlat) ? r.sellPlat : st.sellPlats.includes(st.lastSellPlat) ? st.lastSellPlat : (st.sellPlats[0] || '');
   const paid0 = st.paidPref[plat0] ? '已到账' : '待到账';
   openModal(`
   <h2>卖出 · ${esc(r.name)}<button class="x" type="button">×</button></h2>
@@ -1036,7 +1069,7 @@ function openSell(r){
     <div class="quick" id="qp" style="margin:-4px 0 12px"></div>
     <div class="row3">
       <div class="f"><label>手续费 <small id="rateTip"></small></label>${moneyIn('fee', '')}</div>
-      <div class="f"><label>卖出运费</label>${moneyIn('sellShip', '')}</div>
+      <div class="f"><label>卖出运费（另付）</label>${moneyIn('sellShip', '')}</div>
       <div class="f"><label>卖出日期</label><input name="sellDate" type="date" value="${today()}" required></div>
     </div>
     <div class="f"><label>货款</label>${chips('paid', ['待到账','已到账'], paid0, 'paid')}</div>
@@ -1073,7 +1106,7 @@ function openSell(r){
     $('#qp').innerHTML = (r.expectPrice?`<button type="button" data-p="${r.expectPrice}">预期 <b>${money0(r.expectPrice)}</b></button>`:'')
       + `<button type="button" data-p="${r2(be)}">回本价 <b>${money(be)}</b></button>`
       + [1.1,1.2,1.3].map(k => `<button type="button" data-p="${Math.ceil(be*k)}">+${Math.round((k-1)*100)}% <b>${money0(Math.ceil(be*k))}</b></button>`).join('');
-    $('#spv').innerHTML = `<div>实收<b>${money(revenue(x))}</b></div><div>成本<b>${money(cost(x))}</b></div>
+    $('#spv').innerHTML = `<div>到账金额<b>${money(payout(x))}</b></div><div>成本${x.sellShip?' + 运费':''}<b>${money(cost(x)+x.sellShip)}</b></div>
       <div>利润 ${pct(p/cost(x))}<b class="${pc(p)}">${money(p,1)}</b></div><div>持有<b>${days(r.buyDate, x.sellDate)} 天</b></div>`; };
   $('#qp').onclick = e => { const b = e.target.closest('[data-p]'); if(!b) return; f.sellPrice.value = b.dataset.p; upd(); };
   f.addEventListener('input', upd); f.addEventListener('change', upd); upd();
