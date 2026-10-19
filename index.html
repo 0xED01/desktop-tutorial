@@ -79,6 +79,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--pri)}
 .st-stock{background:var(--warn-soft);color:var(--warn)}
 .st-listed{background:#efe6ff;color:#7c3aed}
 .st-sold{background:#e3f7ea;color:#15803d}
+.st-await{background:var(--warn-soft);color:var(--warn)}
 .st-returned{background:var(--chip);color:var(--sub);text-decoration:line-through}
 @media (prefers-color-scheme: dark){.st-listed{background:#2d2244;color:#b794ff}.st-sold{background:#173323;color:#4ade80}}
 /* tables */
@@ -190,6 +191,7 @@ const estProfit = r => {
 };
 const active = r => r.status!=='returned';
 const unsold = r => ['transit','stock','listed'].includes(r.status);
+const awaiting = r => r.status==='sold' && !r.paid;                      // 卖了但货款没到账
 const isStale = r => unsold(r) && days(r.buyDate) >= S.settings.staleDays;
 
 // ---------- 状态 ----------
@@ -235,6 +237,9 @@ function vHome(){
   const invCost = inv.reduce((s,r) => s+cost(r), 0);
   const invEst = inv.reduce((s,r) => s+(estProfit(r)||0), 0);
   const stale = inv.filter(isStale).length;
+  const unpaid = S.records.filter(awaiting);  // 不分时间段，所有没到账的都显示
+  const unpaidAmt = unpaid.reduce((s,r) => s+revenue(r), 0);
+  const unpaidMax = unpaid.reduce((m,r) => Math.max(m, days(r.sellDate)), 0);
   const transit = inv.filter(r => r.status==='transit').length;
   const wins = sold.filter(r => profit(r)>0).length;
 
@@ -267,9 +272,10 @@ function vHome(){
     <div class="stat big"><div class="k">${R.label}净利润</div><div class="v ${pc(net)}">${money(net,1)}</div>
       <div class="s">卖货毛利 ${money(gp)}${ex? ` · 杂费 ${money(-ex)}`:''}</div></div>
     <div class="stat"><div class="k">销售额</div><div class="v">${money(sRev)}</div><div class="s">卖出 ${qty} 件 / ${sold.length} 单</div></div>
-    <div class="stat"><div class="k">利润率（利润/成本）</div><div class="v ${pc(gp)}">${sCost?pct(gp/sCost):'—'}</div><div class="s">胜率 ${sold.length?pct(wins/sold.length):'—'}</div></div>
+    <div class="stat"><div class="k">利润率（利润/成本）</div><div class="v ${pc(gp)}">${sCost?pct(gp/sCost):'—'}</div><div class="s">胜率 ${sold.length?pct(wins/sold.length):'—'} · 平均周转 ${sold.length?avgDays.toFixed(1)+' 天':'—'}</div></div>
     <div class="stat"><div class="k">${R.label}进货支出</div><div class="v">${money(bought.reduce((s,r)=>s+cost(r),0))}</div><div class="s">进货 ${bought.reduce((s,r)=>s+r.qty,0)} 件${bought.some(r=>r.chanFee)?` · 渠道费 ${money(bought.reduce((s,r)=>s+r.chanFee,0))}`:''}</div></div>
-    <div class="stat"><div class="k">平均周转</div><div class="v">${sold.length?avgDays.toFixed(1):'—'} <small style="font-size:13px">天</small></div><div class="s">买入到卖出</div></div>
+    <div class="stat" style="cursor:pointer" data-act="goawait"><div class="k">待到账货款</div><div class="v ${unpaid.length?'':'muted'}">${money(unpaidAmt)}</div>
+      <div class="s">${unpaid.length?`${unpaid.length} 单 · 最久 <span style="${unpaidMax>=7?'color:var(--warn);font-weight:600':''}">${unpaidMax} 天</span>`:'全部已到账 ✅'}</div></div>
     <div class="stat" style="cursor:pointer" data-act="goinv"><div class="k">当前压货（占用资金）</div><div class="v">${money(invCost)}</div>
       <div class="s">${inv.reduce((s,r)=>s+r.qty,0)} 件${transit?` · 在途 ${transit} 单`:''}</div></div>
     <div class="stat" style="cursor:pointer" data-act="gostale"><div class="k">压货预计利润</div><div class="v ${pc(invEst)}">${money(invEst,1)}</div>
@@ -335,7 +341,8 @@ function filtered(){
   let list = S.records.filter(r => {
     if(F.status==='unsold' && !unsold(r)) return false;
     if(F.status==='stale' && !isStale(r)) return false;
-    if(!['all','unsold','stale'].includes(F.status) && r.status!==F.status) return false;
+    if(F.status==='await' && !awaiting(r)) return false;
+    if(!['all','unsold','stale','await'].includes(F.status) && r.status!==F.status) return false;
     if(F.plat && r.buyPlat!==F.plat && r.sellPlat!==F.plat) return false;
     if(F.month && !((r.sellDate||'').startsWith(F.month) || r.buyDate.startsWith(F.month))) return false;
     if(q && !(r.name+' '+r.cat+' '+r.note+' '+r.orderNo).toLowerCase().includes(q)) return false;
@@ -352,8 +359,8 @@ function filtered(){
 function vList(){
   const list = filtered();
   const plats = [...new Set([...S.settings.buyPlats, ...S.settings.sellPlats])];
-  const cnt = k => S.records.filter(k==='unsold'?unsold:k==='stale'?isStale:k==='all'?()=>true:r=>r.status===k).length;
-  const tabs = [['unsold','未出手'],['transit','在途'],['stock','在库'],['listed','已上架'],['sold','已售出'],['stale','压货超期'],['returned','已退货'],['all','全部']];
+  const cnt = k => S.records.filter(k==='unsold'?unsold:k==='stale'?isStale:k==='await'?awaiting:k==='all'?()=>true:r=>r.status===k).length;
+  const tabs = [['unsold','未出手'],['transit','在途'],['stock','在库'],['listed','已上架'],['sold','已售出'],['await','待到账'],['stale','压货超期'],['returned','已退货'],['all','全部']];
   const tp = list.reduce((s,r) => s+profit(r), 0), tc = list.reduce((s,r) => s+cost(r), 0);
   return `
   <div class="toolbar"><div class="seg" data-seg="status">
@@ -369,7 +376,7 @@ function vList(){
     ${F.month||F.plat||F.q ? '<button class="btn sm" data-act="clearF">清除筛选</button>' : ''}
   </div>
   <div class="card">
-    <h3>共 ${list.length} 单 <span class="r muted" style="font-size:12px">成本 ${money(tc)}${list.some(r=>r.status==='sold')?` · 利润 <b class="${pc(tp)}">${money(tp,1)}</b>`:''}</span></h3>
+    <h3>共 ${list.length} 单 ${F.status==='await'&&list.length?'<button class="btn sm" data-act="payAll">全部确认到账</button>':''}<span class="r muted" style="font-size:12px">${list.some(awaiting)?`待到账 <b style="color:var(--warn)">${money(list.filter(awaiting).reduce((s,r)=>s+revenue(r),0))}</b> · `:''}成本 ${money(tc)}${list.some(r=>r.status==='sold')?` · 利润 <b class="${pc(tp)}">${money(tp,1)}</b>`:''}</span></h3>
     ${list.length ? list.map(itemHtml).join('') : '<div class="empty">没有符合条件的记录</div>'}
   </div>`;
 }
@@ -384,7 +391,7 @@ function itemHtml(r){
     : `<div class="p">${money(cost(r))}</div><div class="m">${ep!=null?`预计 <span class="${pc(ep)}">${money(ep,1)}</span>`:'成本'}</div>`;
   return `<div class="item ${isStale(r)?'stale':''}">
     <div><div class="t">${esc(r.name)} ${r.qty>1?`<small class="muted">×${r.qty}</small>`:''}
-      <span class="badge st-${r.status}">${STATUS[r.status]}</span>${r.cat?`<span class="badge">${esc(r.cat)}</span>`:''}</div>
+      <span class="badge st-${r.status}">${STATUS[r.status]}</span>${sold?(r.paid?`<span class="badge">已到账${r.paidDate?' '+md(r.paidDate):''}</span>`:`<span class="badge st-await">待到账 ${money(revenue(r))}</span>`):''}${r.cat?`<span class="badge">${esc(r.cat)}</span>`:''}</div>
       <div class="m">${meta}</div>${r.note?`<div class="m">📝 ${esc(r.note)}</div>`:''}</div>
     <div class="n">${right}</div>
     <div class="acts">
@@ -393,6 +400,8 @@ function itemHtml(r){
       ${r.status==='stock'?`<button class="btn sm" data-act="listed" data-id="${r.id}">已上架</button>`:''}
       <button class="btn sm" data-act="edit" data-id="${r.id}">编辑</button>
       <button class="btn sm" data-act="dup" data-id="${r.id}">再来一单</button>
+      ${awaiting(r)?`<button class="btn pri sm" data-act="pay" data-id="${r.id}">确认到账</button>`:''}
+      ${sold&&r.paid?`<button class="btn sm" data-act="unpay" data-id="${r.id}">改为待到账</button>`:''}
       ${sold?`<button class="btn sm" data-act="unsell" data-id="${r.id}">撤销卖出</button>`:''}
       ${unsold(r)?`<button class="btn sm" data-act="return" data-id="${r.id}">退货</button>`:''}
       <button class="btn sm danger" data-act="del" data-id="${r.id}">删除</button>
@@ -556,6 +565,7 @@ document.addEventListener('click', e => {
   const A = {
     demo: loadDemo,
     goinv(){ F = {...F, status:'unsold', month:'', plat:'', q:''}; go('list'); },
+    goawait(){ F = {...F, status:'await', month:'', plat:'', q:''}; go('list'); },
     gostale(){ F = {...F, status:'stale', month:'', plat:'', q:''}; go('list'); },
     month(){ F = {...F, status:'sold', month:el.dataset.m, plat:'', q:''}; go('list'); },
     clearF(){ F = {...F, month:'', plat:'', q:''}; render(); },
@@ -564,7 +574,11 @@ document.addEventListener('click', e => {
     dup(){ const c = {...r}; delete c.id; Object.assign(c, {status:'transit', buyDate:today(), sellPlat:'', sellDate:'', sellPrice:0, fee:0, sellShip:0}); openForm(c); },
     arrive(){ r.status = 'stock'; save(); render(); toast('已标记到货'); },
     listed(){ r.status = 'listed'; save(); render(); toast('已标记上架'); },
-    unsell(){ if(!confirm('撤销卖出，恢复为在库？')) return; Object.assign(r, {status:'stock', sellDate:'', sellPrice:0, fee:0, sellShip:0}); save(); render(); },
+    unsell(){ if(!confirm('撤销卖出，恢复为在库？')) return; Object.assign(r, {status:'stock', sellDate:'', sellPrice:0, fee:0, sellShip:0, paid:false, paidDate:''}); save(); render(); },
+    pay(){ Object.assign(r, {paid:true, paidDate:today()}); save(); render(); toast(`已到账 ${money(revenue(r))}`, '撤销', () => { Object.assign(r, {paid:false, paidDate:''}); save(); render(); }); },
+    unpay(){ Object.assign(r, {paid:false, paidDate:''}); save(); render(); },
+    payAll(){ const l = filtered().filter(awaiting); if(!confirm(`把这 ${l.length} 单共 ${money(l.reduce((s,x)=>s+revenue(x),0))} 都标记为已到账？`)) return;
+      l.forEach(x => Object.assign(x, {paid:true, paidDate:today()})); save(); render(); toast('已全部确认到账', '撤销', () => { l.forEach(x => Object.assign(x, {paid:false, paidDate:''})); save(); render(); }); },
     return(){ const old = r.status; r.status = 'returned'; save(); render(); toast('已标记退货，不计入统计', '撤销', () => { r.status = old; save(); render(); }); },
     del(){
       const i = S.records.indexOf(r); S.records.splice(i,1); save(); render();
@@ -586,9 +600,9 @@ document.addEventListener('click', e => {
     backup(){ download(`转卖账本备份-${today()}.json`, JSON.stringify(S, null, 1), 'application/json'); },
     restore(){ $('#file').click(); },
     csv(){
-      const head = ['商品','分类','数量','状态','进货平台','买入日期','买入单价','买入运费','渠道费用','返利','总成本','订单号','出货平台','卖出日期','卖出单价','手续费','卖出运费','实收','利润','利润率','周转天数','预期单价','备注'];
+      const head = ['商品','分类','数量','状态','进货平台','买入日期','买入单价','买入运费','渠道费用','返利','总成本','订单号','出货平台','卖出日期','卖出单价','手续费','卖出运费','实收','货款到账','到账日期','利润','利润率','周转天数','预期单价','备注'];
       const rows = S.records.map(r => [r.name,r.cat,r.qty,STATUS[r.status],r.buyPlat,r.buyDate,r.buyPrice,r.buyShip,r.chanFee,r.rebate,r2(cost(r)),r.orderNo,r.sellPlat,r.sellDate,
-        r.status==='sold'?r.sellPrice:'', r.status==='sold'?r.fee:'', r.status==='sold'?r.sellShip:'', r.status==='sold'?r2(revenue(r)):'', r.status==='sold'?r2(profit(r)):'',
+        r.status==='sold'?r.sellPrice:'', r.status==='sold'?r.fee:'', r.status==='sold'?r.sellShip:'', r.status==='sold'?r2(revenue(r)):'', r.status==='sold'?(r.paid?'已到账':'待到账'):'', r.paidDate||'', r.status==='sold'?r2(profit(r)):'',
         r.status==='sold'?pct(profit(r)/cost(r)):'', r.status==='sold'?days(r.buyDate,r.sellDate):'', r.expectPrice||'', r.note]);
       downloadCsv(`转卖货单-${today()}.csv`, [head, ...rows]);
     },
@@ -639,7 +653,7 @@ const chips = (name, opts, val) => `<div class="chips">${opts.map(o => `<label><
 
 function normalize(r){
   const n = {id:uid(), name:'', cat:'', qty:1, buyPlat:'', buyDate:today(), buyPrice:0, buyShip:0, chanFee:0, rebate:0, orderNo:'', status:'transit',
-    expectPrice:0, sellPlat:'', sellDate:'', sellPrice:0, fee:0, sellShip:0, note:'', created:Date.now(), ...r};
+    expectPrice:0, sellPlat:'', sellDate:'', sellPrice:0, fee:0, sellShip:0, paid:false, paidDate:'', note:'', created:Date.now(), ...r};
   ['qty','buyPrice','buyShip','chanFee','rebate','expectPrice','sellPrice','fee','sellShip'].forEach(k => n[k] = num(n[k]));
   n.qty = Math.max(1, Math.round(n.qty));
   return n;
@@ -681,6 +695,10 @@ function openForm(r){
         <div class="f"><label>平台手续费</label><input name="fee" type="number" step="0.01" min="0" inputmode="decimal" value="${v(r.fee)}" placeholder="0"></div>
         <div class="f"><label>卖出运费（自己出）</label><input name="sellShip" type="number" step="0.01" min="0" inputmode="decimal" value="${v(r.sellShip)}" placeholder="0"></div>
       </div>
+      <div class="row">
+        <div class="f"><label>货款</label>${chips('paid', ['待到账','已到账'], r.paid?'已到账':'待到账')}</div>
+        <div class="f" id="paidDateF"><label>到账日期</label><input name="paidDate" type="date" value="${r.paidDate||today()}"></div>
+      </div>
     </div>
     <div class="row">
       <div class="f"><label>分类</label><input name="cat" list="dlCats" value="${esc(r.cat)}" placeholder="如：数码 / 美妆"></div>
@@ -700,12 +718,15 @@ function openForm(r){
     const fd = new FormData(f);
     const o = {}; for(const [k,val] of fd) o[k] = typeof val==='string' ? val.trim() : val;
     o.status = stKey(o.status) || 'transit';
+    o.paid = o.status==='sold' && o.paid==='已到账';
+    if(!o.paid) o.paidDate = '';
     o.buyPlat = o.buyPlat || ''; o.sellPlat = o.sellPlat || '';
     return normalize({...r, ...o, id:r.id, created:r.created});
   };
   const upd = () => {
     const x = read();
     $('#sellSec').style.display = x.status==='sold' ? '' : 'none';
+    $('#paidDateF').style.visibility = x.paid ? '' : 'hidden';
     f.sellPrice.required = x.status==='sold';
     const ep = estProfit(x);
     $('#pv').innerHTML = `<span>到手成本 <b>${money(cost(x))}</b></span>` + (x.qty>1?`<span>单件 <b>${money(cost(x)/x.qty)}</b></span>`:'') +
@@ -723,6 +744,7 @@ function openForm(r){
     const x = read();
     if(!x.name) return toast('请填写商品名称');
     if(x.status!=='sold') Object.assign(x, x.status==='listed' ? {sellDate:'', sellPrice:0, fee:0, sellShip:0} : {sellPlat:'', sellDate:'', sellPrice:0, fee:0, sellShip:0});
+    if(x.status!=='sold') Object.assign(x, {paid:false, paidDate:''});
     const i = S.records.findIndex(y => y.id===x.id);
     if(i>=0) S.records[i] = x; else S.records.push(x);
     save();
@@ -751,6 +773,7 @@ function openSell(r){
       <div class="f"><label>平台手续费 <small id="rateTip"></small></label><input name="fee" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0"></div>
       <div class="f"><label>卖出运费（自己出）</label><input name="sellShip" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0"></div>
     </div>
+    <div class="f"><label>货款</label>${chips('paid', ['待到账','已到账'], '待到账')}</div>
     <div class="preview" id="spv"></div>
     <div class="foot"><button class="btn" type="button" data-close>取消</button><button class="btn pri" type="submit">确认卖出</button></div>
   </form>`);
@@ -768,6 +791,7 @@ function openSell(r){
     $('#rateTip').textContent = rate ? `（${plat} ${rate}%）` : '';
     const x = {...r, qty:q, buyShip:r.buyShip*ratio, chanFee:r.chanFee*ratio, rebate:r.rebate*ratio, status:'sold', sellPlat:plat, sellDate:fd.get('sellDate'),
       sellPrice:price, fee:num(f.fee.value), sellShip:num(fd.get('sellShip'))};
+    x.paid = fd.get('paid')==='已到账'; x.paidDate = x.paid ? today() : '';
     return {x, q, ratio};
   };
   const upd = () => { const {x} = calc(); const p = profit(x);
@@ -805,14 +829,17 @@ function loadDemo(){
     ['Labubu 盲盒整盒','潮玩',1,'抖音',3,594,10,0,'transit','',0,0,0,0]
   ];
   demo.forEach(([name,cat,qty,buyPlat,bd,buyPrice,buyShip,rebate,status,sellPlat,sd,sellPrice,fee,sellShip]) =>
-    S.records.push(normalize({name,cat,qty,buyPlat,buyDate:d(bd),buyPrice,buyShip,rebate,status,sellPlat,sellDate:status==='sold'?d(sd):'',sellPrice,fee,sellShip,
+    S.records.push(normalize({name,cat,qty,buyPlat,buyDate:d(bd),buyPrice,buyShip,rebate,status,sellPlat,sellDate:status==='sold'?d(sd):'',sellPrice,fee,sellShip,paid:status==='sold'&&sd>7,paidDate:status==='sold'&&sd>7?d(sd-3):'',
       expectPrice: {'小米手环 9':259,'始祖鸟 Beta 冲锋衣':4300,'Labubu 盲盒整盒':899}[name]||0, created:Date.now()-bd})));
   S.expenses.push({id:uid(), type:'包装耗材', amount:35, date:d(10), note:'快递袋+气泡膜', created:Date.now()});
   save(); render(); toast('已加载示例数据，可在「设置」里清空');
 }
 
 // 旧数据补上后来新增的字段
-S.records.forEach(r => { if(r.chanFee == null) r.chanFee = 0; });
+S.records.forEach(r => {
+  if(r.chanFee == null) r.chanFee = 0;
+  if(r.paid == null) { r.paid = r.status==='sold'; r.paidDate = r.paid ? r.sellDate : ''; } // 加这个功能前卖出的，默认已到账
+});
 render();
 </script>
 </body>
