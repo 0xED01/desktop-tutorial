@@ -1,5 +1,5 @@
 // 离线缓存：先用缓存秒开，同时在后台拉新版本，下次打开生效
-const CACHE = 'qianlai-v1';
+const CACHE = 'qianlai-v2';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icons/apple-touch-icon.png', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {

@@ -865,11 +865,11 @@ function vSet(){
     <p class="muted" style="margin-top:0">数据只保存在这台设备上。换手机、卸载 App 或清理浏览器前，请先导出备份。</p>
     <div class="flex">
       <button class="btn soft" data-act="backup">导出备份</button>
-      <button class="btn" data-act="restore">导入备份</button>
+      <button class="btn" data-act="restore">导入备份 / CSV</button>
       <button class="btn" data-act="csv">导出货单 CSV</button>
       <button class="btn danger" data-act="wipe">清空所有数据</button>
     </div>
-    <input type="file" id="file" accept=".json,application/json" hidden>
+    <input type="file" id="file" accept=".json,.csv,application/json,text/csv,text/comma-separated-values,text/plain" hidden>
     <div class="tip">共 ${S.records.length} 条货单，${S.expenses.length} 条杂费</div>
   </div>
   <div class="tip" style="text-align:center">钱来账本 · 祝你单单都赚钱 🪙</div>`;
@@ -916,14 +916,72 @@ function bindView(){
   const file = $('#file');
   if(file) file.onchange = () => {
     const f = file.files[0]; if(!f) return;
+    file.value = '';  // 同一个文件可以再选一次
     f.text().then(t => {
+      if(/\.csv$/i.test(f.name) || !/^\s*\{/.test(t.replace(/^\ufeff/, ''))) return importCsv(t);
       const d = JSON.parse(t);
       if(!Array.isArray(d.records)) throw new Error();
       if(!confirm(`导入将覆盖当前数据（备份里有 ${d.records.length} 条货单），确定吗？`)) return;
       S = {records:d.records.map(normalize), expenses:d.expenses||[], settings:Object.assign({}, DEF_SET, d.settings||{})};
       migrate(); save(); render(); toast('导入成功');
-    }).catch(() => toast('文件格式不对，导入失败'));
+    }).catch(e => toast(e && e.msg ? e.msg : '文件格式不对，导入失败'));
   };
+}
+
+// ---------- 导入货单 CSV（本 App「导出货单 CSV」的格式） ----------
+function parseCsv(t){
+  t = t.replace(/^﻿/, '');
+  const rows = []; let row = [], v = '', q = false;
+  for(let i=0; i<t.length; i++){
+    const c = t[i];
+    if(q){ if(c==='"'){ if(t[i+1]==='"'){ v+='"'; i++; } else q = false; } else v += c; }
+    else if(c==='"') q = true;
+    else if(c===','){ row.push(v); v=''; }
+    else if(c==='\n' || c==='\r'){ if(c==='\r' && t[i+1]==='\n') i++; row.push(v); rows.push(row); row=[]; v=''; }
+    else v += c;
+  }
+  if(v!=='' || row.length){ row.push(v); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim()!==''));
+}
+function importCsv(t){
+  const rows = parseCsv(t);
+  const head = (rows.shift()||[]).map(h => h.trim());
+  const col = name => head.indexOf(name);
+  if(col('商品')<0 || col('买入单价')<0) throw {msg:'CSV 里没有「商品」「买入单价」列，不是钱来账本导出的货单'};
+  const stKey = Object.fromEntries(Object.entries(STATUS).map(([k,v]) => [v,k]));
+  const get = (r, name) => { const i = col(name); return i<0 ? '' : (r[i]||'').trim(); };
+  const date = v => /^\d{4}-\d{1,2}-\d{1,2}$/.test(v) ? v.split('-').map((x,i) => i ? x.padStart(2,'0') : x).join('-') : (v ? v.replace(/\//g,'-') : '');
+  const base = Date.now() - rows.length;
+  const list = rows.map((r, i) => {
+    const status = stKey[get(r,'状态')] || 'stock';
+    const x = normalize({
+      name:get(r,'商品'), cat:get(r,'分类'), qty:get(r,'数量')||1, status,
+      buyPlat:get(r,'进货平台'), buyDate:date(get(r,'买入日期'))||today(), buyPrice:get(r,'买入单价'), buyShip:get(r,'买入运费'),
+      chanName:get(r,'渠道名称'), chanFee:get(r,'渠道费用'), rebate:get(r,'返利'), orderNo:get(r,'订单号'),
+      sellPlat:get(r,'出货平台'), sellDate:date(get(r,'卖出日期')), sellPrice:get(r,'卖出单价'), fee:get(r,'手续费'), sellShip:get(r,'卖出运费'),
+      expectPrice:get(r,'预期单价'), note:get(r,'备注'), created: base + i
+    });
+    if(status==='sold'){ x.paid = get(r,'货款到账')==='已到账'; x.paidDate = x.paid ? (date(get(r,'到账日期')) || x.sellDate) : ''; if(!x.sellDate) x.sellDate = x.buyDate; }
+    else Object.assign(x, {sellDate:'', sellPrice:0, fee:0, sellShip:0, paid:false, paidDate:''}, status==='listed' ? {} : {sellPlat:''});
+    return x;
+  }).filter(x => x.name);
+  if(!list.length) throw {msg:'CSV 里没有货单'};
+  const st = S.settings;
+  const newBuy = [...new Set(list.map(x => x.buyPlat).filter(p => p && !st.buyPlats.includes(p)))];
+  const newSell = [...new Set(list.map(x => x.sellPlat).filter(p => p && !st.sellPlats.includes(p)))];
+  const nSold = list.filter(x => x.status==='sold').length;
+  openModal(`<h2>导入货单 CSV<button class="x" type="button">×</button></h2>
+    <div class="preview"><div>货单<b>${list.length} 条</b></div><div>已售出<b>${nSold} 条</b></div><div>未出手<b>${list.length-nSold} 条</b></div><div>合计利润<b class="${pc(sum(list, profit))}">${money(sum(list, profit),1)}</b></div></div>
+    ${newBuy.length||newSell.length ? `<p class="tip">会自动添加新平台：${[...newBuy.map(p => '进货·'+esc(p)), ...newSell.map(p => '出货·'+esc(p))].join('、')}</p>` : ''}
+    <p class="muted" style="font-size:13px">${S.records.length ? `这台设备上已有 ${S.records.length} 条货单。<b>替换</b>会删掉它们，只保留 CSV 里的；<b>追加</b>会把 CSV 里的加在后面（同一份 CSV 导两次会重复）。` : ''}杂费和设置不受影响。</p>
+    <div class="foot">${S.records.length ? '<button class="btn" type="button" id="csvAppend">追加</button><button class="btn pri" type="button" id="csvReplace">替换现有货单</button>' : '<button class="btn" type="button" data-close>取消</button><button class="btn pri" type="button" id="csvReplace">导入</button>'}</div>`);
+  const doImport = replace => {
+    st.buyPlats.push(...newBuy); st.sellPlats.push(...newSell);
+    S.records = replace ? list : [...S.records, ...list];
+    save(); closeModal(); render(); toast(`已导入 ${list.length} 条货单 ✅`);
+  };
+  $('#csvReplace').onclick = () => doImport(true);
+  if($('#csvAppend')) $('#csvAppend').onclick = () => doImport(false);
 }
 const setPaid = (list, paid) => list.forEach(x => Object.assign(x, {paid, paidDate: paid ? today() : ''}));
 document.addEventListener('click', e => {
