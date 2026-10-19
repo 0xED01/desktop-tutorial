@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>资产负债表</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="资产负债表">
+<meta name="theme-color" content="#1e3a5f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-512.png">
+<style>
+/* Layout: one-column phone app — navy summary header, tab strip, card list, fixed bottom action */
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --fg: #263238;
+  --muted: #8396a3;
+  --line: #e6eaef;
+  --navy: #1e3a5f;
+  --on-navy: #ffffff;
+  --on-navy-2: rgba(255,255,255,.7);
+  --teal: #2a9d8f;
+  --teal-soft: #8ccfc6;
+  --coral: #e76f51;
+  --coral-soft: #f4a28c;
+  --chip-line: #cfd8dc;
+  --scrim: rgba(15,25,40,.45);
+  --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1722; --surface: #18222f; --fg: #e3e9ef; --muted: #8a9bab; --line: #26323f;
+    --navy: #16304f; --teal: #3bb3a4; --teal-soft: #7fd0c5; --coral: #f08163; --coral-soft: #f4a28c;
+    --chip-line: #34424f; --scrim: rgba(0,0,0,.6); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1722; --surface: #18222f; --fg: #e3e9ef; --muted: #8a9bab; --line: #26323f;
+  --navy: #16304f; --teal: #3bb3a4; --teal-soft: #7fd0c5; --coral: #f08163; --coral-soft: #f4a28c;
+  --chip-line: #34424f; --scrim: rgba(0,0,0,.6); color-scheme: dark;
+}
+[hidden] { display: none !important; }
+:root { padding-top: env(safe-area-inset-top, 0px); color-scheme: light; }
+body { margin: 0; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 15px; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--navy); }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+.gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+header { background: var(--navy); color: var(--on-navy); padding-block: 16px 18px; }
+header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+.title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.more { color: var(--on-navy); background: rgba(255,255,255,.16); border-radius: 16px; padding: 6px 14px; font-size: 14px; }
+.menu-btn { display: block; width: 100%; text-align: left; padding: 14px 4px; border-bottom: 1px solid var(--line); font-size: 16px; }
+.menu-btn small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.net-label { margin-top: 16px; font-size: 13px; color: var(--on-navy-2); }
+.net { font-size: 38px; font-weight: 700; letter-spacing: -.5px; line-height: 1.15; overflow-wrap: anywhere; }
+.ratio-bar { display: flex; height: 6px; margin-top: 14px; border-radius: 3px; overflow: hidden; background: rgba(255,255,255,.18); }
+.ratio-bar span { display: block; height: 100%; transition: flex-grow .3s; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin-top: 12px; }
+.stats small { display: block; font-size: 12px; color: var(--on-navy-2); }
+.stats b { display: block; margin-top: 2px; font-size: 15px; overflow-wrap: anywhere; }
+
+nav { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; border-bottom: 1px solid var(--line); }
+nav button { padding: 12px 0 9px; font-weight: 600; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 8px; }
+nav button::after { content: ""; width: 28px; height: 3px; border-radius: 2px; background: transparent; }
+nav button[aria-selected="true"] { color: var(--fg); }
+nav button[aria-selected="true"]::after { background: var(--tab-color, var(--fg)); }
+
+main { padding-block: 12px 110px; display: flex; flex-direction: column; gap: 10px; max-width: 640px; margin: 0 auto; }
+.card { background: var(--surface); border-radius: 14px; padding: 4px 0; }
+.cat-head { display: flex; align-items: center; gap: 8px; padding: 10px 16px 6px; }
+.dot { width: 8px; height: 8px; border-radius: 4px; flex: none; }
+.cat-head strong { flex: 1; font-size: 14px; }
+.cat-head span { font-size: 13px; color: var(--muted); }
+.row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 11px 16px 11px 32px; }
+.row:active { background: var(--line); }
+.row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .amt { font-weight: 700; font-size: 16px; }
+.empty { text-align: center; color: var(--muted); line-height: 1.8; padding: 60px 20px 0; font-size: 14px; }
+.tip { text-align: center; color: var(--muted); font-size: 12px; padding-top: 2px; }
+
+.summary { padding: 14px 16px; }
+.summary .label { color: var(--muted); font-size: 14px; }
+.summary .big { font-size: 28px; font-weight: 700; margin: 2px 0; overflow-wrap: anywhere; }
+.summary .formula { color: var(--muted); font-size: 13px; margin-bottom: 12px; overflow-wrap: anywhere; }
+.split { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--line); }
+.legend { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 12px; flex-wrap: wrap; }
+.warn { color: var(--coral); font-size: 12px; margin-top: 8px; }
+.sheet { padding: 12px 16px; }
+.sheet h2 { margin: 0; font-size: 15px; }
+.sheet h3 { margin: 14px 0 4px; font-size: 13px; color: var(--muted); }
+.sheet .line { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0 5px 8px; font-size: 14px; }
+.sheet .total { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); margin-top: 4px; padding-top: 8px; font-weight: 700; }
+
+.chart-card { padding: 12px 14px 10px; }
+.chart-card h2 { margin: 0 0 4px; font-size: 14px; }
+.chart-card svg { display: block; width: 100%; height: 170px; }
+.hist .item { display: flex; align-items: center; gap: 12px; padding: 10px 16px; }
+.hist .left { flex: 1; min-width: 0; }
+.hist .left div:first-child { font-weight: 700; }
+.hist small { color: var(--muted); font-size: 12px; }
+.hist .right { text-align: right; }
+.hist .right div:first-child { font-weight: 700; }
+.hist .del { color: var(--muted); font-size: 12px; padding: 4px 0 4px 8px; }
+.hist .del.armed { color: var(--coral); font-weight: 600; }
+
+.bottom { position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); padding-block: 10px calc(14px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); z-index: 6; }
+.bottom .gutter-inner { max-width: 640px; margin: 0 auto; }
+.btn { display: block; width: 100%; height: 52px; border-radius: 26px; color: #fff; font-size: 16px; font-weight: 600; }
+.btn:active { filter: brightness(.92); }
+
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 20; display: flex; align-items: flex-end; justify-content: center; }
+.dialog { background: var(--surface); width: 100%; max-width: 520px; border-radius: 18px 18px 0 0; padding-block: 18px calc(16px + env(safe-area-inset-bottom, 0px)); max-height: 92%; overflow-y: auto; animation: up .2s ease-out; }
+@keyframes up { from { transform: translateY(30px); opacity: .6; } }
+@media (prefers-reduced-motion: reduce) { .dialog { animation: none; } .ratio-bar span { transition: none; } }
+.dialog h2 { margin: 0 0 6px; font-size: 18px; }
+.field-label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+.chips { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
+.chip { border: 1px solid var(--chip-line); border-radius: 16px; padding: 7px 0; font-size: 13px; text-align: center; }
+.chip[aria-pressed="true"] { color: #fff; border-color: transparent; }
+.dialog input { width: 100%; font: inherit; font-size: 17px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; }
+.dialog input.amount { font-size: 22px; font-weight: 600; }
+.error { color: var(--coral); font-size: 13px; min-height: 18px; margin-top: 6px; }
+.actions { display: flex; gap: 10px; margin-top: 10px; }
+.actions button { flex: 1; height: 46px; border-radius: 23px; font-weight: 600; }
+.actions .ghost { background: var(--bg); }
+.actions .danger { flex: 0 0 auto; padding: 0 16px; color: var(--coral); background: var(--bg); }
+.actions .danger.armed { background: var(--coral); color: #fff; }
+.notice { font-size: 12px; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="gutter">
+    <div class="title-row"><h1>资产负债表</h1><button class="more" id="moreBtn">备份</button></div>
+    <div class="net-label">净资产（元）</div>
+    <div class="net num" id="net">0.00</div>
+    <div class="ratio-bar" aria-hidden="true"><span id="barA" style="background:var(--teal);flex-grow:0"></span><span id="barL" style="background:var(--coral);flex-grow:0"></span></div>
+    <div class="stats">
+      <div><small>总资产</small><b class="num" id="sumA" style="color:var(--teal-soft)">0.00</b></div>
+      <div><small>总负债</small><b class="num" id="sumL" style="color:var(--coral-soft)">0.00</b></div>
+      <div><small>负债率</small><b class="num" id="ratio">0%</b></div>
+    </div>
+  </div>
+</header>
+
+<nav role="tablist" id="tabs">
+  <button role="tab" id="tab-0" data-tab="0" style="--tab-color:var(--teal)">资产</button>
+  <button role="tab" id="tab-1" data-tab="1" style="--tab-color:var(--coral)">负债</button>
+  <button role="tab" id="tab-2" data-tab="2">净资产</button>
+  <button role="tab" id="tab-3" data-tab="3">趋势</button>
+</nav>
+
+<main class="gutter" id="content">
+  <div class="empty">正在加载…</div>
+</main>
+
+<div class="bottom gutter" id="bottom">
+  <div class="gutter-inner"><button class="btn" id="addBtn">＋ 添加资产</button></div>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+
+<script>
+const ASSET = 0, LIAB = 1;
+const ASSET_CATS = ["现金活期", "存款理财", "股票基金", "房产", "车辆", "借出款", "公积金", "其他资产"];
+const LIAB_CATS = ["信用卡", "房贷", "车贷", "消费贷", "借入款", "其他负债"];
+const LOCAL_KEY = "balance-sheet-v1";
+
+let state = { items: [], snapshots: {} };   // amounts in cents; snapshots: { "202610": {a, l} }
+let tab = 0;
+let storeNote = "";
+
+const $ = (id) => document.getElementById(id);
+const fmt = new Intl.NumberFormat("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = (c) => fmt.format(c / 100);
+const plain = (c) => String(Math.round(c) / 100);
+function compact(c) {
+  const y = c / 100, a = Math.abs(y), f = (v) => String(Math.round(v * 100) / 100);
+  if (a >= 1e8) return f(y / 1e8) + "亿";
+  if (a >= 1e4) return f(y / 1e4) + "万";
+  return f(y);
+}
+const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+function currentYm() { const d = new Date(); return d.getFullYear() * 100 + d.getMonth() + 1; }
+const ymText = (ym) => `${Math.floor(ym / 100)}年${ym % 100}月`;
+const total = (side) => state.items.filter((i) => i.side === side).reduce((s, i) => s + i.amount, 0);
+const itemsOf = (side, cat) => state.items.filter((i) => i.side === side && i.cat === cat).sort((x, y) => y.amount - x.amount);
+
+// ---------- persistence ----------
+function readLocal() {
+  try { const raw = localStorage.getItem(LOCAL_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+}
+function writeLocal() { try { localStorage.setItem(LOCAL_KEY, JSON.stringify(state)); return true; } catch (e) { return false; } }
+
+function save() {
+  state.snapshots[currentYm()] = { a: total(ASSET), l: total(LIAB) };
+  if (!writeLocal()) storeNote = "保存失败：浏览器禁止了本地存储（请关闭无痕浏览）";
+}
+
+function normalize(d) {
+  return { items: Array.isArray(d?.items) ? d.items : [], snapshots: d?.snapshots && typeof d.snapshots === "object" ? d.snapshots : {} };
+}
+
+function init() {
+  const local = readLocal();
+  if (local) state = normalize(local);
+  // Ask the browser not to evict our data under storage pressure.
+  try { navigator.storage?.persist?.(); } catch (e) {}
+  // Carry existing data into a new month on first open.
+  if (state.items.length && !state.snapshots[currentYm()]) save();
+  render();
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
+// ---------- render ----------
+function render() {
+  const a = total(ASSET), l = total(LIAB), sum = a + l;
+  $("net").textContent = money(a - l);
+  $("sumA").textContent = money(a);
+  $("sumL").textContent = money(l);
+  $("ratio").textContent = a > 0 ? (l * 100 / a).toFixed(1) + "%" : (l > 0 ? "—" : "0%");
+  $("barA").style.flexGrow = sum ? a / sum : 0;
+  $("barL").style.flexGrow = sum ? l / sum : 0;
+
+  document.querySelectorAll("#tabs button").forEach((b) => b.setAttribute("aria-selected", String(+b.dataset.tab === tab)));
+  const listTab = tab === 0 || tab === 1;
+  $("bottom").hidden = !listTab;
+  if (listTab) {
+    $("addBtn").textContent = tab === 0 ? "＋ 添加资产" : "＋ 添加负债";
+    $("addBtn").style.background = tab === 0 ? "var(--teal)" : "var(--coral)";
+  }
+  const c = $("content");
+  c.style.paddingBottom = listTab ? "" : "24px";
+  c.innerHTML = tab === 0 ? listHtml(ASSET) : tab === 1 ? listHtml(LIAB) : tab === 2 ? netHtml() : trendHtml();
+  if (storeNote) c.insertAdjacentHTML("beforeend", `<p class="notice">${esc(storeNote)}</p>`);
+}
+
+function listHtml(side) {
+  const cats = side === ASSET ? ASSET_CATS : LIAB_CATS;
+  const color = side === ASSET ? "var(--teal)" : "var(--coral)";
+  const t = total(side);
+  let html = "";
+  for (const cat of cats) {
+    const list = itemsOf(side, cat);
+    if (!list.length) continue;
+    const sub = list.reduce((s, i) => s + i.amount, 0);
+    const pct = t > 0 ? (Math.round(sub * 1000 / t) / 10) + "%　" : "";
+    html += `<section class="card"><div class="cat-head"><span class="dot" style="background:${color}"></span><strong>${cat}</strong><span class="num">${pct}${money(sub)}</span></div>`;
+    for (const i of list) {
+      html += `<button class="row" data-edit="${i.id}"><span class="name">${esc(i.name || cat)}</span><span class="amt num" style="color:${color}">${money(i.amount)}</span></button>`;
+    }
+    html += `</section>`;
+  }
+  if (!html) {
+    return `<div class="empty">${side === ASSET ? "还没有资产<br>把银行卡、理财、房车等逐项加进来吧" : "还没有负债<br>有信用卡、房贷、借款的话记在这里"}</div>`;
+  }
+  return html + `<div class="tip">点击条目可修改金额或删除</div>`;
+}
+
+function netHtml() {
+  const a = total(ASSET), l = total(LIAB), e = a - l;
+  const eColor = e < 0 ? "var(--coral)" : "var(--fg)";
+  let html = `<section class="card summary"><div class="label">净资产</div><div class="big num" style="color:${eColor}">${money(e)}</div>
+    <div class="formula num">资产 ${money(a)}  −  负债 ${money(l)}</div>`;
+  if (a > 0) {
+    const ls = Math.min(1, l / a);
+    html += `<div class="split"><span style="flex-grow:${ls};background:var(--coral)"></span><span style="flex-grow:${1 - ls};background:var(--teal)"></span></div>
+      <div class="legend num"><span style="color:var(--coral)">● 负债占资产 ${(l * 100 / a).toFixed(1)}%</span><span style="color:var(--teal)">● 净资产占资产 ${(Math.max(0, e) * 100 / a).toFixed(1)}%</span></div>`;
+  }
+  if (e < 0) html += `<div class="warn">负债已超过资产（资不抵债），净资产为负</div>`;
+  html += `</section><section class="card sheet"><h2>资产负债表</h2>`;
+  const section = (title, side, cats) => {
+    let s = `<h3>${title}</h3>`, any = false;
+    for (const cat of cats) {
+      const sub = itemsOf(side, cat).reduce((x, i) => x + i.amount, 0);
+      if (!sub) continue;
+      any = true;
+      s += `<div class="line"><span>${cat}</span><span class="num">${money(sub)}</span></div>`;
+    }
+    return s + (any ? "" : `<div class="line" style="color:var(--muted)"><span>（无）</span><span class="num">0.00</span></div>`);
+  };
+  html += section("资产", ASSET, ASSET_CATS);
+  html += `<div class="total"><span>资产合计</span><span class="num" style="color:var(--teal)">${money(a)}</span></div>`;
+  html += section("负债", LIAB, LIAB_CATS);
+  html += `<div class="total"><span>负债合计</span><span class="num" style="color:var(--coral)">${money(l)}</span></div>`;
+  html += `<h3>净资产</h3><div class="line"><span>净资产（资产 − 负债）</span><span class="num" style="color:${eColor}">${money(e)}</span></div>`;
+  html += `<div class="total"><span>负债和净资产合计</span><span class="num">${money(l + e)}</span></div></section>`;
+  return html + `<div class="tip">资产 = 负债 + 净资产</div>`;
+}
+
+function trendHtml() {
+  const snaps = Object.keys(state.snapshots).map(Number).sort((x, y) => x - y)
+    .map((ym) => ({ ym, a: state.snapshots[ym].a, l: state.snapshots[ym].l, net: state.snapshots[ym].a - state.snapshots[ym].l }));
+  if (!snaps.length) return `<div class="empty">添加资产或负债后<br>每个月的净资产会自动记录在这里</div>`;
+  let html = `<section class="card chart-card"><h2>净资产走势</h2>${chartSvg(snaps.slice(-12))}</section><section class="card hist">`;
+  const cur = currentYm();
+  for (let i = snaps.length - 1; i >= 0; i--) {
+    const s = snaps[i], prev = snaps[i - 1];
+    let diff = "";
+    if (prev) {
+      const d = s.net - prev.net;
+      diff = `<small class="num" style="color:${d >= 0 ? "var(--teal)" : "var(--coral)"}">${d >= 0 ? "▲" : "▼"} ${money(Math.abs(d))}</small>`;
+    }
+    const del = s.ym === cur ? "" : `<button class="del" data-del="${s.ym}">删除</button>`;
+    html += `<div class="item"><div class="left"><div>${ymText(s.ym)}${s.ym === cur ? "（本月）" : ""}</div><small class="num">资产 ${compact(s.a)}　负债 ${compact(s.l)}</small></div>
+      <div class="right"><div class="num">${money(s.net)}</div>${diff}</div>${del}</div>`;
+  }
+  return html + `</section><div class="tip">每月净资产自动按当月最后一次修改记录，平时更新各项金额即可</div>`;
+}
+
+function chartSvg(data) {
+  const W = 340, H = 170, top = 24, bottom = H - 22;
+  let max = 0, min = 0;
+  for (const s of data) { max = Math.max(max, s.net); min = Math.min(min, s.net); }
+  if (max === min) max = min + 1;
+  const y = (v) => top + (bottom - top) * (max - v) / (max - min);
+  const zero = y(0);
+  const slot = W / Math.max(data.length, 6), bw = Math.min(slot * 0.55, 28);
+  const off = (W - slot * data.length) / 2;
+  let g = `<line x1="0" x2="${W}" y1="${zero}" y2="${zero}" stroke="var(--line)" stroke-width="1"/>`;
+  data.forEach((s, i) => {
+    const cx = off + slot * (i + 0.5), yy = y(s.net), last = i === data.length - 1;
+    const y0 = Math.min(yy, zero), h = Math.max(Math.abs(zero - yy), 2);
+    const fill = s.net < 0 ? "var(--coral)" : last ? "var(--teal)" : "var(--teal-soft)";
+    g += `<rect x="${cx - bw / 2}" y="${y0}" width="${bw}" height="${h}" rx="4" fill="${fill}"/>`;
+    g += `<text x="${cx}" y="${H - 5}" text-anchor="middle" font-size="11" fill="var(--muted)">${s.ym % 100}月</text>`;
+    if (last) g += `<text x="${cx}" y="${y0 - 7}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--fg)">${compact(s.net)}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="最近${data.length}个月净资产柱状图">${g}</svg>`;
+}
+
+// ---------- add / edit dialog ----------
+function openDialog(existing, side) {
+  const cats = side === ASSET ? ASSET_CATS : LIAB_CATS;
+  const color = side === ASSET ? "var(--teal)" : "var(--coral)";
+  let chosen = existing ? existing.cat : cats[0];
+  const scrim = $("scrim");
+  scrim.innerHTML = `<form class="dialog gutter" id="dlg" novalidate>
+      <h2>${existing ? "修改" : side === ASSET ? "添加资产" : "添加负债"}</h2>
+      <span class="field-label">类别</span>
+      <div class="chips">${cats.map((c) => `<button type="button" class="chip" data-cat="${c}">${c}</button>`).join("")}</div>
+      <label class="field-label" for="f-name">名称（选填）</label>
+      <input id="f-name" maxlength="40" placeholder="${side === ASSET ? "如：招商银行储蓄卡" : "如：招行信用卡"}" value="${existing ? esc(existing.name) : ""}">
+      <label class="field-label" for="f-amount">${side === ASSET ? "当前价值（元）" : "当前欠款（元）"}</label>
+      <input id="f-amount" class="amount num" inputmode="decimal" autocomplete="off" value="${existing ? plain(existing.amount) : ""}">
+      <div class="error" id="f-err"></div>
+      <div class="actions">
+        ${existing ? `<button type="button" class="danger" id="f-del">删除</button>` : ""}
+        <button type="button" class="ghost" id="f-cancel">取消</button>
+        <button type="submit" id="f-save" style="background:${color};color:#fff">保存</button>
+      </div>
+    </form>`;
+  scrim.hidden = false;
+  const paint = () => scrim.querySelectorAll(".chip").forEach((b) => {
+    const on = b.dataset.cat === chosen;
+    b.setAttribute("aria-pressed", String(on));
+    b.style.background = on ? color : "";
+  });
+  paint();
+  scrim.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => { chosen = b.dataset.cat; paint(); }));
+  const amount = $("f-amount");
+  setTimeout(() => { (existing ? amount : $("f-name")).focus(); if (existing) amount.select(); }, 50);
+
+  const close = () => { scrim.hidden = true; scrim.innerHTML = ""; };
+  $("f-cancel").onclick = close;
+  scrim.onclick = (e) => { if (e.target === scrim) close(); };
+  $("dlg").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const raw = amount.value.trim().replace(/[,，\s]/g, "");
+    const v = Number(raw);
+    if (!raw || !isFinite(v)) { $("f-err").textContent = "请输入金额，例如 12000 或 3500.50"; return; }
+    if (v < 0) { $("f-err").textContent = "金额不能为负数"; return; }
+    const item = existing || { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), side };
+    item.cat = chosen;
+    item.name = $("f-name").value.trim();
+    item.amount = Math.round(v * 100);
+    if (!existing) state.items.push(item);
+    close();
+    render();
+    save();
+    render();
+  });
+  if (existing) {
+    const del = $("f-del");
+    del.onclick = () => {
+      if (!del.classList.contains("armed")) { del.classList.add("armed"); del.textContent = "确认删除"; return; }
+      state.items = state.items.filter((i) => i !== existing);
+      close();
+      render();
+      save();
+    render();
+    };
+  }
+}
+
+// ---------- backup ----------
+function openBackup() {
+  const scrim = $("scrim");
+  scrim.innerHTML = `<div class="dialog gutter">
+      <h2>备份与恢复</h2>
+      <p class="notice" style="text-align:left;margin:0 0 6px">数据只保存在这台手机的浏览器里。建议定期导出备份，换手机或清除 Safari 数据前一定要先导出。</p>
+      <button class="menu-btn" id="b-export">导出备份文件<small>保存为 .json 文件，可存到“文件”App 或发给自己</small></button>
+      <button class="menu-btn" id="b-import">从备份文件恢复<small>会用备份内容替换当前全部数据</small></button>
+      <input type="file" id="b-file" accept=".json,application/json" hidden>
+      <div class="error" id="b-msg"></div>
+      <div class="actions"><button type="button" class="ghost" id="b-close">关闭</button></div>
+    </div>`;
+  scrim.hidden = false;
+  const close = () => { scrim.hidden = true; scrim.innerHTML = ""; };
+  $("b-close").onclick = close;
+  scrim.onclick = (e) => { if (e.target === scrim) close(); };
+  $("b-export").onclick = () => {
+    const d = new Date(), pad = (n) => String(n).padStart(2, "0");
+    const name = `balance-sheet-backup-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.json`;
+    const blob = new Blob([JSON.stringify({ app: "balance-sheet", version: 1, ...state }, null, 1)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    $("b-msg").style.color = "var(--teal)";
+    $("b-msg").textContent = "已生成备份文件：" + name;
+  };
+  $("b-import").onclick = () => $("b-file").click();
+  $("b-file").onchange = async () => {
+    const f = $("b-file").files[0];
+    if (!f) return;
+    try {
+      const d = JSON.parse(await f.text());
+      if (!Array.isArray(d.items)) throw new Error();
+      state = normalize(d);
+      save();
+      render();
+      close();
+    } catch (e) {
+      $("b-msg").style.color = "";
+      $("b-msg").textContent = "这个文件不是资产负债表的备份，请重新选择";
+    }
+  };
+}
+
+// ---------- events ----------
+$("tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-tab]");
+  if (!b) return;
+  tab = +b.dataset.tab;
+  try { localStorage.setItem(LOCAL_KEY + "-tab", String(tab)); } catch (err) {}
+  render();
+  window.scrollTo({ top: 0 });
+});
+$("moreBtn").addEventListener("click", openBackup);
+$("addBtn").addEventListener("click", () => openDialog(null, tab === 1 ? LIAB : ASSET));
+$("content").addEventListener("click", (e) => {
+  const row = e.target.closest("[data-edit]");
+  if (row) {
+    const item = state.items.find((i) => i.id === row.dataset.edit);
+    if (item) openDialog(item, item.side);
+    return;
+  }
+  const del = e.target.closest("[data-del]");
+  if (del) {
+    if (!del.classList.contains("armed")) { del.classList.add("armed"); del.textContent = "确认？"; return; }
+    delete state.snapshots[del.dataset.del];
+    render();
+    save();
+    render();
+  }
+});
+try { const t = +localStorage.getItem(LOCAL_KEY + "-tab"); if (t >= 0 && t <= 3) tab = t; } catch (e) {}
+init();
+</script>
+</body>
+</html>
