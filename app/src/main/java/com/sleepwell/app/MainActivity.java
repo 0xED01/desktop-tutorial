@@ -745,7 +745,9 @@ public class MainActivity extends Activity {
         for (int o : opts) {
             RadioButton rb = radio(o == 0 ? "不限" : o + "分");
             rb.setId(2000 + o);
-            tg.addView(rb);
+            rb.setPadding(0, dp(6), 0, dp(6));
+            rb.setSingleLine(true);
+            tg.addView(rb, new RadioGroup.LayoutParams(0, -2, 1));
         }
         tg.check(2000 + timer[0]);
         c.addView(tg);
