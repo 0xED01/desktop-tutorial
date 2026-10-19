@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>撸货账本</title>
+<style>
+:root{
+  --bg:#f5f6f8; --card:#fff; --text:#1d2129; --sub:#6b7280; --line:#e5e7eb;
+  --pri:#2563eb; --pri-soft:#e8efff; --warn:#d97706; --warn-soft:#fff4e0;
+  --red:#e5484d; --green:#16a34a; --chip:#f1f3f5;
+  --up:var(--red); --down:var(--green);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#111317; --card:#1b1e24; --text:#e8eaed; --sub:#9aa0a8; --line:#2b2f37;
+    --pri:#5b8cff; --pri-soft:#1f2a44; --warn:#f0a73a; --warn-soft:#3a2c14;
+    --red:#ff6369; --green:#3fcf78; --chip:#262a32;
+  }
+}
+body.green-up{ --up:var(--green); --down:var(--red); }
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;padding-bottom:84px}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:960px;margin:0 auto;padding:0 16px}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;gap:12px;height:52px}
+header h1{font-size:17px;margin:0;font-weight:700;white-space:nowrap}
+nav.tabs{display:flex;gap:4px;margin-left:auto}
+nav.tabs button{border:0;background:none;padding:6px 12px;border-radius:8px;cursor:pointer;color:var(--sub)}
+nav.tabs button.on{background:var(--pri-soft);color:var(--pri);font-weight:600}
+@media (max-width:640px){
+  nav.tabs{position:fixed;left:0;right:0;bottom:0;margin:0;background:var(--card);border-top:1px solid var(--line);justify-content:space-around;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  nav.tabs button{flex:1;font-size:13px;padding:8px 0}
+  body{padding-bottom:140px}
+}
+.fab{position:fixed;right:20px;bottom:24px;z-index:6;border:0;background:var(--pri);color:#fff;border-radius:28px;padding:14px 22px;font-size:16px;font-weight:600;box-shadow:0 6px 20px rgba(37,99,235,.35);cursor:pointer}
+@media (max-width:640px){.fab{bottom:76px;right:16px}}
+main{padding:16px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px}
+.card h3{margin:0 0 12px;font-size:15px;display:flex;align-items:center;gap:8px}
+.card h3 .r{margin-left:auto;font-weight:400}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(4,1fr)}
+@media (max-width:760px){.grid{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.stat .k{color:var(--sub);font-size:12px}
+.stat .v{font-size:22px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums;word-break:break-all}
+.stat .s{color:var(--sub);font-size:12px;margin-top:2px}
+.stat.big{grid-column:span 2}
+.stat.big .v{font-size:30px}
+.pos{color:var(--up)} .neg{color:var(--down)}
+.seg{display:inline-flex;background:var(--chip);border-radius:8px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:none;padding:4px 10px;border-radius:6px;cursor:pointer;color:var(--sub);font-size:13px}
+.seg button.on{background:var(--card);color:var(--text);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toolbar input[type=search]{flex:1;min-width:160px}
+input,select,textarea{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--pri)}
+.toolbar select,.toolbar input[type=month]{width:auto}
+.btn{border:1px solid var(--line);background:var(--card);padding:7px 14px;border-radius:8px;cursor:pointer;white-space:nowrap}
+.btn.pri{background:var(--pri);border-color:var(--pri);color:#fff;font-weight:600}
+.btn.danger{color:var(--red)}
+.btn.sm{padding:3px 10px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:default}
+.muted{color:var(--sub)}
+.empty{text-align:center;color:var(--sub);padding:40px 0}
+/* list */
+.item{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item .t{font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.item .m{color:var(--sub);font-size:12px}
+.item .n{text-align:right;font-variant-numeric:tabular-nums}
+.item .n .p{font-weight:700;font-size:16px}
+.item .acts{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap}
+.item.stale .m .age{color:var(--warn);font-weight:600}
+.badge{font-size:11px;padding:1px 7px;border-radius:10px;background:var(--chip);color:var(--sub);font-weight:500}
+.st-transit{background:var(--pri-soft);color:var(--pri)}
+.st-stock{background:var(--warn-soft);color:var(--warn)}
+.st-listed{background:#efe6ff;color:#7c3aed}
+.st-sold{background:#e3f7ea;color:#15803d}
+.st-returned{background:var(--chip);color:var(--sub);text-decoration:line-through}
+@media (prefers-color-scheme: dark){.st-listed{background:#2d2244;color:#b794ff}.st-sold{background:#173323;color:#4ade80}}
+/* tables */
+.tbl{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:13px}
+.tbl th,.tbl td{padding:8px 6px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.tbl th{color:var(--sub);font-weight:500;font-size:12px}
+.tbl tr.click{cursor:pointer}
+.tbl tr.click:hover td{background:var(--chip)}
+.tbl tfoot td{font-weight:700;border-bottom:0}
+.scroll{overflow-x:auto}
+/* bars */
+.hbar{display:grid;grid-template-columns:72px 1fr 90px;gap:8px;align-items:center;margin:6px 0;font-size:13px}
+.hbar .track{background:var(--chip);border-radius:4px;height:10px;overflow:hidden}
+.hbar .fill{height:100%;background:var(--pri);border-radius:4px}
+.hbar .fill.neg{background:var(--down)}
+.hbar .val{text-align:right;font-variant-numeric:tabular-nums}
+svg text{fill:var(--sub);font-size:11px}
+/* modal */
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;display:none;align-items:flex-end;justify-content:center}
+.mask.on{display:flex}
+@media (min-width:641px){.mask{align-items:center}}
+.modal{background:var(--card);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom))}
+@media (min-width:641px){.modal{border-radius:16px}}
+.modal h2{margin:0 0 14px;font-size:17px;display:flex;align-items:center}
+.modal h2 .x{margin-left:auto;border:0;background:none;font-size:22px;cursor:pointer;color:var(--sub);line-height:1}
+.f{margin-bottom:12px}
+.f>label{display:block;font-size:12px;color:var(--sub);margin-bottom:4px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips label{cursor:pointer}
+.chips input{display:none}
+.chips span{display:inline-block;padding:5px 12px;border-radius:16px;background:var(--chip);font-size:13px;border:1px solid transparent}
+.chips input:checked+span{background:var(--pri-soft);color:var(--pri);border-color:var(--pri);font-weight:600}
+.preview{background:var(--chip);border-radius:10px;padding:10px 12px;display:flex;gap:16px;flex-wrap:wrap;font-size:13px;margin-bottom:12px}
+.preview b{font-variant-numeric:tabular-nums}
+.foot{display:flex;gap:8px;justify-content:flex-end;position:sticky;bottom:-16px;background:var(--card);padding-top:8px}
+.sec{border-top:1px dashed var(--line);margin-top:6px;padding-top:12px}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 14px;border-radius:10px;z-index:30;display:flex;gap:12px;align-items:center;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.on{opacity:1;pointer-events:auto}
+.toast button{background:none;border:0;color:#7aa7ff;font-weight:600;cursor:pointer}
+.tip{font-size:12px;color:var(--sub);margin-top:4px}
+.flex{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>📦 撸货账本</h1>
+  <nav class="tabs" id="tabs">
+    <button data-v="home">概览</button>
+    <button data-v="list">货单</button>
+    <button data-v="report">月报</button>
+    <button data-v="exp">杂费</button>
+    <button data-v="set">设置</button>
+  </nav>
+</div></header>
+<main class="wrap" id="main"></main>
+<button class="fab" id="fab">＋ 记一单</button>
+<div class="mask" id="mask"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"><span id="toastMsg"></span><button id="toastBtn"></button></div>
+
+<script>
+'use strict';
+// ---------- 数据 ----------
+const KEY = 'luhuo.v1';
+const STATUS = {transit:'在途', stock:'在库', listed:'已上架', sold:'已售出', returned:'已退货'};
+const DEF_SET = {
+  buyPlats:['淘宝','天猫','京东','拼多多','抖音','唯品会','得物','其他'],
+  sellPlats:['闲鱼','转转','得物','拼多多','线下','其他'],
+  fees:{}, staleDays:30, greenUp:false,
+  expTypes:['包装耗材','快递费','会员/工具','其他支出','其他收入']
+};
+let S = load();
+function load(){
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(KEY)); } catch(e) {}
+  d = d || {};
+  return {records:d.records||[], expenses:d.expenses||[], settings:Object.assign({}, DEF_SET, d.settings||{})};
+}
+function save(){
+  try { localStorage.setItem(KEY, JSON.stringify(S)); }
+  catch(e) { toast('⚠️ 保存失败，浏览器存储不可用，请及时导出备份'); }
+}
+
+// ---------- 工具 ----------
+const $ = s => document.querySelector(s);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const r2 = n => Math.round(n*100)/100;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const today = () => { const d = new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
+const curMonth = () => today().slice(0,7);
+const money = (n, sign) => (n<0?'-':(sign&&n>0?'+':'')) + '¥' + Math.abs(n).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const pc = n => (n<0?'neg':n>0?'pos':'');
+const pct = n => isFinite(n) ? (n*100).toFixed(1)+'%' : '—';
+const days = (a,b) => Math.max(0, Math.round((new Date(b||today()) - new Date(a))/864e5));
+const md = d => d ? d.slice(5) : '';
+const addMonth = (m, k) => { let [y,mm] = m.split('-').map(Number); mm += k; while(mm<1){mm+=12;y--;} while(mm>12){mm-=12;y++;} return y+'-'+String(mm).padStart(2,'0'); };
+
+// 计算
+const cost = r => r.buyPrice*r.qty + r.buyShip - r.rebate;               // 到手总成本
+const gross = r => r.sellPrice*r.qty;                                     // 卖出总额
+const revenue = r => gross(r) - r.fee - r.sellShip;                       // 卖出实收
+const profit = r => r.status==='sold' ? revenue(r) - cost(r) : 0;
+const estProfit = r => {
+  if(!r.expectPrice) return null;
+  const g = r.expectPrice*r.qty, rate = num(S.settings.fees[r.sellPlat||'']) / 100;
+  return g - g*rate - cost(r);
+};
+const active = r => r.status!=='returned';
+const unsold = r => ['transit','stock','listed'].includes(r.status);
+const isStale = r => unsold(r) && days(r.buyDate) >= S.settings.staleDays;
+
+// ---------- 状态 ----------
+let view = 'home';
+let homeRange = 'month';
+let F = {status:'unsold', q:'', plat:'', month:'', sort:'new'};
+let repYear = +today().slice(0,4);
+
+function go(v){ view = v; render(); window.scrollTo(0,0); }
+$('#tabs').onclick = e => { const v = e.target.dataset.v; if(v) go(v); };
+$('#fab').onclick = () => openForm();
+
+function render(){
+  document.body.classList.toggle('green-up', !!S.settings.greenUp);
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v===view));
+  $('#main').innerHTML = ({home:vHome, list:vList, report:vReport, exp:vExp, set:vSet})[view]();
+  bindView();
+}
+
+// ---------- 概览 ----------
+function rangeOf(k){
+  const m = curMonth();
+  if(k==='month') return {test:d => d && d.startsWith(m), label:'本月'};
+  if(k==='last') { const l = addMonth(m,-1); return {test:d => d && d.startsWith(l), label:'上月'}; }
+  if(k==='year') { const y = m.slice(0,4); return {test:d => d && d.startsWith(y), label:'今年'}; }
+  return {test:d => !!d, label:'全部'};
+}
+function expNet(test){ // 杂费净支出
+  return S.expenses.filter(e => test(e.date)).reduce((s,e) => s + (e.type==='其他收入' ? -e.amount : e.amount), 0);
+}
+function vHome(){
+  const R = rangeOf(homeRange);
+  const sold = S.records.filter(r => r.status==='sold' && R.test(r.sellDate));
+  const gp = sold.reduce((s,r) => s+profit(r), 0);
+  const ex = expNet(R.test);
+  const net = gp - ex;
+  const sCost = sold.reduce((s,r) => s+cost(r), 0);
+  const sRev = sold.reduce((s,r) => s+gross(r), 0);
+  const qty = sold.reduce((s,r) => s+r.qty, 0);
+  const avgDays = sold.length ? sold.reduce((s,r) => s+days(r.buyDate,r.sellDate),0)/sold.length : 0;
+  const bought = S.records.filter(r => active(r) && R.test(r.buyDate));
+  const inv = S.records.filter(unsold);
+  const invCost = inv.reduce((s,r) => s+cost(r), 0);
+  const invEst = inv.reduce((s,r) => s+(estProfit(r)||0), 0);
+  const stale = inv.filter(isStale).length;
+  const transit = inv.filter(r => r.status==='transit').length;
+  const wins = sold.filter(r => profit(r)>0).length;
+
+  // 近 12 个月
+  const months = []; for(let i=11;i>=0;i--) months.push(addMonth(curMonth(),-i));
+  const series = months.map(m => {
+    const t = d => d && d.startsWith(m);
+    return {label: m.slice(5)+'月', key:m, value: S.records.filter(r => r.status==='sold' && t(r.sellDate)).reduce((s,r)=>s+profit(r),0) - expNet(t)};
+  });
+
+  const byBuy = groupProfit(sold, r => r.buyPlat);
+  const bySell = groupProfit(sold, r => r.sellPlat);
+  const top = [...sold].sort((a,b) => profit(b)-profit(a)).slice(0,5);
+  const loss = sold.filter(r => profit(r)<0).sort((a,b) => profit(a)-profit(b)).slice(0,5);
+
+  if(!S.records.length && !S.expenses.length) return `
+    <div class="card empty">
+      <div style="font-size:40px">📦</div>
+      <p>还没有记录，点右下角 <b>＋ 记一单</b> 开始记账</p>
+      <p><button class="btn" data-act="demo">先看看示例数据</button></p>
+    </div>`;
+
+  return `
+  <div class="toolbar">
+    <div class="seg" data-seg="homeRange">
+      ${['month','last','year','all'].map(k => `<button data-k="${k}" class="${homeRange===k?'on':''}">${rangeOf(k).label}</button>`).join('')}
+    </div>
+  </div>
+  <div class="grid">
+    <div class="stat big"><div class="k">${R.label}净利润</div><div class="v ${pc(net)}">${money(net,1)}</div>
+      <div class="s">卖货毛利 ${money(gp)}${ex? ` · 杂费 ${money(-ex)}`:''}</div></div>
+    <div class="stat"><div class="k">销售额</div><div class="v">${money(sRev)}</div><div class="s">卖出 ${qty} 件 / ${sold.length} 单</div></div>
+    <div class="stat"><div class="k">利润率（利润/成本）</div><div class="v ${pc(gp)}">${sCost?pct(gp/sCost):'—'}</div><div class="s">胜率 ${sold.length?pct(wins/sold.length):'—'}</div></div>
+    <div class="stat"><div class="k">${R.label}进货支出</div><div class="v">${money(bought.reduce((s,r)=>s+cost(r),0))}</div><div class="s">进货 ${bought.reduce((s,r)=>s+r.qty,0)} 件</div></div>
+    <div class="stat"><div class="k">平均周转</div><div class="v">${sold.length?avgDays.toFixed(1):'—'} <small style="font-size:13px">天</small></div><div class="s">买入到卖出</div></div>
+    <div class="stat" style="cursor:pointer" data-act="goinv"><div class="k">当前压货（占用资金）</div><div class="v">${money(invCost)}</div>
+      <div class="s">${inv.reduce((s,r)=>s+r.qty,0)} 件${transit?` · 在途 ${transit} 单`:''}</div></div>
+    <div class="stat" style="cursor:pointer" data-act="gostale"><div class="k">压货预计利润</div><div class="v ${pc(invEst)}">${money(invEst,1)}</div>
+      <div class="s">${stale?`<span style="color:var(--warn)">⚠️ ${stale} 单超过 ${S.settings.staleDays} 天未出</span>`:'按预期售价估算'}</div></div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <h3>近 12 个月净利润 <span class="r muted" style="font-size:12px">点柱子看当月明细</span></h3>
+    ${barChart(series)}
+  </div>
+
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+    <div class="card"><h3>按进货平台（${R.label}）</h3>${hbars(byBuy)}</div>
+    <div class="card"><h3>按出货平台（${R.label}）</h3>${hbars(bySell)}</div>
+  </div>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+    <div class="card"><h3>🏆 最赚的单（${R.label}）</h3>${miniList(top)}</div>
+    <div class="card"><h3>💸 亏钱的单（${R.label}）</h3>${miniList(loss)}</div>
+  </div>`;
+}
+function groupProfit(list, keyFn){
+  const m = {};
+  list.forEach(r => { const k = keyFn(r)||'未填'; (m[k] = m[k]||{k, v:0, n:0}); m[k].v += profit(r); m[k].n += r.qty; });
+  return Object.values(m).sort((a,b) => b.v-a.v);
+}
+function hbars(rows){
+  if(!rows.length) return '<div class="muted">暂无数据</div>';
+  const max = Math.max(...rows.map(r => Math.abs(r.v)), 1);
+  return rows.map(r => `<div class="hbar"><span>${esc(r.k)} <small class="muted">${r.n}件</small></span>
+    <div class="track"><div class="fill ${r.v<0?'neg':''}" style="width:${Math.abs(r.v)/max*100}%"></div></div>
+    <span class="val ${pc(r.v)}">${money(r.v)}</span></div>`).join('');
+}
+function miniList(list){
+  if(!list.length) return '<div class="muted">暂无</div>';
+  return list.map(r => `<div class="flex" style="justify-content:space-between;padding:4px 0">
+    <span>${esc(r.name)} <small class="muted">×${r.qty} · ${esc(r.buyPlat)}→${esc(r.sellPlat)}</small></span>
+    <b class="${pc(profit(r))}">${money(profit(r),1)}</b></div>`).join('');
+}
+function barChart(data){
+  const W = window.innerWidth < 640 ? 360 : 640, H = 200, pt = 18, pb = 22, pl = 4;
+  const vals = data.map(d => d.value);
+  const max = Math.max(0, ...vals), min = Math.min(0, ...vals);
+  const span = (max-min) || 1;
+  const y = v => pt + (max - v) / span * (H-pt-pb);
+  const bw = (W-pl) / data.length;
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block">`;
+  s += `<line x1="0" x2="${W}" y1="${y(0)}" y2="${y(0)}" stroke="var(--line)"/>`;
+  data.forEach((d,i) => {
+    const x = pl + i*bw + bw*0.18, w = bw*0.64;
+    const y0 = y(Math.max(d.value,0)), h = Math.max(Math.abs(y(d.value)-y(0)), d.value?1:0);
+    const col = d.value<0 ? 'var(--down)' : 'var(--up)';
+    s += `<g data-act="month" data-m="${d.key}" style="cursor:pointer"><rect x="${pl+i*bw}" y="0" width="${bw}" height="${H}" fill="transparent"/>`;
+    s += `<rect x="${x}" y="${y0}" width="${w}" height="${h}" rx="3" fill="${col}"><title>${d.label}：${money(d.value)}</title></rect>`;
+    if(d.value) s += `<text x="${x+w/2}" y="${d.value<0? y0+h+12 : y0-4}" text-anchor="middle" style="font-size:10px">${Math.round(d.value)}</text>`;
+    s += `<text x="${x+w/2}" y="${H-6}" text-anchor="middle">${d.label}</text></g>`;
+  });
+  return s + '</svg>';
+}
+
+// ---------- 货单 ----------
+function filtered(){
+  const q = F.q.trim().toLowerCase();
+  let list = S.records.filter(r => {
+    if(F.status==='unsold' && !unsold(r)) return false;
+    if(F.status==='stale' && !isStale(r)) return false;
+    if(!['all','unsold','stale'].includes(F.status) && r.status!==F.status) return false;
+    if(F.plat && r.buyPlat!==F.plat && r.sellPlat!==F.plat) return false;
+    if(F.month && !((r.sellDate||'').startsWith(F.month) || r.buyDate.startsWith(F.month))) return false;
+    if(q && !(r.name+' '+r.cat+' '+r.note+' '+r.orderNo).toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const sorters = {
+    new:(a,b) => (b.sellDate||b.buyDate).localeCompare(a.sellDate||a.buyDate) || b.created-a.created,
+    old:(a,b) => a.buyDate.localeCompare(b.buyDate),
+    profit:(a,b) => profit(b)-profit(a),
+    cost:(a,b) => cost(b)-cost(a)
+  };
+  return list.sort(sorters[F.sort]);
+}
+function vList(){
+  const list = filtered();
+  const plats = [...new Set([...S.settings.buyPlats, ...S.settings.sellPlats])];
+  const cnt = k => S.records.filter(k==='unsold'?unsold:k==='stale'?isStale:k==='all'?()=>true:r=>r.status===k).length;
+  const tabs = [['unsold','未出手'],['transit','在途'],['stock','在库'],['listed','已上架'],['sold','已售出'],['stale','压货超期'],['returned','已退货'],['all','全部']];
+  const tp = list.reduce((s,r) => s+profit(r), 0), tc = list.reduce((s,r) => s+cost(r), 0);
+  return `
+  <div class="toolbar"><div class="seg" data-seg="status">
+    ${tabs.map(([k,l]) => `<button data-k="${k}" class="${F.status===k?'on':''}">${l} <small>${cnt(k)}</small></button>`).join('')}
+  </div></div>
+  <div class="toolbar">
+    <input type="search" id="q" placeholder="搜索商品 / 分类 / 备注 / 订单号" value="${esc(F.q)}">
+    <select id="fPlat"><option value="">全部平台</option>${plats.map(p => `<option ${F.plat===p?'selected':''}>${esc(p)}</option>`).join('')}</select>
+    <input type="month" id="fMonth" value="${F.month}" title="按月份筛选">
+    <select id="fSort">
+      ${[['new','最新'],['old','买入最早'],['profit','利润最高'],['cost','成本最高']].map(([k,l]) => `<option value="${k}" ${F.sort===k?'selected':''}>${l}</option>`).join('')}
+    </select>
+    ${F.month||F.plat||F.q ? '<button class="btn sm" data-act="clearF">清除筛选</button>' : ''}
+  </div>
+  <div class="card">
+    <h3>共 ${list.length} 单 <span class="r muted" style="font-size:12px">成本 ${money(tc)}${list.some(r=>r.status==='sold')?` · 利润 <b class="${pc(tp)}">${money(tp,1)}</b>`:''}</span></h3>
+    ${list.length ? list.map(itemHtml).join('') : '<div class="empty">没有符合条件的记录</div>'}
+  </div>`;
+}
+function itemHtml(r){
+  const sold = r.status==='sold', p = profit(r), ep = estProfit(r);
+  const age = sold ? days(r.buyDate, r.sellDate) : days(r.buyDate);
+  const meta = sold
+    ? `${esc(r.buyPlat)} ${md(r.buyDate)} 买 → ${esc(r.sellPlat)} ${md(r.sellDate)} 卖 · ${age}天出手`
+    : `${esc(r.buyPlat)} ${md(r.buyDate)} 买入 · <span class="age">已压 ${age} 天</span>${r.status==='listed'&&r.sellPlat?` · 挂在${esc(r.sellPlat)}`:''}`;
+  const right = sold
+    ? `<div class="p ${pc(p)}">${money(p,1)}</div><div class="m">${pct(p/cost(r))} · 成本 ${money(cost(r))}</div>`
+    : `<div class="p">${money(cost(r))}</div><div class="m">${ep!=null?`预计 <span class="${pc(ep)}">${money(ep,1)}</span>`:'成本'}</div>`;
+  return `<div class="item ${isStale(r)?'stale':''}">
+    <div><div class="t">${esc(r.name)} ${r.qty>1?`<small class="muted">×${r.qty}</small>`:''}
+      <span class="badge st-${r.status}">${STATUS[r.status]}</span>${r.cat?`<span class="badge">${esc(r.cat)}</span>`:''}</div>
+      <div class="m">${meta}</div>${r.note?`<div class="m">📝 ${esc(r.note)}</div>`:''}</div>
+    <div class="n">${right}</div>
+    <div class="acts">
+      ${unsold(r)?`<button class="btn pri sm" data-act="sell" data-id="${r.id}">卖出</button>`:''}
+      ${r.status==='transit'?`<button class="btn sm" data-act="arrive" data-id="${r.id}">已到货</button>`:''}
+      ${r.status==='stock'?`<button class="btn sm" data-act="listed" data-id="${r.id}">已上架</button>`:''}
+      <button class="btn sm" data-act="edit" data-id="${r.id}">编辑</button>
+      <button class="btn sm" data-act="dup" data-id="${r.id}">再来一单</button>
+      ${sold?`<button class="btn sm" data-act="unsell" data-id="${r.id}">撤销卖出</button>`:''}
+      ${unsold(r)?`<button class="btn sm" data-act="return" data-id="${r.id}">退货</button>`:''}
+      <button class="btn sm danger" data-act="del" data-id="${r.id}">删除</button>
+    </div></div>`;
+}
+
+// ---------- 月报 ----------
+function monthStats(m){
+  const t = d => d && d.startsWith(m);
+  const sold = S.records.filter(r => r.status==='sold' && t(r.sellDate));
+  const bought = S.records.filter(r => active(r) && t(r.buyDate));
+  const exps = S.expenses.filter(e => t(e.date));
+  const o = {
+    m, n: sold.length, qty: sold.reduce((s,r)=>s+r.qty,0),
+    sales: sold.reduce((s,r)=>s+gross(r),0),
+    cogs: sold.reduce((s,r)=>s+cost(r),0),
+    fees: sold.reduce((s,r)=>s+r.fee+r.sellShip,0),
+    gp: sold.reduce((s,r)=>s+profit(r),0),
+    exp: exps.filter(e=>e.type!=='其他收入').reduce((s,e)=>s+e.amount,0),
+    inc: exps.filter(e=>e.type==='其他收入').reduce((s,e)=>s+e.amount,0),
+    buy: bought.reduce((s,r)=>s+cost(r),0),
+    buyQty: bought.reduce((s,r)=>s+r.qty,0)
+  };
+  o.net = o.gp - o.exp + o.inc;
+  return o;
+}
+function vReport(){
+  const years = [...new Set([+today().slice(0,4), ...S.records.flatMap(r => [r.buyDate, r.sellDate]).filter(Boolean).map(d => +d.slice(0,4)), ...S.expenses.map(e => +e.date.slice(0,4))])].sort((a,b)=>b-a);
+  const rows = []; for(let i=1;i<=12;i++) rows.push(monthStats(repYear+'-'+String(i).padStart(2,'0')));
+  const T = rows.reduce((t,o) => { for(const k in o) if(typeof o[k]==='number') t[k]=(t[k]||0)+o[k]; return t; }, {});
+  const show = rows.filter(o => o.n || o.buy || o.exp || o.inc || o.m <= curMonth() && o.m.startsWith(String(+today().slice(0,4))));
+  const td = (v, cls) => `<td class="${cls||''}">${v ? money(v) : '<span class="muted">-</span>'}</td>`;
+  const line = o => `${td(o.sales)}${td(o.cogs)}${td(o.fees)}${td(o.gp, pc(o.gp))}${td(o.exp-o.inc)}
+    <td class="${pc(o.net)}"><b>${o.net||o.n ? money(o.net) : '<span class="muted">-</span>'}</b></td><td>${o.cogs?pct(o.gp/o.cogs):'-'}</td><td>${o.qty||'-'}</td>${td(o.buy)}<td>${o.buyQty||'-'}</td>`;
+  return `
+  <div class="toolbar">
+    <div class="seg" data-seg="year">${years.map(y => `<button data-k="${y}" class="${y===repYear?'on':''}">${y}年</button>`).join('')}</div>
+    <button class="btn sm" data-act="csvMonth" style="margin-left:auto">导出月报 CSV</button>
+  </div>
+  <div class="grid">
+    <div class="stat big"><div class="k">${repYear} 年净利润</div><div class="v ${pc(T.net)}">${money(T.net,1)}</div><div class="s">月均 ${money(T.net/Math.max(1, rows.filter(o=>o.n||o.exp||o.inc).length))}</div></div>
+    <div class="stat"><div class="k">全年销售额</div><div class="v">${money(T.sales)}</div><div class="s">卖出 ${T.qty} 件</div></div>
+    <div class="stat"><div class="k">全年进货支出</div><div class="v">${money(T.buy)}</div><div class="s">进货 ${T.buyQty} 件</div></div>
+  </div>
+  <div class="card" style="margin-top:12px"><h3>${repYear} 年每月净利润</h3>
+    ${barChart(rows.map(o => ({label:+o.m.slice(5)+'月', key:o.m, value:o.net})))}</div>
+  <div class="card"><h3>月度明细 <span class="r muted" style="font-size:12px">点某一行查看当月货单</span></h3>
+    <div class="scroll"><table class="tbl">
+      <thead><tr><th>月份</th><th>销售额</th><th>卖出成本</th><th>手续费+运费</th><th>卖货毛利</th><th>杂费净额</th><th>净利润</th><th>利润率</th><th>卖出件数</th><th>进货支出</th><th>进货件数</th></tr></thead>
+      <tbody>${show.map(o => `<tr class="click" data-act="month" data-m="${o.m}"><td>${+o.m.slice(5)}月</td>${line(o)}</tr>`).join('') || '<tr><td colspan="11" class="muted">暂无数据</td></tr>'}</tbody>
+      <tfoot><tr><td>合计</td>${line(T)}</tr></tfoot>
+    </table></div>
+    <div class="tip">说明：利润按<b>卖出日期</b>归属月份；卖出成本 = 买入价 × 数量 + 买入运费 − 返利；进货支出按<b>买入日期</b>统计，反映当月花出去的钱。</div>
+  </div>`;
+}
+
+// ---------- 杂费 ----------
+function vExp(){
+  const list = [...S.expenses].sort((a,b) => b.date.localeCompare(a.date) || b.created-a.created);
+  const m = curMonth();
+  const mon = list.filter(e => e.date.startsWith(m));
+  const types = S.settings.expTypes;
+  return `
+  <div class="card">
+    <h3>记一笔杂费 / 其他收入</h3>
+    <form id="expForm">
+      <div class="f"><div class="chips">${types.map((t,i) => `<label><input type="radio" name="type" value="${esc(t)}" ${i===0?'checked':''}><span>${esc(t)}</span></label>`).join('')}</div></div>
+      <div class="row">
+        <div class="f"><label>金额</label><input name="amount" type="number" step="0.01" min="0" inputmode="decimal" required placeholder="0.00"></div>
+        <div class="f"><label>日期</label><input name="date" type="date" value="${today()}" required></div>
+      </div>
+      <div class="f"><label>备注</label><input name="note" placeholder="如：买了一批快递袋"></div>
+      <button class="btn pri" type="submit">保存</button>
+    </form>
+  </div>
+  <div class="card">
+    <h3>记录 <span class="r muted" style="font-size:12px">本月净支出 ${money(expNet(d => d && d.startsWith(m)))} · ${mon.length} 笔</span></h3>
+    ${list.length ? `<div class="scroll"><table class="tbl"><thead><tr><th>日期</th><th>类型</th><th>备注</th><th>金额</th><th></th></tr></thead><tbody>
+      ${list.map(e => `<tr><td>${e.date}</td><td>${esc(e.type)}</td><td style="text-align:left;white-space:normal">${esc(e.note)}</td>
+      <td class="${e.type==='其他收入'?'pos':''}">${e.type==='其他收入'?'+':'-'}${money(e.amount)}</td>
+      <td><button class="btn sm danger" data-act="delExp" data-id="${e.id}">删除</button></td></tr>`).join('')}
+    </tbody></table></div>` : '<div class="empty">包装、快递、会员费等不属于某一单的开销记在这里，会计入月度净利润</div>'}
+  </div>`;
+}
+
+// ---------- 设置 ----------
+function vSet(){
+  const st = S.settings;
+  return `
+  <div class="card"><h3>平台</h3>
+    <div class="f"><label>进货平台（用逗号分隔）</label><input id="sBuy" value="${esc(st.buyPlats.join('，'))}"></div>
+    <div class="f"><label>出货平台（用逗号分隔）</label><input id="sSell" value="${esc(st.sellPlats.join('，'))}"></div>
+    <div class="f"><label>各出货平台手续费率 %（卖出时自动算手续费，可再手动改）</label>
+      <div class="row">${st.sellPlats.map(p => `<div><small class="muted">${esc(p)}</small><input class="sFee" data-p="${esc(p)}" type="number" step="0.01" min="0" value="${st.fees[p]??''}" placeholder="0"></div>`).join('')}</div></div>
+    <div class="f"><label>杂费类型（用逗号分隔，“其他收入”记为收入）</label><input id="sExp" value="${esc(st.expTypes.join('，'))}"></div>
+  </div>
+  <div class="card"><h3>偏好</h3>
+    <div class="row">
+      <div class="f"><label>压货超过多少天提醒</label><input id="sStale" type="number" min="1" value="${st.staleDays}"></div>
+      <div class="f"><label>颜色</label><select id="sColor"><option value="0" ${!st.greenUp?'selected':''}>红色盈利 / 绿色亏损</option><option value="1" ${st.greenUp?'selected':''}>绿色盈利 / 红色亏损</option></select></div>
+    </div>
+    <button class="btn pri" data-act="saveSet">保存设置</button>
+  </div>
+  <div class="card"><h3>数据</h3>
+    <p class="muted" style="margin-top:0">数据只保存在当前浏览器里。换设备或清理浏览器前，请先导出备份。</p>
+    <div class="flex">
+      <button class="btn" data-act="backup">导出备份（JSON）</button>
+      <button class="btn" data-act="restore">导入备份</button>
+      <button class="btn" data-act="csv">导出货单 CSV（Excel 可打开）</button>
+      <button class="btn danger" data-act="wipe">清空所有数据</button>
+    </div>
+    <input type="file" id="file" accept=".json,application/json" hidden>
+    <div class="tip">共 ${S.records.length} 条货单，${S.expenses.length} 条杂费</div>
+  </div>`;
+}
+const splitList = s => s.split(/[,，、\s]+/).map(x => x.trim()).filter(Boolean);
+
+// ---------- 事件 ----------
+function bindView(){
+  const m = $('#main');
+  m.querySelectorAll('[data-seg]').forEach(seg => seg.onclick = e => {
+    const b = e.target.closest('button'); if(!b) return;
+    const k = b.dataset.k, s = seg.dataset.seg;
+    if(s==='homeRange') homeRange = k;
+    if(s==='status') F.status = k;
+    if(s==='year') repYear = +k;
+    render();
+  });
+  const q = $('#q');
+  if(q) {
+    q.oninput = () => { F.q = q.value; const pos = q.selectionStart; render(); const n = $('#q'); n.focus(); n.setSelectionRange(pos,pos); };
+    $('#fPlat').onchange = e => { F.plat = e.target.value; render(); };
+    $('#fMonth').onchange = e => { F.month = e.target.value; render(); };
+    $('#fSort').onchange = e => { F.sort = e.target.value; render(); };
+  }
+  const ef = $('#expForm');
+  if(ef) ef.onsubmit = e => {
+    e.preventDefault();
+    const fd = new FormData(ef);
+    const amount = r2(num(fd.get('amount')));
+    if(amount<=0) return toast('请输入金额');
+    S.expenses.push({id:uid(), type:fd.get('type'), amount, date:fd.get('date'), note:fd.get('note').trim(), created:Date.now()});
+    save(); render(); toast('已记录');
+  };
+  const file = $('#file');
+  if(file) file.onchange = () => {
+    const f = file.files[0]; if(!f) return;
+    f.text().then(t => {
+      const d = JSON.parse(t);
+      if(!Array.isArray(d.records)) throw new Error();
+      if(!confirm(`导入将覆盖当前数据（备份里有 ${d.records.length} 条货单），确定吗？`)) return;
+      S = {records:d.records.map(normalize), expenses:d.expenses||[], settings:Object.assign({}, DEF_SET, d.settings||{})};
+      save(); render(); toast('导入成功');
+    }).catch(() => toast('文件格式不对，导入失败'));
+  };
+}
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if(!el) return;
+  const id = el.dataset.id, r = S.records.find(x => x.id===id);
+  const A = {
+    demo: loadDemo,
+    goinv(){ F = {...F, status:'unsold', month:'', plat:'', q:''}; go('list'); },
+    gostale(){ F = {...F, status:'stale', month:'', plat:'', q:''}; go('list'); },
+    month(){ F = {...F, status:'sold', month:el.dataset.m, plat:'', q:''}; go('list'); },
+    clearF(){ F = {...F, month:'', plat:'', q:''}; render(); },
+    sell(){ openSell(r); },
+    edit(){ openForm(r); },
+    dup(){ const c = {...r}; delete c.id; Object.assign(c, {status:'transit', buyDate:today(), sellPlat:'', sellDate:'', sellPrice:0, fee:0, sellShip:0}); openForm(c); },
+    arrive(){ r.status = 'stock'; save(); render(); toast('已标记到货'); },
+    listed(){ r.status = 'listed'; save(); render(); toast('已标记上架'); },
+    unsell(){ if(!confirm('撤销卖出，恢复为在库？')) return; Object.assign(r, {status:'stock', sellDate:'', sellPrice:0, fee:0, sellShip:0}); save(); render(); },
+    return(){ const old = r.status; r.status = 'returned'; save(); render(); toast('已标记退货，不计入统计', '撤销', () => { r.status = old; save(); render(); }); },
+    del(){
+      const i = S.records.indexOf(r); S.records.splice(i,1); save(); render();
+      toast(`已删除「${r.name}」`, '撤销', () => { S.records.splice(i,0,r); save(); render(); });
+    },
+    delExp(){
+      const i = S.expenses.findIndex(x => x.id===id), x = S.expenses[i]; S.expenses.splice(i,1); save(); render();
+      toast('已删除', '撤销', () => { S.expenses.splice(i,0,x); save(); render(); });
+    },
+    saveSet(){
+      const st = S.settings;
+      st.buyPlats = splitList($('#sBuy').value); st.sellPlats = splitList($('#sSell').value);
+      st.expTypes = splitList($('#sExp').value);
+      document.querySelectorAll('.sFee').forEach(i => { if(i.value==='') delete st.fees[i.dataset.p]; else st.fees[i.dataset.p] = num(i.value); });
+      st.staleDays = Math.max(1, parseInt($('#sStale').value)||30);
+      st.greenUp = $('#sColor').value==='1';
+      save(); render(); toast('设置已保存');
+    },
+    backup(){ download(`撸货账本备份-${today()}.json`, JSON.stringify(S, null, 1), 'application/json'); },
+    restore(){ $('#file').click(); },
+    csv(){
+      const head = ['商品','分类','数量','状态','进货平台','买入日期','买入单价','买入运费','返利','总成本','订单号','出货平台','卖出日期','卖出单价','手续费','卖出运费','实收','利润','利润率','周转天数','预期单价','备注'];
+      const rows = S.records.map(r => [r.name,r.cat,r.qty,STATUS[r.status],r.buyPlat,r.buyDate,r.buyPrice,r.buyShip,r.rebate,r2(cost(r)),r.orderNo,r.sellPlat,r.sellDate,
+        r.status==='sold'?r.sellPrice:'', r.status==='sold'?r.fee:'', r.status==='sold'?r.sellShip:'', r.status==='sold'?r2(revenue(r)):'', r.status==='sold'?r2(profit(r)):'',
+        r.status==='sold'?pct(profit(r)/cost(r)):'', r.status==='sold'?days(r.buyDate,r.sellDate):'', r.expectPrice||'', r.note]);
+      downloadCsv(`撸货货单-${today()}.csv`, [head, ...rows]);
+    },
+    csvMonth(){
+      const head = ['月份','销售额','卖出成本','手续费+运费','卖货毛利','杂费支出','其他收入','净利润','利润率','卖出件数','进货支出','进货件数'];
+      const rows = []; for(let i=1;i<=12;i++){ const o = monthStats(repYear+'-'+String(i).padStart(2,'0'));
+        rows.push([o.m, r2(o.sales), r2(o.cogs), r2(o.fees), r2(o.gp), r2(o.exp), r2(o.inc), r2(o.net), o.cogs?pct(o.gp/o.cogs):'', o.qty, r2(o.buy), o.buyQty]); }
+      downloadCsv(`撸货月报-${repYear}.csv`, [head, ...rows]);
+    },
+    wipe(){ if(!confirm('确定清空全部数据？此操作不可恢复，建议先导出备份。')) return; S = {records:[], expenses:[], settings:S.settings}; save(); render(); }
+  };
+  if(A[el.dataset.act]) A[el.dataset.act]();
+});
+function download(name, text, type){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type}));
+  a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function downloadCsv(name, rows){
+  const c = v => { v = String(v ?? ''); return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; };
+  download(name, '﻿' + rows.map(r => r.map(c).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
+}
+
+// ---------- 弹窗 ----------
+function openModal(html){ $('#modal').innerHTML = html; $('#mask').classList.add('on'); }
+function closeModal(){ $('#mask').classList.remove('on'); }
+$('#mask').addEventListener('click', e => { if(e.target.id==='mask' || e.target.closest('.x,[data-close]')) closeModal(); });
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+let narrow = window.innerWidth < 640;
+window.addEventListener('resize', () => { const n = window.innerWidth < 640; if(n!==narrow){ narrow = n; render(); } });
+
+let toastTimer;
+function toast(msg, btn, fn){
+  $('#toastMsg').textContent = msg;
+  const b = $('#toastBtn'); b.textContent = btn||''; b.style.display = btn?'':'none';
+  b.onclick = () => { fn && fn(); $('#toast').classList.remove('on'); };
+  $('#toast').classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').classList.remove('on'), btn?5000:2000);
+}
+const chips = (name, opts, val) => `<div class="chips">${opts.map(o => `<label><input type="radio" name="${name}" value="${esc(o)}" ${o===val?'checked':''}><span>${esc(o)}</span></label>`).join('')}</div>`;
+
+function normalize(r){
+  const n = {id:uid(), name:'', cat:'', qty:1, buyPlat:'', buyDate:today(), buyPrice:0, buyShip:0, rebate:0, orderNo:'', status:'transit',
+    expectPrice:0, sellPlat:'', sellDate:'', sellPrice:0, fee:0, sellShip:0, note:'', created:Date.now(), ...r};
+  ['qty','buyPrice','buyShip','rebate','expectPrice','sellPrice','fee','sellShip'].forEach(k => n[k] = num(n[k]));
+  n.qty = Math.max(1, Math.round(n.qty));
+  return n;
+}
+
+function openForm(r){
+  const isNew = !r || !r.id;
+  const last = S.records[S.records.length-1];
+  r = normalize(r || {buyPlat: last ? last.buyPlat : S.settings.buyPlats[0], status:'transit'});
+  const names = [...new Set(S.records.map(x => x.name))].slice(-200);
+  const cats = [...new Set(S.records.map(x => x.cat).filter(Boolean))];
+  const v = x => x ? x : '';
+  openModal(`
+  <h2>${isNew?'记一单':'编辑货单'}<button class="x" type="button">×</button></h2>
+  <form id="rf" autocomplete="off">
+    <div class="f"><label>商品名称 *</label><input name="name" list="dlNames" required value="${esc(r.name)}" placeholder="如：AirPods Pro 2" autofocus></div>
+    <datalist id="dlNames">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+    <datalist id="dlCats">${cats.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+    <div class="f"><label>进货平台</label>${chips('buyPlat', S.settings.buyPlats, r.buyPlat)}</div>
+    <div class="row">
+      <div class="f"><label>买入单价 *</label><input name="buyPrice" type="number" step="0.01" min="0" inputmode="decimal" required value="${v(r.buyPrice)}" placeholder="实付单价"></div>
+      <div class="f"><label>数量</label><input name="qty" type="number" min="1" step="1" value="${r.qty}"></div>
+      <div class="f"><label>买入日期</label><input name="buyDate" type="date" value="${r.buyDate}" required></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>买入运费</label><input name="buyShip" type="number" step="0.01" min="0" inputmode="decimal" value="${v(r.buyShip)}" placeholder="0"></div>
+      <div class="f"><label>返利/红包/返现</label><input name="rebate" type="number" step="0.01" min="0" inputmode="decimal" value="${v(r.rebate)}" placeholder="0"></div>
+      <div class="f"><label>预期售价（单价）</label><input name="expectPrice" type="number" step="0.01" min="0" inputmode="decimal" value="${v(r.expectPrice)}" placeholder="选填"></div>
+    </div>
+    <div class="f"><label>状态</label>${chips('status', Object.keys(STATUS).map(k => STATUS[k]), STATUS[r.status])}</div>
+    <div class="sec" id="sellSec">
+      <div class="f"><label>出货平台</label>${chips('sellPlat', S.settings.sellPlats, r.sellPlat)}</div>
+      <div class="row">
+        <div class="f"><label>卖出单价</label><input name="sellPrice" type="number" step="0.01" min="0" inputmode="decimal" value="${v(r.sellPrice)}"></div>
+        <div class="f"><label>卖出日期</label><input name="sellDate" type="date" value="${r.sellDate||today()}"></div>
+      </div>
+      <div class="row">
+        <div class="f"><label>平台手续费</label><input name="fee" type="number" step="0.01" min="0" inputmode="decimal" value="${v(r.fee)}" placeholder="0"></div>
+        <div class="f"><label>卖出运费（自己出）</label><input name="sellShip" type="number" step="0.01" min="0" inputmode="decimal" value="${v(r.sellShip)}" placeholder="0"></div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="f"><label>分类</label><input name="cat" list="dlCats" value="${esc(r.cat)}" placeholder="如：数码 / 美妆"></div>
+      <div class="f"><label>订单号</label><input name="orderNo" value="${esc(r.orderNo)}" placeholder="选填"></div>
+    </div>
+    <div class="f"><label>备注</label><input name="note" value="${esc(r.note)}" placeholder="选填，如：用了 20 元券"></div>
+    <div class="preview" id="pv"></div>
+    <div class="foot">
+      <button class="btn" type="button" data-close>取消</button>
+      ${isNew?'<button class="btn" type="submit" name="again" value="1">保存并继续记</button>':''}
+      <button class="btn pri" type="submit">保存</button>
+    </div>
+  </form>`);
+  const f = $('#rf');
+  const stKey = label => Object.keys(STATUS).find(k => STATUS[k]===label);
+  const read = () => {
+    const fd = new FormData(f);
+    const o = {}; for(const [k,val] of fd) o[k] = typeof val==='string' ? val.trim() : val;
+    o.status = stKey(o.status) || 'transit';
+    o.buyPlat = o.buyPlat || ''; o.sellPlat = o.sellPlat || '';
+    return normalize({...r, ...o, id:r.id, created:r.created});
+  };
+  const upd = () => {
+    const x = read();
+    $('#sellSec').style.display = x.status==='sold' ? '' : 'none';
+    f.sellPrice.required = x.status==='sold';
+    const ep = estProfit(x);
+    $('#pv').innerHTML = `<span>到手成本 <b>${money(cost(x))}</b></span>` + (x.qty>1?`<span>单件 <b>${money(cost(x)/x.qty)}</b></span>`:'') +
+      (x.status==='sold' ? `<span>实收 <b>${money(revenue(x))}</b></span><span>利润 <b class="${pc(profit(x))}">${money(profit(x),1)}</b> (${pct(profit(x)/cost(x))})</span>`
+        : ep!=null ? `<span>预计利润 <b class="${pc(ep)}">${money(ep,1)}</b></span>` : '');
+  };
+  f.addEventListener('input', upd); f.addEventListener('change', upd); upd();
+  // 选商品名时自动带出上次的分类和预期价
+  f.elements['name'].addEventListener('change', () => {
+    const p = [...S.records].reverse().find(x => x.name===f.elements['name'].value.trim());
+    if(p && isNew){ if(!f.cat.value) f.cat.value = p.cat; if(!f.expectPrice.value && p.expectPrice) f.expectPrice.value = p.expectPrice; upd(); }
+  });
+  f.onsubmit = e => {
+    e.preventDefault();
+    const x = read();
+    if(!x.name) return toast('请填写商品名称');
+    if(x.status!=='sold') Object.assign(x, x.status==='listed' ? {sellDate:'', sellPrice:0, fee:0, sellShip:0} : {sellPlat:'', sellDate:'', sellPrice:0, fee:0, sellShip:0});
+    const i = S.records.findIndex(y => y.id===x.id);
+    if(i>=0) S.records[i] = x; else S.records.push(x);
+    save();
+    if(e.submitter && e.submitter.name==='again'){
+      toast(`已保存「${x.name}」`);
+      openForm({buyPlat:x.buyPlat, buyDate:x.buyDate, status:x.status, cat:x.cat});
+    } else { closeModal(); toast(isNew?'已记一单 ✅':'已保存'); }
+    render();
+  };
+  if(isNew) setTimeout(() => f.elements['name'].focus(), 50);
+}
+
+function openSell(r){
+  const plat = r.sellPlat || S.settings.sellPlats[0] || '';
+  openModal(`
+  <h2>卖出：${esc(r.name)}<button class="x" type="button">×</button></h2>
+  <form id="sf">
+    <div class="preview"><span>库存 <b>${r.qty}</b> 件</span><span>到手成本 <b>${money(cost(r))}</b></span><span>单件成本 <b>${money(cost(r)/r.qty)}</b></span></div>
+    <div class="f"><label>出货平台</label>${chips('sellPlat', S.settings.sellPlats, plat)}</div>
+    <div class="row">
+      <div class="f"><label>卖出单价 *</label><input name="sellPrice" type="number" step="0.01" min="0" inputmode="decimal" required value="${r.expectPrice||''}" autofocus></div>
+      <div class="f"><label>卖出数量</label><input name="qty" type="number" min="1" max="${r.qty}" step="1" value="${r.qty}"></div>
+      <div class="f"><label>卖出日期</label><input name="sellDate" type="date" value="${today()}" required></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>平台手续费 <small id="rateTip"></small></label><input name="fee" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0"></div>
+      <div class="f"><label>卖出运费（自己出）</label><input name="sellShip" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0"></div>
+    </div>
+    <div class="preview" id="spv"></div>
+    <div class="foot"><button class="btn" type="button" data-close>取消</button><button class="btn pri" type="submit">确认卖出</button></div>
+  </form>`);
+  const f = $('#sf');
+  let feeTouched = false;
+  f.fee.addEventListener('input', () => feeTouched = true);
+  const calc = () => {
+    const fd = new FormData(f);
+    const q = Math.min(r.qty, Math.max(1, parseInt(fd.get('qty'))||1));
+    const ratio = q / r.qty;
+    const plat = fd.get('sellPlat') || '';
+    const rate = num(S.settings.fees[plat]);
+    const price = num(fd.get('sellPrice'));
+    if(!feeTouched) f.fee.value = rate ? r2(price*q*rate/100) : '';
+    $('#rateTip').textContent = rate ? `（${plat} ${rate}%）` : '';
+    const x = {...r, qty:q, buyShip:r.buyShip*ratio, rebate:r.rebate*ratio, status:'sold', sellPlat:plat, sellDate:fd.get('sellDate'),
+      sellPrice:price, fee:num(f.fee.value), sellShip:num(fd.get('sellShip'))};
+    return {x, q, ratio};
+  };
+  const upd = () => { const {x} = calc(); const p = profit(x);
+    $('#spv').innerHTML = `<span>实收 <b>${money(revenue(x))}</b></span><span>成本 <b>${money(cost(x))}</b></span><span>利润 <b class="${pc(p)}">${money(p,1)}</b> (${pct(p/cost(x))})</span><span>持有 <b>${days(r.buyDate, x.sellDate)}</b> 天</span>`; };
+  f.addEventListener('input', upd); f.addEventListener('change', upd); upd();
+  f.onsubmit = e => {
+    e.preventDefault();
+    const {x, q, ratio} = calc();
+    x.buyShip = r2(x.buyShip); x.rebate = r2(x.rebate);
+    if(q < r.qty){ // 部分卖出：拆成两条
+      x.id = uid(); x.created = Date.now();
+      r.qty -= q; r.buyShip = r2(r.buyShip - x.buyShip); r.rebate = r2(r.rebate - x.rebate);
+      S.records.push(x);
+    } else Object.assign(r, x);
+    save(); closeModal(); render();
+    const p = profit(x);
+    toast(`卖出 ${q} 件，${p>=0?'赚':'亏'} ${money(Math.abs(p))} ${p>=0?'🎉':''}`);
+  };
+  setTimeout(() => f.sellPrice.focus(), 50);
+}
+
+// ---------- 示例数据 ----------
+function loadDemo(){
+  const d = (k) => { const t = new Date(); t.setDate(t.getDate()-k); t.setMinutes(t.getMinutes()-t.getTimezoneOffset()); return t.toISOString().slice(0,10); };
+  const demo = [
+    ['AirPods Pro 2','数码',1,'京东',95,1299,0,50,'sold','闲鱼',88,1499,0,12],
+    ['戴森吹风机 HD15','家电',1,'天猫',70,2199,0,100,'sold','闲鱼',60,2499,0,15],
+    ['茅台飞天 53度','酒水',2,'京东',50,1499,0,0,'sold','线下',45,2350,0,0],
+    ['Switch OLED','数码',1,'拼多多',40,1899,0,30,'sold','转转',33,2050,20,12],
+    ['兰蔻小黑瓶 50ml','美妆',3,'抖音',30,560,0,20,'sold','闲鱼',20,620,0,10],
+    ['乐高 10294','玩具',1,'淘宝',25,4299,0,200,'sold','闲鱼',8,4100,0,30],
+    ['iPhone 17 256G','数码',1,'拼多多',12,5399,0,0,'sold','得物',5,6199,95,0],
+    ['小米手环 9','数码',4,'京东',9,199,0,0,'stock','',0,0,0,0],
+    ['始祖鸟 Beta 冲锋衣','服饰',1,'得物',45,3800,0,0,'listed','闲鱼',0,0,0,0],
+    ['Labubu 盲盒整盒','潮玩',1,'抖音',3,594,10,0,'transit','',0,0,0,0]
+  ];
+  demo.forEach(([name,cat,qty,buyPlat,bd,buyPrice,buyShip,rebate,status,sellPlat,sd,sellPrice,fee,sellShip]) =>
+    S.records.push(normalize({name,cat,qty,buyPlat,buyDate:d(bd),buyPrice,buyShip,rebate,status,sellPlat,sellDate:status==='sold'?d(sd):'',sellPrice,fee,sellShip,
+      expectPrice: {'小米手环 9':259,'始祖鸟 Beta 冲锋衣':4300,'Labubu 盲盒整盒':899}[name]||0, created:Date.now()-bd})));
+  S.expenses.push({id:uid(), type:'包装耗材', amount:35, date:d(10), note:'快递袋+气泡膜', created:Date.now()});
+  save(); render(); toast('已加载示例数据，可在「设置」里清空');
+}
+
+render();
+</script>
+</body>
+</html>
