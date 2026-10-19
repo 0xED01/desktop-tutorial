@@ -513,10 +513,22 @@ function vHome(){
     <div class="card"><h3>进货平台赚了多少 <span class="r">${R.label}</span></h3>${hbars(groupProfit(sold, r => r.buyPlat))}</div>
     <div class="card"><h3>出货平台赚了多少 <span class="r">${R.label}</span></h3>${hbars(groupProfit(sold, r => r.sellPlat))}</div>
   </div>
+  ${S.records.some(r => r.chanName) ? `<div class="card"><h3>👤 代买人 <span class="r">${R.label}进货 · 渠道费 · 卖出利润</span></h3>${chanStats(R)}</div>` : ''}
   <div class="grid2">
     <div class="card"><h3>🏆 最赚的单 <span class="r">${R.label}</span></h3>${rankList(top)}</div>
     <div class="card"><h3>💸 亏钱的单 <span class="r">${R.label}</span></h3>${rankList(loss)}</div>
   </div>`;
+}
+function chanStats(R){
+  const m = {};
+  const g = k => m[k] = m[k] || {k, n:0, fee:0, p:0, sold:0};
+  S.records.filter(r => r.chanName && active(r) && R.test(r.buyDate)).forEach(r => { const x = g(r.chanName); x.n += r.qty; x.fee += r.chanFee; });
+  S.records.filter(r => r.chanName && r.status==='sold' && R.test(r.sellDate)).forEach(r => { const x = g(r.chanName); x.p += profit(r); x.sold += r.qty; });
+  const rows = Object.values(m).sort((a,b) => b.p-a.p || b.n-a.n);
+  if(!rows.length) return '<div class="muted">这段时间没有记代买人的单</div>';
+  return rows.map((x,i) => `<div class="rank" data-act="chanList" data-c="${esc(x.k)}" style="cursor:pointer"><span class="no">${i+1}</span>
+    <span class="tx">${esc(x.k)} <small class="muted">进 ${x.n} 件 · 渠道费 ${money0(x.fee)}${x.sold?` · 卖 ${x.sold} 件`:''}</small></span>
+    <b class="num ${pc(x.p)}">${money(x.p,1)}</b></div>`).join('');
 }
 function groupProfit(list, keyFn){
   const m = {};
@@ -567,7 +579,7 @@ function filtered(){
     if(!['all','unsold','stale','await'].includes(F.status) && r.status!==F.status) return false;
     if(F.plat && r.buyPlat!==F.plat && r.sellPlat!==F.plat) return false;
     if(F.month && !((r.sellDate||'').startsWith(F.month) || r.buyDate.startsWith(F.month))) return false;
-    if(q && !(r.name+' '+r.cat+' '+r.note+' '+r.orderNo).toLowerCase().includes(q)) return false;
+    if(q && !(r.name+' '+r.cat+' '+r.note+' '+r.orderNo+' '+r.chanName).toLowerCase().includes(q)) return false;
     return true;
   });
   const sorters = {
@@ -590,7 +602,7 @@ function vList(){
   </div>
   <div class="toolbar">
     <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input type="search" id="q" placeholder="搜商品、分类、备注、订单号" value="${esc(F.q)}"></div>
+      <input type="search" id="q" placeholder="搜商品、代买人、分类、备注、订单号" value="${esc(F.q)}"></div>
     <div class="filters">
       <select id="fPlat"><option value="">全部平台</option>${plats.map(p => `<option ${F.plat===p?'selected':''}>${esc(p)}</option>`).join('')}</select>
       <input type="month" id="fMonth" value="${F.month}" title="按月份筛选">
@@ -623,7 +635,7 @@ function itemHtml(r){
     <div class="av b-${r.status}">${esc([...r.name.trim()][0]||'?')}</div>
     <div class="body"><div class="t">${esc(r.name)}${r.qty>1?` <small>×${r.qty}</small>`:''}</div>
       <div class="m">${meta}</div>
-      <div class="tags"><span class="badge st-${r.status}">${STATUS[r.status]}</span>${sold?(r.paid?`<span class="badge">已到账</span>`:`<span class="badge st-await">待到账</span>`):''}${r.cat?`<span class="badge">${esc(r.cat)}</span>`:''}${r.note?`<span class="badge" title="${esc(r.note)}">📝</span>`:''}</div></div>
+      <div class="tags"><span class="badge st-${r.status}">${STATUS[r.status]}</span>${sold?(r.paid?`<span class="badge">已到账</span>`:`<span class="badge st-await">待到账</span>`):''}${r.chanName?`<span class="badge">👤 ${esc(r.chanName)}</span>`:''}${r.cat?`<span class="badge">${esc(r.cat)}</span>`:''}${r.note?`<span class="badge" title="${esc(r.note)}">📝</span>`:''}</div></div>
     <div class="n">${right}<div class="qa">${qa}</div></div>
   </div>`;
 }
@@ -636,6 +648,7 @@ function openDetail(r){
     row('买入', `${esc(r.buyPlat)} · ${r.buyDate}`),
     row(`单价 × 数量`, `${money(r.buyPrice)} × ${r.qty}`),
     r.buyShip ? row('买入运费', money(r.buyShip)) : '',
+    r.chanName ? row('渠道（代买人）', esc(r.chanName)) : '',
     r.chanFee ? row('渠道费用', money(r.chanFee)) : '',
     r.rebate ? row('返利/返现', '-'+money(r.rebate)) : '',
     row('到手成本', money(cost(r)), 'tot'),
@@ -930,6 +943,7 @@ document.addEventListener('click', e => {
       toast('已删除', '撤销', () => { S.expenses.splice(i,0,x); save(); render(); });
     },
     goset(){ go('set'); },
+    chanList(){ F = {...F, status:'all', month:'', plat:'', q:el.dataset.c}; go('list'); },
     gocal(){ go('cal'); },
     dayPrev(){ homeDay = addDay(homeDay, -1); render(); },
     dayNext(){ if(homeDay < today()) { homeDay = addDay(homeDay, 1); render(); } },
@@ -950,8 +964,8 @@ document.addEventListener('click', e => {
     backup(){ download(`钱来账本备份-${today()}.json`, JSON.stringify(S, null, 1), 'application/json'); },
     restore(){ $('#file').click(); },
     csv(){
-      const head = ['商品','分类','数量','状态','进货平台','买入日期','买入单价','买入运费','渠道费用','返利','总成本','订单号','出货平台','卖出日期','卖出单价','手续费','卖出运费','到账金额','货款到账','到账日期','利润','利润率','周转天数','预期单价','备注'];
-      const rows = S.records.map(r => [r.name,r.cat,r.qty,STATUS[r.status],r.buyPlat,r.buyDate,r.buyPrice,r.buyShip,r.chanFee,r.rebate,r2(cost(r)),r.orderNo,r.sellPlat,r.sellDate,
+      const head = ['商品','分类','数量','状态','进货平台','买入日期','买入单价','买入运费','渠道名称','渠道费用','返利','总成本','订单号','出货平台','卖出日期','卖出单价','手续费','卖出运费','到账金额','货款到账','到账日期','利润','利润率','周转天数','预期单价','备注'];
+      const rows = S.records.map(r => [r.name,r.cat,r.qty,STATUS[r.status],r.buyPlat,r.buyDate,r.buyPrice,r.buyShip,r.chanName,r.chanFee,r.rebate,r2(cost(r)),r.orderNo,r.sellPlat,r.sellDate,
         r.status==='sold'?r.sellPrice:'', r.status==='sold'?r.fee:'', r.status==='sold'?r.sellShip:'', r.status==='sold'?r2(payout(r)):'', r.status==='sold'?(r.paid?'已到账':'待到账'):'', r.paidDate||'', r.status==='sold'?r2(profit(r)):'',
         r.status==='sold'?pct(profit(r)/cost(r)):'', r.status==='sold'?days(r.buyDate,r.sellDate):'', r.expectPrice||'', r.note]);
       downloadCsv(`钱来货单-${today()}.csv`, [head, ...rows]);
@@ -1026,7 +1040,7 @@ function bindSteppers(f){
 }
 
 function normalize(r){
-  const n = {id:uid(), name:'', cat:'', qty:1, buyPlat:'', buyDate:today(), buyPrice:0, buyShip:0, chanFee:0, rebate:0, orderNo:'', status:'transit',
+  const n = {id:uid(), name:'', cat:'', qty:1, buyPlat:'', buyDate:today(), buyPrice:0, buyShip:0, chanFee:0, chanName:'', rebate:0, orderNo:'', status:'transit',
     expectPrice:0, sellPlat:'', sellDate:'', sellPrice:0, fee:0, sellShip:0, paid:false, paidDate:'', note:'', created:Date.now(), ...r};
   ['qty','buyPrice','buyShip','chanFee','rebate','expectPrice','sellPrice','fee','sellShip'].forEach(k => n[k] = num(n[k]));
   n.qty = Math.max(1, Math.round(n.qty));
@@ -1039,6 +1053,8 @@ function openForm(r){
   r = normalize(r || {buyPlat: last ? last.buyPlat : S.settings.buyPlats[0], status:'transit'});
   const cats = [...new Set(S.records.map(x => x.cat).filter(Boolean))];
   const hasMore = r.cat || r.orderNo || r.note;
+  // 最近用过的代买人，点一下就填上
+  const chans = [...new Set([...S.records].sort((a,b) => b.created-a.created).map(x => x.chanName).filter(Boolean))].slice(0,8);
   openModal(`
   <h2>${isNew?'记一单':'编辑货单'}<button class="x" type="button">×</button></h2>
   <form id="rf" autocomplete="off">
@@ -1050,6 +1066,8 @@ function openForm(r){
       <div class="f"><label>买入单价</label><div class="money-in big-in"><input name="buyPrice" type="number" step="0.01" min="0" inputmode="decimal" required value="${r.buyPrice||''}" placeholder="0.00"></div></div>
       <div class="f"><label>数量</label>${stepper('qty', r.qty)}</div>
     </div>
+    <div class="f"><label>渠道名称（代买人）</label><input name="chanName" value="${esc(r.chanName)}" placeholder="找谁买的，选填" maxlength="20" autocomplete="off">
+      ${chans.length?`<div class="quick" id="chanQuick">${chans.map(c => `<button type="button" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div>`:''}</div>
     <div class="row3">
       <div class="f"><label>买入运费</label>${moneyIn('buyShip', r.buyShip)}</div>
       <div class="f"><label>渠道费用</label>${moneyIn('chanFee', r.chanFee, '代拍红包')}</div>
@@ -1111,6 +1129,7 @@ function openForm(r){
         : ep!=null ? `<div>预计利润<b class="${pc(ep)}">${money(ep,1)}</b></div>` : '');
   };
   f.addEventListener('input', upd); f.addEventListener('change', upd); upd();
+  if($('#chanQuick')) $('#chanQuick').onclick = e => { const b = e.target.closest('[data-c]'); if(!b) return; f.chanName.value = b.dataset.c; upd(); };
   // 「历史商品」：选一个以前录过的商品，带出名称、上次的平台、价格、分类和预期价
   if($('#histBtn')) $('#histBtn').onclick = () => openHistory(p => {
     f.elements['name'].value = p.name;
@@ -1131,7 +1150,7 @@ function openForm(r){
     save();
     if(e.submitter && e.submitter.name==='again'){
       toast(`已保存「${x.name}」，接着记`);
-      openForm({buyPlat:x.buyPlat, buyDate:x.buyDate, status:x.status, cat:x.cat});
+      openForm({buyPlat:x.buyPlat, buyDate:x.buyDate, status:x.status, cat:x.cat, chanName:x.chanName});
     } else { closeModal(); toast(isNew?'已记一单 ✅':'已保存'); }
     render();
   };
@@ -1265,6 +1284,7 @@ function loadDemo(){
 function migrate(){
   S.records.forEach(r => {
     if(r.chanFee == null) r.chanFee = 0;
+    if(r.chanName == null) r.chanName = '';
     if(r.paid == null) { r.paid = r.status==='sold'; r.paidDate = r.paid ? r.sellDate : ''; } // 加这个功能前卖出的，默认已到账
   });
   S.settings.paidPref = S.settings.paidPref || {};
