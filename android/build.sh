@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 不依赖 Gradle，直接用 Android SDK 工具打包 APK。
 # 需要：JDK、ANDROID_HOME 下装好 platforms;android-35 和 build-tools;35.0.0
-# 用法：ANDROID_HOME=/path/to/sdk ./build.sh   →  生成 ../ZhuanMaiLedger.apk
+# 用法：ANDROID_HOME=/path/to/sdk ./build.sh   →  生成 ../QianLaiLedger.apk
 set -euo pipefail
 cd "$(dirname "$0")"
 : "${ANDROID_HOME:?请设置 ANDROID_HOME}"
@@ -31,7 +31,7 @@ if [ ! -f "$KS" ]; then
     -storepass zhuanmai -keypass zhuanmai -dname "CN=ZhuanMai Ledger"
 fi
 "$BT/apksigner" sign --ks "$KS" --ks-pass pass:zhuanmai --key-pass pass:zhuanmai \
-  --out ../ZhuanMaiLedger.apk "$OUT/aligned.apk"
-"$BT/apksigner" verify ../ZhuanMaiLedger.apk
-rm -f ../ZhuanMaiLedger.apk.idsig
-echo "OK -> $(cd .. && pwd)/ZhuanMaiLedger.apk"
+  --out ../QianLaiLedger.apk "$OUT/aligned.apk"
+"$BT/apksigner" verify ../QianLaiLedger.apk
+rm -f ../QianLaiLedger.apk.idsig
+echo "OK -> $(cd .. && pwd)/QianLaiLedger.apk"
