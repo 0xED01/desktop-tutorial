@@ -66,7 +66,7 @@ public class MainActivity extends Activity {
         header.setPadding(dp(20), dp(14), dp(20), dp(18));
         header.addView(text("资产负债表", 18, Color.WHITE, true));
 
-        TextView netLabel = text("净资产 · 权益（元）", 13, 0xB3FFFFFF, false);
+        TextView netLabel = text("净资产（元）", 13, 0xB3FFFFFF, false);
         netLabel.setPadding(0, dp(16), 0, 0);
         header.addView(netLabel);
         netView = text("0.00", 36, Color.WHITE, true);
@@ -98,7 +98,7 @@ public class MainActivity extends Activity {
         // Tabs
         LinearLayout tabs = new LinearLayout(this);
         tabs.setBackgroundColor(Color.WHITE);
-        String[] names = {"资产", "负债", "权益", "趋势"};
+        String[] names = {"资产", "负债", "净资产", "趋势"};
         for (int i = 0; i < names.length; i++) {
             final int idx = i;
             LinearLayout cell = new LinearLayout(this);
@@ -251,7 +251,7 @@ public class MainActivity extends Activity {
         // Summary: equity = assets - liabilities, with how assets are funded
         LinearLayout card = card();
         card.setPadding(dp(16), dp(14), dp(16), dp(14));
-        card.addView(text("所有者权益", 14, TEXT_2, false));
+        card.addView(text("净资产", 14, TEXT_2, false));
         card.addView(text(money(e), 28, equityColor, true));
         TextView formula = text("资产 " + money(a) + "  −  负债 " + money(l), 13, TEXT_2, false);
         formula.setPadding(0, dp(2), 0, dp(12));
@@ -275,13 +275,13 @@ public class MainActivity extends Activity {
             legend.setPadding(0, dp(8), 0, 0);
             legend.addView(text("● 负债占资产 " + pf.format(l * 100.0 / a) + "%", 12, CORAL, false),
                     new LinearLayout.LayoutParams(0, -2, 1));
-            TextView eq = text("● 权益占资产 " + pf.format(Math.max(0, e) * 100.0 / a) + "%", 12, NAVY, false);
+            TextView eq = text("● 净资产占资产 " + pf.format(Math.max(0, e) * 100.0 / a) + "%", 12, NAVY, false);
             eq.setGravity(Gravity.END);
             legend.addView(eq, new LinearLayout.LayoutParams(0, -2, 1));
             card.addView(legend);
         }
         if (e < 0) {
-            TextView warn = text("负债已超过资产（资不抵债），权益为负", 12, CORAL, false);
+            TextView warn = text("负债已超过资产（资不抵债），净资产为负", 12, CORAL, false);
             warn.setPadding(0, dp(8), 0, 0);
             card.addView(warn);
         }
@@ -297,12 +297,12 @@ public class MainActivity extends Activity {
         sheetTotal(sheet, "资产合计", a, TEAL);
         sheetSection(sheet, "负债", Store.LIABILITY, Store.LIABILITY_CATEGORIES, CORAL);
         sheetTotal(sheet, "负债合计", l, CORAL);
-        sheetHeader(sheet, "所有者权益");
-        sheetRow(sheet, "权益（资产 − 负债）", e, equityColor);
-        sheetTotal(sheet, "负债和权益合计", l + e, NAVY);
+        sheetHeader(sheet, "净资产");
+        sheetRow(sheet, "净资产（资产 − 负债）", e, equityColor);
+        sheetTotal(sheet, "负债和净资产合计", l + e, NAVY);
         content.addView(sheet, new LinearLayout.LayoutParams(-1, -2));
 
-        TextView tip = text("资产 = 负债 + 所有者权益", 12, TEXT_2, false);
+        TextView tip = text("资产 = 负债 + 净资产", 12, TEXT_2, false);
         tip.setGravity(Gravity.CENTER);
         tip.setPadding(0, dp(10), 0, 0);
         content.addView(tip, new LinearLayout.LayoutParams(-1, -2));
