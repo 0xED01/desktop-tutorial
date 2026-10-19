@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Piggy bank on a coral circle -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#FF7A59"
+        android:pathData="M54,4a50,50 0,1 1,0 100a50,50 0,1 1,0 -100z" />
+    <!-- coin -->
+    <path android:fillColor="#FFD54F"
+        android:pathData="M54,18a9,9 0,1 1,0 18a9,9 0,1 1,0 -18z" />
+    <!-- legs -->
+    <path android:fillColor="#FFE3DA" android:pathData="M36,68h9v14h-9z" />
+    <path android:fillColor="#FFE3DA" android:pathData="M63,68h9v14h-9z" />
+    <!-- body -->
+    <path android:fillColor="#FFE3DA"
+        android:pathData="M54,40c-17,0 -28,10 -28,23c0,9 6,15 14,18h28c9,-3 15,-10 15,-18c0,-13 -12,-23 -29,-23z" />
+    <!-- ear -->
+    <path android:fillColor="#FFE3DA" android:pathData="M38,46l2,-12l10,8z" />
+    <!-- snout -->
+    <path android:fillColor="#FFB8A3"
+        android:pathData="M79,55a6,7 0,1 1,0 14a6,7 0,1 1,0 -14z" />
+    <!-- slot -->
+    <path android:fillColor="#E0664A" android:pathData="M48,43h14v3h-14z" />
+    <!-- eye -->
+    <path android:fillColor="#5D4037"
+        android:pathData="M66,53a2.5,2.5 0,1 1,0 5a2.5,2.5 0,1 1,0 -5z" />
+</vector>
