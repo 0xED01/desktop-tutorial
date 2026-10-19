@@ -594,7 +594,7 @@ function vList(){
   const list = filtered();
   const plats = [...new Set([...S.settings.buyPlats, ...S.settings.sellPlats])];
   const cnt = k => S.records.filter(k==='unsold'?unsold:k==='stale'?isStale:k==='await'?awaiting:k==='all'?()=>true:r=>r.status===k).length;
-  const tabs = [['unsold','未出手'],['await','待到账'],['transit','在途'],['stock','在库'],['listed','已上架'],['sold','已售出'],['stale','压货超期'],['returned','已退货'],['all','全部']];
+  const tabs = [['all','全部'],['sold','已售出'],['unsold','未出手'],['await','待到账'],['transit','在途'],['stock','在库'],['listed','已上架'],['stale','压货超期'],['returned','已退货']];
   const tp = sum(list, profit), tc = sum(list, cost), ta = sum(list.filter(awaiting), payout);
   return `
   <div class="tabsx" data-seg="status">
