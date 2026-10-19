@@ -248,6 +248,16 @@ details.more[open] summary{color:var(--sub)}
 .toast button{background:none;border:0;color:#a5a0ff;font-weight:600;white-space:nowrap}
 .tip{font-size:12px;color:var(--sub);margin-top:6px}
 .flex{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.name-row{display:flex;gap:8px}
+.name-row input{flex:1;min-width:0}
+.name-row .btn{display:flex;align-items:center;gap:4px;padding:0 14px;flex:none}
+.pick-list{max-height:60vh;overflow:auto;margin:0 -4px}
+.pick{display:flex;align-items:center;gap:12px;padding:11px 4px;border-top:1px solid var(--line);cursor:pointer}
+.pick:first-child{border-top:0}
+.pick:active{background:var(--chip)}
+.pick .tx{flex:1;min-width:0}
+.pick .tx div{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pick .tx small{color:var(--sub);font-size:12px}
 .exp-i{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
 .exp-i:first-child{border-top:0}
 .exp-i .tx{flex:1;min-width:0}
@@ -274,6 +284,7 @@ details.more[open] summary{color:var(--sub)}
 <main class="wrap" id="main"></main>
 <button class="fab" id="fab"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>记一单</button>
 <div class="mask" id="mask"><div class="modal" id="modal"></div></div>
+<div class="mask" id="mask2" style="z-index:25"><div class="modal" id="modal2"></div></div>
 <div class="toast" id="toast"><span id="toastMsg"></span><button id="toastBtn"></button></div>
 
 <script>
@@ -835,10 +846,13 @@ function openModal(html){
   $('#mask').classList.add('on'); requestAnimationFrame(() => $('#mask').classList.add('show'));
 }
 function closeModal(){ $('#mask').classList.remove('show','on'); }
+function closePicker(){ $('#mask2').classList.remove('show','on'); }
+$('#mask2').addEventListener('click', e => { if(e.target.id==='mask2' || e.target.closest('.x')) closePicker(); });
 $('#mask').addEventListener('click', e => { if(e.target.id==='mask' || e.target.closest('.x,[data-close]')) closeModal(); });
-document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+document.addEventListener('keydown', e => { if(e.key==='Escape') $('#mask2').classList.contains('on') ? closePicker() : closeModal(); });
 // 安卓返回键：先关弹窗，再回概览；返回 false 表示退出 App
 window.appBack = () => {
+  if($('#mask2').classList.contains('on')) { closePicker(); return true; }
   if($('#mask').classList.contains('on')) { closeModal(); return true; }
   if(view!=='home') { go('home'); return true; }
   return false;
@@ -878,14 +892,13 @@ function openForm(r){
   const isNew = !r || !r.id;
   const last = S.records[S.records.length-1];
   r = normalize(r || {buyPlat: last ? last.buyPlat : S.settings.buyPlats[0], status:'transit'});
-  const names = [...new Set(S.records.map(x => x.name))].slice(-200);
   const cats = [...new Set(S.records.map(x => x.cat).filter(Boolean))];
   const hasMore = r.cat || r.orderNo || r.note;
   openModal(`
   <h2>${isNew?'记一单':'编辑货单'}<button class="x" type="button">×</button></h2>
   <form id="rf" autocomplete="off">
-    <div class="f"><input name="name" list="dlNames" required value="${esc(r.name)}" placeholder="商品名称，如：AirPods Pro 2" style="font-size:17px;font-weight:600"></div>
-    <datalist id="dlNames">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+    <div class="f name-row"><input name="name" required autocomplete="off" value="${esc(r.name)}" placeholder="商品名称，如：AirPods Pro 2" style="font-size:17px;font-weight:600">
+      ${S.records.length?`<button type="button" class="btn soft" id="histBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>历史商品</button>`:''}</div>
     <datalist id="dlCats">${cats.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
     <div class="f">${chips('buyPlat', S.settings.buyPlats, r.buyPlat)}</div>
     <div class="row">
@@ -953,15 +966,14 @@ function openForm(r){
         : ep!=null ? `<div>预计利润<b class="${pc(ep)}">${money(ep,1)}</b></div>` : '');
   };
   f.addEventListener('input', upd); f.addEventListener('change', upd); upd();
-  // 选商品名时自动带出上次的平台、价格、分类和预期价
-  f.elements['name'].addEventListener('change', () => {
-    const p = [...S.records].reverse().find(x => x.name===f.elements['name'].value.trim());
-    if(!p || !isNew) return;
-    if(!f.cat.value) f.cat.value = p.cat;
-    if(!f.buyPrice.value) f.buyPrice.value = p.buyPrice || '';
-    if(!f.expectPrice.value && p.expectPrice) f.expectPrice.value = p.expectPrice;
+  // 「历史商品」：选一个以前录过的商品，带出名称、上次的平台、价格、分类和预期价
+  if($('#histBtn')) $('#histBtn').onclick = () => openHistory(p => {
+    f.elements['name'].value = p.name;
+    f.buyPrice.value = p.buyPrice || '';
+    if(p.cat) f.cat.value = p.cat;
+    if(p.expectPrice) f.expectPrice.value = p.expectPrice;
     const bp = f.querySelector(`input[name=buyPlat][value="${CSS.escape(p.buyPlat)}"]`); if(bp) bp.checked = true;
-    upd(); toast('已带出上次的价格和平台');
+    upd(); setTimeout(() => f.buyPrice.focus(), 50);
   });
   f.onsubmit = e => {
     e.preventDefault();
@@ -979,6 +991,34 @@ function openForm(r){
     render();
   };
   if(isNew) setTimeout(() => f.elements['name'].focus(), 250);
+}
+
+function openHistory(onPick){
+  // 按商品名合并，最近录入的排前面
+  const m = new Map();
+  [...S.records].sort((a,b) => b.buyDate.localeCompare(a.buyDate) || b.created-a.created).forEach(r => {
+    const g = m.get(r.name);
+    if(g) { g.n++; g.qty += r.qty; } else m.set(r.name, {last:r, n:1, qty:r.qty});
+  });
+  const items = [...m.values()];
+  $('#modal2').innerHTML = `<h2>选择历史商品 <small class="muted" style="font-size:12px;font-weight:400">${items.length} 个</small><button class="x" type="button">×</button></h2>
+    <div class="f search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--sub)"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="hq" type="search" autocomplete="off" placeholder="搜索商品" style="padding-left:36px"></div>
+    <div class="pick-list" id="hl"></div>`;
+  const draw = () => {
+    const q = $('#hq').value.trim().toLowerCase();
+    const list = items.filter(g => !q || (g.last.name+' '+g.last.cat).toLowerCase().includes(q));
+    $('#hl').innerHTML = list.length ? list.map(g => { const r = g.last; return `<div class="pick" data-n="${esc(r.name)}">
+      <div class="av b-${r.status}" style="width:38px;height:38px;font-size:15px">${esc([...r.name.trim()][0]||'?')}</div>
+      <div class="tx"><div>${esc(r.name)}</div><small>上次 ${esc(r.buyPlat)} ${md(r.buyDate)} · 录过 ${g.n} 次${r.cat?' · '+esc(r.cat):''}</small></div>
+      <b class="num">${money(r.buyPrice)}</b></div>`; }).join('') : '<div class="empty">没有找到</div>';
+  };
+  $('#hq').oninput = draw; draw();
+  $('#hl').onclick = e => {
+    const el = e.target.closest('.pick'); if(!el) return;
+    onPick(m.get(el.dataset.n).last); closePicker();
+  };
+  $('#mask2').classList.add('on'); requestAnimationFrame(() => $('#mask2').classList.add('show'));
 }
 
 function openSell(r){
