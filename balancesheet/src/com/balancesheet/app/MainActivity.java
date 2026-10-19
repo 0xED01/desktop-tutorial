@@ -33,14 +33,14 @@ public class MainActivity extends Activity {
     private static final int BG = 0xFFF3F5F8;
     private static final int TEAL_LIGHT = 0xFF8CCFC6;
 
-    private static final int TAB_ASSETS = 0, TAB_LIABILITIES = 1, TAB_TREND = 2;
+    private static final int TAB_ASSETS = 0, TAB_LIABILITIES = 1, TAB_EQUITY = 2, TAB_TREND = 3;
 
     private Store store;
     private int tab = TAB_ASSETS;
     private TextView netView, assetsView, liabView, ratioView;
     private View ratioAssets, ratioLiab;
-    private final TextView[] tabViews = new TextView[3];
-    private final View[] tabLines = new View[3];
+    private final TextView[] tabViews = new TextView[4];
+    private final View[] tabLines = new View[4];
     private LinearLayout content;
     private Button addButton;
     private View bottomBar;
@@ -66,7 +66,7 @@ public class MainActivity extends Activity {
         header.setPadding(dp(20), dp(14), dp(20), dp(18));
         header.addView(text("资产负债表", 18, Color.WHITE, true));
 
-        TextView netLabel = text("净资产（元）", 13, 0xB3FFFFFF, false);
+        TextView netLabel = text("净资产 · 权益（元）", 13, 0xB3FFFFFF, false);
         netLabel.setPadding(0, dp(16), 0, 0);
         header.addView(netLabel);
         netView = text("0.00", 36, Color.WHITE, true);
@@ -98,8 +98,8 @@ public class MainActivity extends Activity {
         // Tabs
         LinearLayout tabs = new LinearLayout(this);
         tabs.setBackgroundColor(Color.WHITE);
-        String[] names = {"资产", "负债", "趋势"};
-        for (int i = 0; i < 3; i++) {
+        String[] names = {"资产", "负债", "权益", "趋势"};
+        for (int i = 0; i < names.length; i++) {
             final int idx = i;
             LinearLayout cell = new LinearLayout(this);
             cell.setOrientation(LinearLayout.VERTICAL);
@@ -162,15 +162,18 @@ public class MainActivity extends Activity {
         ratioAssets.setBackgroundColor(sum == 0 ? 0x00000000 : TEAL);
         ratioAssets.requestLayout();
 
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < tabViews.length; i++) {
             tabViews[i].setTextColor(i == tab ? NAVY : TEXT_2);
-            tabLines[i].setBackground(i == tab ? round(i == TAB_LIABILITIES ? CORAL : i == TAB_TREND ? NAVY : TEAL, 2) : null);
+            tabLines[i].setBackground(i == tab ? round(i == TAB_LIABILITIES ? CORAL : i == TAB_ASSETS ? TEAL : NAVY, 2) : null);
         }
 
         content.removeAllViews();
         if (tab == TAB_TREND) {
             bottomBar.setVisibility(View.GONE);
             buildTrend();
+        } else if (tab == TAB_EQUITY) {
+            bottomBar.setVisibility(View.GONE);
+            buildEquity();
         } else {
             int side = tab == TAB_ASSETS ? Store.ASSET : Store.LIABILITY;
             bottomBar.setVisibility(View.VISIBLE);
@@ -239,6 +242,117 @@ public class MainActivity extends Activity {
             tip.setPadding(0, dp(4), 0, 0);
             content.addView(tip, new LinearLayout.LayoutParams(-1, -2));
         }
+    }
+
+    private void buildEquity() {
+        long a = store.total(Store.ASSET), l = store.total(Store.LIABILITY), e = a - l;
+        int equityColor = e < 0 ? CORAL : NAVY;
+
+        // Summary: equity = assets - liabilities, with how assets are funded
+        LinearLayout card = card();
+        card.setPadding(dp(16), dp(14), dp(16), dp(14));
+        card.addView(text("所有者权益", 14, TEXT_2, false));
+        card.addView(text(money(e), 28, equityColor, true));
+        TextView formula = text("资产 " + money(a) + "  −  负债 " + money(l), 13, TEXT_2, false);
+        formula.setPadding(0, dp(2), 0, dp(12));
+        card.addView(formula);
+
+        if (a > 0) {
+            float liabShare = Math.min(1f, l / (float) a);
+            LinearLayout bar = new LinearLayout(this);
+            bar.setBackground(round(0xFFE8ECF0, 4));
+            bar.setClipToOutline(true);
+            View lv = new View(this);
+            lv.setBackgroundColor(CORAL);
+            View ev = new View(this);
+            ev.setBackgroundColor(NAVY);
+            bar.addView(lv, new LinearLayout.LayoutParams(0, -1, liabShare));
+            bar.addView(ev, new LinearLayout.LayoutParams(0, -1, 1 - liabShare));
+            card.addView(bar, new LinearLayout.LayoutParams(-1, dp(8)));
+
+            DecimalFormat pf = new DecimalFormat("0.0");
+            LinearLayout legend = new LinearLayout(this);
+            legend.setPadding(0, dp(8), 0, 0);
+            legend.addView(text("● 负债占资产 " + pf.format(l * 100.0 / a) + "%", 12, CORAL, false),
+                    new LinearLayout.LayoutParams(0, -2, 1));
+            TextView eq = text("● 权益占资产 " + pf.format(Math.max(0, e) * 100.0 / a) + "%", 12, NAVY, false);
+            eq.setGravity(Gravity.END);
+            legend.addView(eq, new LinearLayout.LayoutParams(0, -2, 1));
+            card.addView(legend);
+        }
+        if (e < 0) {
+            TextView warn = text("负债已超过资产（资不抵债），权益为负", 12, CORAL, false);
+            warn.setPadding(0, dp(8), 0, 0);
+            card.addView(warn);
+        }
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.bottomMargin = dp(10);
+        content.addView(card, lp);
+
+        // Classic balance sheet: assets on one side, liabilities + equity on the other
+        LinearLayout sheet = card();
+        sheet.setPadding(dp(16), dp(12), dp(16), dp(12));
+        sheet.addView(text("资产负债表", 15, TEXT, true));
+        sheetSection(sheet, "资产", Store.ASSET, Store.ASSET_CATEGORIES, TEAL);
+        sheetTotal(sheet, "资产合计", a, TEAL);
+        sheetSection(sheet, "负债", Store.LIABILITY, Store.LIABILITY_CATEGORIES, CORAL);
+        sheetTotal(sheet, "负债合计", l, CORAL);
+        sheetHeader(sheet, "所有者权益");
+        sheetRow(sheet, "权益（资产 − 负债）", e, equityColor);
+        sheetTotal(sheet, "负债和权益合计", l + e, NAVY);
+        content.addView(sheet, new LinearLayout.LayoutParams(-1, -2));
+
+        TextView tip = text("资产 = 负债 + 所有者权益", 12, TEXT_2, false);
+        tip.setGravity(Gravity.CENTER);
+        tip.setPadding(0, dp(10), 0, 0);
+        content.addView(tip, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    private void sheetSection(LinearLayout sheet, String title, int side, String[] cats, int color) {
+        sheetHeader(sheet, title);
+        boolean any = false;
+        for (String cat : cats) {
+            long sub = 0;
+            for (Store.Item i : store.items(side, cat)) sub += i.amount;
+            if (sub == 0) continue;
+            any = true;
+            sheetRow(sheet, cat, sub, TEXT);
+        }
+        if (!any) sheetRow(sheet, "（无）", 0, TEXT_2);
+    }
+
+    private void sheetHeader(LinearLayout sheet, String title) {
+        TextView t = text(title, 13, TEXT_2, true);
+        t.setPadding(0, dp(14), 0, dp(4));
+        sheet.addView(t);
+    }
+
+    private void sheetRow(LinearLayout sheet, String name, long amount, int color) {
+        LinearLayout row = new LinearLayout(this);
+        row.setPadding(dp(8), dp(5), 0, dp(5));
+        row.addView(text(name, 14, TEXT, false), new LinearLayout.LayoutParams(0, -2, 1));
+        row.addView(text(money(amount), 14, color, false));
+        sheet.addView(row);
+    }
+
+    private void sheetTotal(LinearLayout sheet, String name, long amount, int color) {
+        View line = new View(this);
+        line.setBackgroundColor(0xFFE8ECF0);
+        LinearLayout.LayoutParams ll = new LinearLayout.LayoutParams(-1, dp(1));
+        ll.topMargin = dp(4);
+        sheet.addView(line, ll);
+        LinearLayout row = new LinearLayout(this);
+        row.setPadding(0, dp(8), 0, dp(2));
+        row.addView(text(name, 14, TEXT, true), new LinearLayout.LayoutParams(0, -2, 1));
+        row.addView(text(money(amount), 15, color, true));
+        sheet.addView(row);
+    }
+
+    private LinearLayout card() {
+        LinearLayout c = new LinearLayout(this);
+        c.setOrientation(LinearLayout.VERTICAL);
+        c.setBackground(round(Color.WHITE, 12));
+        return c;
     }
 
     private void buildTrend() {
