@@ -52,6 +52,28 @@ public class AppTest {
         assertEquals(SleepMath.FLOOR, SleepMath.adjust(SleepMath.FLOOR, 0.5f));
     }
 
+    @Test
+    public void customBedtime() {
+        Context c = androidx_ctx();
+        Store.setWakeMin(c, 7 * 60);
+        assertEquals(23 * 60, Store.bedMin(c));          // 默认 8 小时
+        Store.setCustomBed(c, 22 * 60 + 30);
+        assertEquals(22 * 60 + 30, Store.bedMin(c));     // 自定义优先
+        assertEquals(23 * 60, Store.autoBedMin(c));
+
+        ActivityController<MainActivity> ac = Robolectric.buildActivity(MainActivity.class).setup();
+        View root = ac.get().getWindow().getDecorView();
+        assertTrue(hasText(root, "上床 22:30"));
+        assertTrue(hasText(root, "（自定义）"));
+        Button reset = findButton(root, "恢复自动");
+        assertNotNull(reset);
+        reset.performClick();
+        assertEquals(-1, Store.customBed(c));
+        assertTrue(hasText(root, "上床 23:00"));
+        assertNull(findButton(root, "恢复自动"));
+        ac.pause().stop().destroy();
+    }
+
     private static List<View> all(View v, List<View> out) {
         out.add(v);
         if (v instanceof ViewGroup) {
@@ -88,7 +110,9 @@ public class AppTest {
         assertTrue(hasText(root, "建议窗口"));
         Button startPlan = findButton(root, "开始计划");
         assertNotNull(startPlan);
+        Store.setCustomBed(c, 21 * 60);
         startPlan.performClick();
+        assertEquals(-1, Store.customBed(c)); // 开始计划后恢复自动
         assertEquals(360, Store.windowMin(c)); // avg tst 450-90
         assertTrue(hasText(root, "睡眠窗口 6 小时："));
 

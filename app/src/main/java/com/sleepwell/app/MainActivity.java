@@ -164,9 +164,21 @@ public class MainActivity extends Activity {
 
         LinearLayout c = card(p);
         text(c, "今晚计划", 13, SUB, false);
-        text(c, "上床 " + hm(Store.bedMin(this)) + "   →   起床 " + hm(wake), 24, ACCENT, true);
-        if (win > 0) text(c, "睡眠窗口 " + dur(win) + "：只在这段时间里躺在床上。", 14, TEXT, false);
-        else text(c, "还没开始睡眠窗口计划，暂按 8 小时显示。", 14, SUB, false);
+        int bed = Store.bedMin(this), inBed = SleepEntry.diff(bed, wake);
+        text(c, "上床 " + hm(bed) + "   →   起床 " + hm(wake), 24, ACCENT, true);
+        if (Store.customBed(this) >= 0) {
+            text(c, "自定义上床时间，躺床 " + dur(inBed) + "。", 14, TEXT, false);
+            if (win > 0 && inBed > win + 15) {
+                text(c, "比睡眠窗口多躺 " + dur(inBed - win) + "，会削弱睡眠限制的效果。建议在“设置”里恢复自动。", 13, MID, false);
+            }
+        } else if (win > 0) {
+            text(c, "睡眠窗口 " + dur(win) + "：只在这段时间里躺在床上。", 14, TEXT, false);
+        } else {
+            text(c, "还没开始睡眠窗口计划，暂按 8 小时显示，也可以在下方“设置”里自定义上床时间。", 14, SUB, false);
+        }
+        if (inBed < 300 || inBed > 600) {
+            text(c, "注意：当前躺床 " + dur(inBed) + "，" + (inBed < 300 ? "少于 5 小时，长期这样会严重缺觉。" : "超过 10 小时，躺床太久反而会让睡眠变浅、变碎。"), 13, BAD, false);
+        }
         space(c, 6);
         text(c, "★ 最重要的一条：无论昨晚睡得怎样，每天同一时间起床，周末也一样。", 14, TEXT, false);
 
@@ -186,6 +198,7 @@ public class MainActivity extends Activity {
                 text(pc, SAFETY, 12, BAD, false);
                 button(pc, "开始计划", v -> {
                     Store.setWindow(this, w0);
+                    Store.setCustomBed(this, -1);
                     Reminders.scheduleAll(this);
                     showTab(0);
                 });
@@ -205,6 +218,7 @@ public class MainActivity extends Activity {
                 button(pc, nw == win ? "保持 " + dur(win) + "，开始新的一周"
                         : "调整为 " + dur(nw) + "（" + hm(SleepEntry.diff(nw, wake)) + " 上床）", v -> {
                     Store.setWindow(this, nw);
+                    Store.setCustomBed(this, -1);
                     Reminders.scheduleAll(this);
                     showTab(0);
                 });
@@ -252,17 +266,24 @@ public class MainActivity extends Activity {
 
         LinearLayout set = card(p);
         text(set, "设置", 17, TEXT, true);
-        LinearLayout r = new LinearLayout(this);
-        r.setGravity(Gravity.CENTER_VERTICAL);
-        TextView wl = text(r, "固定起床时间  " + hm(wake), 15, TEXT, false);
-        wl.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1));
-        Button chg = ghost(r, "修改", v -> new TimePickerDialog(this, (tp, h, m) -> {
-            Store.setWakeMin(this, h * 60 + m);
+        settingRow(set, "固定起床时间  " + hm(wake), v -> pickTime(wake, m -> {
+            Store.setWakeMin(this, m);
             Reminders.scheduleAll(this);
             showTab(0);
-        }, wake / 60, wake % 60, true).show());
-        chg.setLayoutParams(new LinearLayout.LayoutParams(-2, -2));
-        set.addView(r);
+        }));
+        boolean custom = Store.customBed(this) >= 0;
+        settingRow(set, "上床时间  " + hm(bed) + (custom ? "（自定义）" : "（自动）"), v -> pickTime(bed, m -> {
+            Store.setCustomBed(this, m);
+            Reminders.scheduleAll(this);
+            showTab(0);
+        }));
+        if (custom) {
+            ghost(set, "恢复自动（" + hm(Store.autoBedMin(this)) + "，按" + (win > 0 ? "睡眠窗口" : " 8 小时") + "计算）", v -> {
+                Store.setCustomBed(this, -1);
+                Reminders.scheduleAll(this);
+                showTab(0);
+            });
+        }
 
         Switch sw = new Switch(this);
         sw.setText("每日提醒（咖啡因截止、睡前1小时放松、上床、起床）");
@@ -287,6 +308,16 @@ public class MainActivity extends Activity {
             });
         }
         text(set, "所有数据只保存在你的手机上。", 12, SUB, false);
+    }
+
+    private void settingRow(LinearLayout parent, String label, View.OnClickListener onChange) {
+        LinearLayout r = new LinearLayout(this);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        TextView t = text(r, label, 15, TEXT, false);
+        t.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1));
+        Button chg = ghost(r, "修改", onChange);
+        chg.setLayoutParams(new LinearLayout.LayoutParams(-2, -2));
+        parent.addView(r);
     }
 
     private void setSystemAlarm(int wake) {

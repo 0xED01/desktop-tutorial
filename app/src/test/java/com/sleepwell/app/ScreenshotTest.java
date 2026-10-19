@@ -60,5 +60,12 @@ public class ScreenshotTest {
         }
         ShadowLooper.idleMainLooper(5500, java.util.concurrent.TimeUnit.MILLISECONDS);
         shot(root, "5_breath");
+        Store.setCustomBed(RuntimeEnvironment.getApplication(), 22 * 60 + 30);
+        a.showTab(0);
+        android.widget.ScrollView sv = null;
+        for (View v : AppTestHelper.all(root)) if (v instanceof android.widget.ScrollView) sv = (android.widget.ScrollView) v;
+        shot(root, "6_custom_top");
+        sv.scrollTo(0, 100000);
+        shot(root, "7_custom_settings");
     }
 }

@@ -29,10 +29,20 @@ public class Store {
         sp(c).edit().putInt("window", min).putString("windowDate", LocalDate.now().toString()).apply();
     }
 
-    /** 目标上床时间 = 起床时间 - 睡眠窗口（未开始计划时按 8 小时） */
-    public static int bedMin(Context c) {
+    /** 用户自定义的上床时间，-1 表示自动计算 */
+    public static int customBed(Context c) { return sp(c).getInt("customBed", -1); }
+    public static void setCustomBed(Context c, int m) { sp(c).edit().putInt("customBed", m).apply(); }
+
+    /** 按睡眠窗口自动算出的上床时间 = 起床时间 - 睡眠窗口（未开始计划时按 8 小时） */
+    public static int autoBedMin(Context c) {
         int w = windowMin(c);
         return SleepEntry.diff(w > 0 ? w : 480, wakeMin(c));
+    }
+
+    /** 目标上床时间：优先用自定义时间 */
+    public static int bedMin(Context c) {
+        int b = customBed(c);
+        return b >= 0 ? b : autoBedMin(c);
     }
 
     public static String worries(Context c) { return sp(c).getString("worries", ""); }
