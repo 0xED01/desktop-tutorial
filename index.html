@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f4f5fa">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="钱来账本">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
 <title>钱来账本</title>
 <style>
 :root{
@@ -28,7 +36,10 @@ body.green-up{ --up:var(--green); --down:var(--red); }
 html,body{margin:0}
 body{background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","HarmonyOS Sans SC","MiSans","Microsoft YaHei",sans-serif;padding-bottom:96px}
 button,input,select,textarea{font:inherit;color:inherit}
-button{cursor:pointer}
+button{cursor:pointer;touch-action:manipulation}
+input[type=date]{-webkit-appearance:none;appearance:none;min-height:44px;text-align:left}
+input[type=date]::-webkit-date-and-time-value{text-align:left}
+html{-webkit-text-size-adjust:100%}
 .wrap{max-width:980px;margin:0 auto;padding:0 16px}
 .num{font-variant-numeric:tabular-nums}
 
@@ -313,6 +324,8 @@ details.more[open] summary{color:var(--sub)}
 .exp-i:first-child{border-top:0}
 .exp-i .tx{flex:1;min-width:0}
 .exp-i .tx small{color:var(--sub);font-size:12px;display:block}
+/* iOS：输入框小于 16px 会在点击时自动放大页面 */
+@media (max-width:640px){input,select,textarea,.toolbar input,.toolbar select{font-size:16px}}
 </style>
 </head>
 <body>
@@ -995,6 +1008,14 @@ function addSetting(k){
 }
 function download(name, text, type){
   if(window.Android && Android.saveFile) return Android.saveFile(name, type, text); // 安卓 App 内
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints > 1);
+  if(isIOS && navigator.canShare) {
+    const file = new File([text], name, {type: type.split(';')[0]});
+    if(navigator.canShare({files:[file]})) {
+      navigator.share({files:[file], title:name}).catch(e => { if(e && e.name!=='AbortError') toast('分享失败：'+e.message); });
+      return;
+    }
+  }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], {type}));
   a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -1297,6 +1318,9 @@ function migrate(){
 }
 migrate();
 render();
+// 网页版：注册离线缓存（安卓 App 里是本地文件，不需要）
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')) navigator.serviceWorker.register('sw.js').catch(() => {});
+document.addEventListener('touchstart', () => {}, {passive:true});  // 让 iOS 上的按压效果生效
 </script>
 </body>
 </html>
