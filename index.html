@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>撸货账本</title>
+<title>转卖账本</title>
 <style>
 :root{
   --bg:#f5f6f8; --card:#fff; --text:#1d2129; --sub:#6b7280; --line:#e5e7eb;
@@ -126,7 +126,7 @@ svg text{fill:var(--sub);font-size:11px}
 </head>
 <body>
 <header><div class="wrap">
-  <h1>📦 撸货账本</h1>
+  <h1>📦 转卖账本</h1>
   <nav class="tabs" id="tabs">
     <button data-v="home">概览</button>
     <button data-v="list">货单</button>
@@ -582,20 +582,20 @@ document.addEventListener('click', e => {
       st.greenUp = $('#sColor').value==='1';
       save(); render(); toast('设置已保存');
     },
-    backup(){ download(`撸货账本备份-${today()}.json`, JSON.stringify(S, null, 1), 'application/json'); },
+    backup(){ download(`转卖账本备份-${today()}.json`, JSON.stringify(S, null, 1), 'application/json'); },
     restore(){ $('#file').click(); },
     csv(){
       const head = ['商品','分类','数量','状态','进货平台','买入日期','买入单价','买入运费','返利','总成本','订单号','出货平台','卖出日期','卖出单价','手续费','卖出运费','实收','利润','利润率','周转天数','预期单价','备注'];
       const rows = S.records.map(r => [r.name,r.cat,r.qty,STATUS[r.status],r.buyPlat,r.buyDate,r.buyPrice,r.buyShip,r.rebate,r2(cost(r)),r.orderNo,r.sellPlat,r.sellDate,
         r.status==='sold'?r.sellPrice:'', r.status==='sold'?r.fee:'', r.status==='sold'?r.sellShip:'', r.status==='sold'?r2(revenue(r)):'', r.status==='sold'?r2(profit(r)):'',
         r.status==='sold'?pct(profit(r)/cost(r)):'', r.status==='sold'?days(r.buyDate,r.sellDate):'', r.expectPrice||'', r.note]);
-      downloadCsv(`撸货货单-${today()}.csv`, [head, ...rows]);
+      downloadCsv(`转卖货单-${today()}.csv`, [head, ...rows]);
     },
     csvMonth(){
       const head = ['月份','销售额','卖出成本','手续费+运费','卖货毛利','杂费支出','其他收入','净利润','利润率','卖出件数','进货支出','进货件数'];
       const rows = []; for(let i=1;i<=12;i++){ const o = monthStats(repYear+'-'+String(i).padStart(2,'0'));
         rows.push([o.m, r2(o.sales), r2(o.cogs), r2(o.fees), r2(o.gp), r2(o.exp), r2(o.inc), r2(o.net), o.cogs?pct(o.gp/o.cogs):'', o.qty, r2(o.buy), o.buyQty]); }
-      downloadCsv(`撸货月报-${repYear}.csv`, [head, ...rows]);
+      downloadCsv(`转卖月报-${repYear}.csv`, [head, ...rows]);
     },
     wipe(){ if(!confirm('确定清空全部数据？此操作不可恢复，建议先导出备份。')) return; S = {records:[], expenses:[], settings:S.settings}; save(); render(); }
   };
