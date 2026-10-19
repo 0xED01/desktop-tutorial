@@ -105,6 +105,7 @@ public class MainActivity extends Activity {
             cell.setOrientation(LinearLayout.VERTICAL);
             cell.setGravity(Gravity.CENTER_HORIZONTAL);
             TextView t = text(names[i], 15, TEXT_2, true);
+            t.setGravity(Gravity.CENTER);
             t.setPadding(0, dp(12), 0, dp(9));
             cell.addView(t);
             View line = new View(this);
@@ -285,10 +286,14 @@ public class MainActivity extends Activity {
             LinearLayout right = new LinearLayout(this);
             right.setOrientation(LinearLayout.VERTICAL);
             right.setGravity(Gravity.END);
-            right.addView(text(money(s.net()), 15, TEXT, true));
+            TextView netText = text(money(s.net()), 15, TEXT, true);
+            netText.setGravity(Gravity.END);
+            right.addView(netText);
             if (prev != null) {
                 long d = s.net() - prev.net();
-                right.addView(text((d >= 0 ? "▲ " : "▼ ") + money(Math.abs(d)), 12, d >= 0 ? TEAL : CORAL, false));
+                TextView diff = text((d >= 0 ? "▲ " : "▼ ") + money(Math.abs(d)), 12, d >= 0 ? TEAL : CORAL, false);
+                diff.setGravity(Gravity.END);
+                right.addView(diff);
             }
             row.addView(right);
             if (!current) {
