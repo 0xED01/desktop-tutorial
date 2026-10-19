@@ -1,7 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>资产负债表</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="资产负债表">
+<meta name="theme-color" content="#1e3a5f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-512.png">
 <style>
 /* Layout: one-column phone app — navy summary header, tab strip, card list, fixed bottom action */
 :root {
@@ -34,6 +44,8 @@
   --chip-line: #34424f; --scrim: rgba(0,0,0,.6); color-scheme: dark;
 }
 [hidden] { display: none !important; }
+:root { padding-top: env(safe-area-inset-top, 0px); color-scheme: light; }
+body { margin: 0; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; }
 body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 15px; }
@@ -45,6 +57,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--teal); outl
 
 header { background: var(--navy); color: var(--on-navy); padding-block: 16px 18px; }
 header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+.title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.more { color: var(--on-navy); background: rgba(255,255,255,.16); border-radius: 16px; padding: 6px 14px; font-size: 14px; }
+.menu-btn { display: block; width: 100%; text-align: left; padding: 14px 4px; border-bottom: 1px solid var(--line); font-size: 16px; }
+.menu-btn small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
 .net-label { margin-top: 16px; font-size: 13px; color: var(--on-navy-2); }
 .net { font-size: 38px; font-weight: 700; letter-spacing: -.5px; line-height: 1.15; overflow-wrap: anywhere; }
 .ratio-bar { display: flex; height: 6px; margin-top: 14px; border-radius: 3px; overflow: hidden; background: rgba(255,255,255,.18); }
@@ -121,10 +137,12 @@ main { padding-block: 12px 110px; display: flex; flex-direction: column; gap: 10
 .actions .danger.armed { background: var(--coral); color: #fff; }
 .notice { font-size: 12px; color: var(--muted); text-align: center; }
 </style>
+</head>
+<body>
 
 <header>
   <div class="gutter">
-    <h1>资产负债表</h1>
+    <div class="title-row"><h1>资产负债表</h1><button class="more" id="moreBtn">备份</button></div>
     <div class="net-label">净资产（元）</div>
     <div class="net num" id="net">0.00</div>
     <div class="ratio-bar" aria-hidden="true"><span id="barA" style="background:var(--teal);flex-grow:0"></span><span id="barL" style="background:var(--coral);flex-grow:0"></span></div>
@@ -161,7 +179,6 @@ const LOCAL_KEY = "balance-sheet-v1";
 
 let state = { items: [], snapshots: {} };   // amounts in cents; snapshots: { "202610": {a, l} }
 let tab = 0;
-let docRef = null;          // db document when the account store is available
 let storeNote = "";
 
 const $ = (id) => document.getElementById(id);
@@ -184,47 +201,26 @@ const itemsOf = (side, cat) => state.items.filter((i) => i.side === side && i.ca
 function readLocal() {
   try { const raw = localStorage.getItem(LOCAL_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
 }
-function writeLocal() { try { localStorage.setItem(LOCAL_KEY, JSON.stringify(state)); } catch (e) {} }
+function writeLocal() { try { localStorage.setItem(LOCAL_KEY, JSON.stringify(state)); return true; } catch (e) { return false; } }
 
-async function save() {
+function save() {
   state.snapshots[currentYm()] = { a: total(ASSET), l: total(LIAB) };
-  writeLocal();
-  if (docRef) {
-    try { await docRef.set({ items: state.items, snapshots: state.snapshots }); }
-    catch (e) { storeNote = "云端保存失败，已暂存在本机浏览器"; render(); }
-  }
+  if (!writeLocal()) storeNote = "保存失败：浏览器禁止了本地存储（请关闭无痕浏览）";
 }
 
 function normalize(d) {
   return { items: Array.isArray(d?.items) ? d.items : [], snapshots: d?.snapshots && typeof d.snapshots === "object" ? d.snapshots : {} };
 }
 
-async function init() {
+function init() {
   const local = readLocal();
   if (local) state = normalize(local);
-  render();
-  try {
-    const [db, user] = await Promise.all([window.claude?.use?.("db"), window.claude?.use?.("user")]);
-    const uid = user ? await user.id() : null;
-    if (db && uid) {
-      docRef = db.doc("data/users/" + uid + "/sheet");
-      const snap = await docRef.get();
-      if (snap.exists) {
-        state = normalize(snap.data());
-        writeLocal();
-      } else if (state.items.length) {
-        await docRef.set({ items: state.items, snapshots: state.snapshots });
-      }
-    } else {
-      storeNote = "未登录 claude.ai，数据只保存在这个浏览器里";
-    }
-  } catch (e) {
-    docRef = null;
-    storeNote = "暂时连不上云端，数据只保存在这个浏览器里";
-  }
+  // Ask the browser not to evict our data under storage pressure.
+  try { navigator.storage?.persist?.(); } catch (e) {}
   // Carry existing data into a new month on first open.
-  if (state.items.length && !state.snapshots[currentYm()]) await save();
+  if (state.items.length && !state.snapshots[currentYm()]) save();
   render();
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 
 // ---------- render ----------
@@ -392,7 +388,8 @@ function openDialog(existing, side) {
     if (!existing) state.items.push(item);
     close();
     render();
-    save().then(render);
+    save();
+    render();
   });
   if (existing) {
     const del = $("f-del");
@@ -401,9 +398,57 @@ function openDialog(existing, side) {
       state.items = state.items.filter((i) => i !== existing);
       close();
       render();
-      save().then(render);
+      save();
+    render();
     };
   }
+}
+
+// ---------- backup ----------
+function openBackup() {
+  const scrim = $("scrim");
+  scrim.innerHTML = `<div class="dialog gutter">
+      <h2>备份与恢复</h2>
+      <p class="notice" style="text-align:left;margin:0 0 6px">数据只保存在这台手机的浏览器里。建议定期导出备份，换手机或清除 Safari 数据前一定要先导出。</p>
+      <button class="menu-btn" id="b-export">导出备份文件<small>保存为 .json 文件，可存到“文件”App 或发给自己</small></button>
+      <button class="menu-btn" id="b-import">从备份文件恢复<small>会用备份内容替换当前全部数据</small></button>
+      <input type="file" id="b-file" accept=".json,application/json" hidden>
+      <div class="error" id="b-msg"></div>
+      <div class="actions"><button type="button" class="ghost" id="b-close">关闭</button></div>
+    </div>`;
+  scrim.hidden = false;
+  const close = () => { scrim.hidden = true; scrim.innerHTML = ""; };
+  $("b-close").onclick = close;
+  scrim.onclick = (e) => { if (e.target === scrim) close(); };
+  $("b-export").onclick = () => {
+    const d = new Date(), pad = (n) => String(n).padStart(2, "0");
+    const name = `balance-sheet-backup-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.json`;
+    const blob = new Blob([JSON.stringify({ app: "balance-sheet", version: 1, ...state }, null, 1)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    $("b-msg").style.color = "var(--teal)";
+    $("b-msg").textContent = "已生成备份文件：" + name;
+  };
+  $("b-import").onclick = () => $("b-file").click();
+  $("b-file").onchange = async () => {
+    const f = $("b-file").files[0];
+    if (!f) return;
+    try {
+      const d = JSON.parse(await f.text());
+      if (!Array.isArray(d.items)) throw new Error();
+      state = normalize(d);
+      save();
+      render();
+      close();
+    } catch (e) {
+      $("b-msg").style.color = "";
+      $("b-msg").textContent = "这个文件不是资产负债表的备份，请重新选择";
+    }
+  };
 }
 
 // ---------- events ----------
@@ -415,6 +460,7 @@ $("tabs").addEventListener("click", (e) => {
   render();
   window.scrollTo({ top: 0 });
 });
+$("moreBtn").addEventListener("click", openBackup);
 $("addBtn").addEventListener("click", () => openDialog(null, tab === 1 ? LIAB : ASSET));
 $("content").addEventListener("click", (e) => {
   const row = e.target.closest("[data-edit]");
@@ -428,9 +474,12 @@ $("content").addEventListener("click", (e) => {
     if (!del.classList.contains("armed")) { del.classList.add("armed"); del.textContent = "确认？"; return; }
     delete state.snapshots[del.dataset.del];
     render();
-    save().then(render);
+    save();
+    render();
   }
 });
 try { const t = +localStorage.getItem(LOCAL_KEY + "-tab"); if (t >= 0 && t <= 3) tab = t; } catch (e) {}
 init();
 </script>
+</body>
+</html>
