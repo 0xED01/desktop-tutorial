@@ -4,9 +4,9 @@
 
 ## 怎么用
 
-**安卓手机**：下载仓库里的 [`QianLaiLedger.apk`](QianLaiLedger.apk) 安装即可。从旧版「转卖账本」升级时直接覆盖安装，数据会保留（需要在手机上允许「安装未知来源应用」）。安卓 7.0 及以上可用。
+**安卓手机**：下载仓库里的 [`QianLaiLedger.apk`](QianLaiLedger.apk)（也可以在手机浏览器打开 https://0xed01.github.io/desktop-tutorial/ledger/QianLaiLedger.apk 直接下载）安装即可。从旧版「转卖账本」升级时直接覆盖安装，数据会保留（需要在手机上允许「安装未知来源应用」）。安卓 7.0 及以上可用。
 
-**iPhone**：用 Safari 打开网页版地址，点底部「分享」按钮 →「添加到主屏幕」。桌面上会出现钱来账本图标，打开后全屏显示，用法和安卓版一样，没网也能用。
+**iPhone**：用 Safari 打开 https://0xed01.github.io/desktop-tutorial/ledger/ ，点底部「分享」按钮 →「添加到主屏幕」。桌面上会出现钱来账本图标，打开后全屏显示，用法和安卓版一样，没网也能用。
 - 导出备份 / CSV 时会弹出系统分享，可以「存储到文件」或直接发到微信。
 - 数据存在这台 iPhone 上，和安卓手机的数据是分开的。想把安卓的数据搬过来：安卓「设置 → 导出备份」，把文件发到 iPhone，在 iPhone「设置 → 导入备份」。
 - 不要用「清除 Safari 历史记录与网站数据」，否则主屏幕 App 的数据也可能被清掉，定期导出备份最稳妥。
@@ -79,3 +79,7 @@ ANDROID_HOME=/path/to/android-sdk android/build.sh
 ```
 
 运行后会在仓库根目录生成 `QianLaiLedger.apk`。修改 `index.html` 后重新打包即可，发新版时可以用 `VERSION_CODE=2 VERSION_NAME=1.1` 递增版本号。包名 `com.zhuanmai.ledger` 和签名文件 `android/release.jks` 都不要改：换了签名就不能覆盖安装，只能卸载重装，数据会丢。
+
+## 发布网页版
+
+网页版发布在 GitHub Pages：当前 Pages 的来源是 `claude/watermark-camera` 分支的 `docs/` 目录，账本放在 `docs/ledger/`。更新时把 `index.html`、`manifest.webmanifest`、`sw.js`、`icons/` 和 APK 复制过去即可，并把 `sw.js` 里的 `CACHE` 版本号加一，用户下次打开会自动拿到新版本。
