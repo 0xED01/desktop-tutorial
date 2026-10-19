@@ -179,7 +179,7 @@ const md = d => d ? d.slice(5) : '';
 const addMonth = (m, k) => { let [y,mm] = m.split('-').map(Number); mm += k; while(mm<1){mm+=12;y--;} while(mm>12){mm-=12;y++;} return y+'-'+String(mm).padStart(2,'0'); };
 
 // 计算
-const cost = r => r.buyPrice*r.qty + r.buyShip - r.rebate;               // 到手总成本
+const cost = r => r.buyPrice*r.qty + r.buyShip + r.chanFee - r.rebate;   // 到手总成本
 const gross = r => r.sellPrice*r.qty;                                     // 卖出总额
 const revenue = r => gross(r) - r.fee - r.sellShip;                       // 卖出实收
 const profit = r => r.status==='sold' ? revenue(r) - cost(r) : 0;
@@ -268,7 +268,7 @@ function vHome(){
       <div class="s">卖货毛利 ${money(gp)}${ex? ` · 杂费 ${money(-ex)}`:''}</div></div>
     <div class="stat"><div class="k">销售额</div><div class="v">${money(sRev)}</div><div class="s">卖出 ${qty} 件 / ${sold.length} 单</div></div>
     <div class="stat"><div class="k">利润率（利润/成本）</div><div class="v ${pc(gp)}">${sCost?pct(gp/sCost):'—'}</div><div class="s">胜率 ${sold.length?pct(wins/sold.length):'—'}</div></div>
-    <div class="stat"><div class="k">${R.label}进货支出</div><div class="v">${money(bought.reduce((s,r)=>s+cost(r),0))}</div><div class="s">进货 ${bought.reduce((s,r)=>s+r.qty,0)} 件</div></div>
+    <div class="stat"><div class="k">${R.label}进货支出</div><div class="v">${money(bought.reduce((s,r)=>s+cost(r),0))}</div><div class="s">进货 ${bought.reduce((s,r)=>s+r.qty,0)} 件${bought.some(r=>r.chanFee)?` · 渠道费 ${money(bought.reduce((s,r)=>s+r.chanFee,0))}`:''}</div></div>
     <div class="stat"><div class="k">平均周转</div><div class="v">${sold.length?avgDays.toFixed(1):'—'} <small style="font-size:13px">天</small></div><div class="s">买入到卖出</div></div>
     <div class="stat" style="cursor:pointer" data-act="goinv"><div class="k">当前压货（占用资金）</div><div class="v">${money(invCost)}</div>
       <div class="s">${inv.reduce((s,r)=>s+r.qty,0)} 件${transit?` · 在途 ${transit} 单`:''}</div></div>
@@ -414,6 +414,7 @@ function monthStats(m){
     exp: exps.filter(e=>e.type!=='其他收入').reduce((s,e)=>s+e.amount,0),
     inc: exps.filter(e=>e.type==='其他收入').reduce((s,e)=>s+e.amount,0),
     buy: bought.reduce((s,r)=>s+cost(r),0),
+    chan: bought.reduce((s,r)=>s+r.chanFee,0),
     buyQty: bought.reduce((s,r)=>s+r.qty,0)
   };
   o.net = o.gp - o.exp + o.inc;
@@ -426,7 +427,7 @@ function vReport(){
   const show = rows.filter(o => o.n || o.buy || o.exp || o.inc || o.m <= curMonth() && o.m.startsWith(String(+today().slice(0,4))));
   const td = (v, cls) => `<td class="${cls||''}">${v ? money(v) : '<span class="muted">-</span>'}</td>`;
   const line = o => `${td(o.sales)}${td(o.cogs)}${td(o.fees)}${td(o.gp, pc(o.gp))}${td(o.exp-o.inc)}
-    <td class="${pc(o.net)}"><b>${o.net||o.n ? money(o.net) : '<span class="muted">-</span>'}</b></td><td>${o.cogs?pct(o.gp/o.cogs):'-'}</td><td>${o.qty||'-'}</td>${td(o.buy)}<td>${o.buyQty||'-'}</td>`;
+    <td class="${pc(o.net)}"><b>${o.net||o.n ? money(o.net) : '<span class="muted">-</span>'}</b></td><td>${o.cogs?pct(o.gp/o.cogs):'-'}</td><td>${o.qty||'-'}</td>${td(o.buy)}${td(o.chan)}<td>${o.buyQty||'-'}</td>`;
   return `
   <div class="toolbar">
     <div class="seg" data-seg="year">${years.map(y => `<button data-k="${y}" class="${y===repYear?'on':''}">${y}年</button>`).join('')}</div>
@@ -441,11 +442,11 @@ function vReport(){
     ${barChart(rows.map(o => ({label:+o.m.slice(5)+'月', key:o.m, value:o.net})))}</div>
   <div class="card"><h3>月度明细 <span class="r muted" style="font-size:12px">点某一行查看当月货单</span></h3>
     <div class="scroll"><table class="tbl">
-      <thead><tr><th>月份</th><th>销售额</th><th>卖出成本</th><th>手续费+运费</th><th>卖货毛利</th><th>杂费净额</th><th>净利润</th><th>利润率</th><th>卖出件数</th><th>进货支出</th><th>进货件数</th></tr></thead>
-      <tbody>${show.map(o => `<tr class="click" data-act="month" data-m="${o.m}"><td>${+o.m.slice(5)}月</td>${line(o)}</tr>`).join('') || '<tr><td colspan="11" class="muted">暂无数据</td></tr>'}</tbody>
+      <thead><tr><th>月份</th><th>销售额</th><th>卖出成本</th><th>手续费+运费</th><th>卖货毛利</th><th>杂费净额</th><th>净利润</th><th>利润率</th><th>卖出件数</th><th>进货支出</th><th>其中渠道费</th><th>进货件数</th></tr></thead>
+      <tbody>${show.map(o => `<tr class="click" data-act="month" data-m="${o.m}"><td>${+o.m.slice(5)}月</td>${line(o)}</tr>`).join('') || '<tr><td colspan="12" class="muted">暂无数据</td></tr>'}</tbody>
       <tfoot><tr><td>合计</td>${line(T)}</tr></tfoot>
     </table></div>
-    <div class="tip">说明：利润按<b>卖出日期</b>归属月份；卖出成本 = 买入价 × 数量 + 买入运费 − 返利；进货支出按<b>买入日期</b>统计，反映当月花出去的钱。</div>
+    <div class="tip">说明：利润按<b>卖出日期</b>归属月份；卖出成本 = 买入价 × 数量 + 买入运费 + 渠道费用 − 返利；进货支出按<b>买入日期</b>统计，反映当月花出去的钱。</div>
   </div>`;
 }
 
@@ -585,16 +586,16 @@ document.addEventListener('click', e => {
     backup(){ download(`转卖账本备份-${today()}.json`, JSON.stringify(S, null, 1), 'application/json'); },
     restore(){ $('#file').click(); },
     csv(){
-      const head = ['商品','分类','数量','状态','进货平台','买入日期','买入单价','买入运费','返利','总成本','订单号','出货平台','卖出日期','卖出单价','手续费','卖出运费','实收','利润','利润率','周转天数','预期单价','备注'];
-      const rows = S.records.map(r => [r.name,r.cat,r.qty,STATUS[r.status],r.buyPlat,r.buyDate,r.buyPrice,r.buyShip,r.rebate,r2(cost(r)),r.orderNo,r.sellPlat,r.sellDate,
+      const head = ['商品','分类','数量','状态','进货平台','买入日期','买入单价','买入运费','渠道费用','返利','总成本','订单号','出货平台','卖出日期','卖出单价','手续费','卖出运费','实收','利润','利润率','周转天数','预期单价','备注'];
+      const rows = S.records.map(r => [r.name,r.cat,r.qty,STATUS[r.status],r.buyPlat,r.buyDate,r.buyPrice,r.buyShip,r.chanFee,r.rebate,r2(cost(r)),r.orderNo,r.sellPlat,r.sellDate,
         r.status==='sold'?r.sellPrice:'', r.status==='sold'?r.fee:'', r.status==='sold'?r.sellShip:'', r.status==='sold'?r2(revenue(r)):'', r.status==='sold'?r2(profit(r)):'',
         r.status==='sold'?pct(profit(r)/cost(r)):'', r.status==='sold'?days(r.buyDate,r.sellDate):'', r.expectPrice||'', r.note]);
       downloadCsv(`转卖货单-${today()}.csv`, [head, ...rows]);
     },
     csvMonth(){
-      const head = ['月份','销售额','卖出成本','手续费+运费','卖货毛利','杂费支出','其他收入','净利润','利润率','卖出件数','进货支出','进货件数'];
+      const head = ['月份','销售额','卖出成本','手续费+运费','卖货毛利','杂费支出','其他收入','净利润','利润率','卖出件数','进货支出','其中渠道费','进货件数'];
       const rows = []; for(let i=1;i<=12;i++){ const o = monthStats(repYear+'-'+String(i).padStart(2,'0'));
-        rows.push([o.m, r2(o.sales), r2(o.cogs), r2(o.fees), r2(o.gp), r2(o.exp), r2(o.inc), r2(o.net), o.cogs?pct(o.gp/o.cogs):'', o.qty, r2(o.buy), o.buyQty]); }
+        rows.push([o.m, r2(o.sales), r2(o.cogs), r2(o.fees), r2(o.gp), r2(o.exp), r2(o.inc), r2(o.net), o.cogs?pct(o.gp/o.cogs):'', o.qty, r2(o.buy), r2(o.chan), o.buyQty]); }
       downloadCsv(`转卖月报-${repYear}.csv`, [head, ...rows]);
     },
     wipe(){ if(!confirm('确定清空全部数据？此操作不可恢复，建议先导出备份。')) return; S = {records:[], expenses:[], settings:S.settings}; save(); render(); }
@@ -637,9 +638,9 @@ function toast(msg, btn, fn){
 const chips = (name, opts, val) => `<div class="chips">${opts.map(o => `<label><input type="radio" name="${name}" value="${esc(o)}" ${o===val?'checked':''}><span>${esc(o)}</span></label>`).join('')}</div>`;
 
 function normalize(r){
-  const n = {id:uid(), name:'', cat:'', qty:1, buyPlat:'', buyDate:today(), buyPrice:0, buyShip:0, rebate:0, orderNo:'', status:'transit',
+  const n = {id:uid(), name:'', cat:'', qty:1, buyPlat:'', buyDate:today(), buyPrice:0, buyShip:0, chanFee:0, rebate:0, orderNo:'', status:'transit',
     expectPrice:0, sellPlat:'', sellDate:'', sellPrice:0, fee:0, sellShip:0, note:'', created:Date.now(), ...r};
-  ['qty','buyPrice','buyShip','rebate','expectPrice','sellPrice','fee','sellShip'].forEach(k => n[k] = num(n[k]));
+  ['qty','buyPrice','buyShip','chanFee','rebate','expectPrice','sellPrice','fee','sellShip'].forEach(k => n[k] = num(n[k]));
   n.qty = Math.max(1, Math.round(n.qty));
   return n;
 }
@@ -665,7 +666,8 @@ function openForm(r){
     </div>
     <div class="row">
       <div class="f"><label>买入运费</label><input name="buyShip" type="number" step="0.01" min="0" inputmode="decimal" value="${v(r.buyShip)}" placeholder="0"></div>
-      <div class="f"><label>返利/红包/返现</label><input name="rebate" type="number" step="0.01" min="0" inputmode="decimal" value="${v(r.rebate)}" placeholder="0"></div>
+      <div class="f"><label>渠道费用</label><input name="chanFee" type="number" step="0.01" min="0" inputmode="decimal" value="${v(r.chanFee)}" placeholder="给代拍的红包等"></div>
+      <div class="f"><label>返利/返现（到手的）</label><input name="rebate" type="number" step="0.01" min="0" inputmode="decimal" value="${v(r.rebate)}" placeholder="0"></div>
       <div class="f"><label>预期售价（单价）</label><input name="expectPrice" type="number" step="0.01" min="0" inputmode="decimal" value="${v(r.expectPrice)}" placeholder="选填"></div>
     </div>
     <div class="f"><label>状态</label>${chips('status', Object.keys(STATUS).map(k => STATUS[k]), STATUS[r.status])}</div>
@@ -764,7 +766,7 @@ function openSell(r){
     const price = num(fd.get('sellPrice'));
     if(!feeTouched) f.fee.value = rate ? r2(price*q*rate/100) : '';
     $('#rateTip').textContent = rate ? `（${plat} ${rate}%）` : '';
-    const x = {...r, qty:q, buyShip:r.buyShip*ratio, rebate:r.rebate*ratio, status:'sold', sellPlat:plat, sellDate:fd.get('sellDate'),
+    const x = {...r, qty:q, buyShip:r.buyShip*ratio, chanFee:r.chanFee*ratio, rebate:r.rebate*ratio, status:'sold', sellPlat:plat, sellDate:fd.get('sellDate'),
       sellPrice:price, fee:num(f.fee.value), sellShip:num(fd.get('sellShip'))};
     return {x, q, ratio};
   };
@@ -774,10 +776,10 @@ function openSell(r){
   f.onsubmit = e => {
     e.preventDefault();
     const {x, q, ratio} = calc();
-    x.buyShip = r2(x.buyShip); x.rebate = r2(x.rebate);
+    x.buyShip = r2(x.buyShip); x.chanFee = r2(x.chanFee); x.rebate = r2(x.rebate);
     if(q < r.qty){ // 部分卖出：拆成两条
       x.id = uid(); x.created = Date.now();
-      r.qty -= q; r.buyShip = r2(r.buyShip - x.buyShip); r.rebate = r2(r.rebate - x.rebate);
+      r.qty -= q; r.buyShip = r2(r.buyShip - x.buyShip); r.chanFee = r2(r.chanFee - x.chanFee); r.rebate = r2(r.rebate - x.rebate);
       S.records.push(x);
     } else Object.assign(r, x);
     save(); closeModal(); render();
@@ -809,6 +811,8 @@ function loadDemo(){
   save(); render(); toast('已加载示例数据，可在「设置」里清空');
 }
 
+// 旧数据补上后来新增的字段
+S.records.forEach(r => { if(r.chanFee == null) r.chanFee = 0; });
 render();
 </script>
 </body>
