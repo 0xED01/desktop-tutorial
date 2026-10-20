@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="4dp">
+
+        <Button android:id="@+id/start" style="@style/Btn" android:text="▶ 开始" android:backgroundTint="#0A7D00" android:textColor="#FFFFFF" />
+        <Button android:id="@+id/stop" style="@style/Btn" android:text="■ 停止" />
+        <Button android:id="@+id/stopAlarm" style="@style/Btn" android:text="停止响铃" />
+        <Button android:id="@+id/toggle" style="@style/Btn" android:text="设置" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="8dp"
+        android:text="未在监控"
+        android:textColor="#888888"
+        android:textStyle="bold" />
+
+    <LinearLayout
+        android:id="@+id/settings"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="8dp">
+
+        <TextView style="@style/Label" android:text="商品页链接" />
+        <EditText android:id="@+id/url" style="@style/Field" android:inputType="textUri" />
+
+        <TextView style="@style/Label" android:text="刷新间隔（秒，最少 20）" />
+        <EditText android:id="@+id/interval" style="@style/Field" android:inputType="number" />
+
+        <TextView style="@style/Label" android:text="有货关键字（页面出现这些字 = 有货）" />
+        <EditText android:id="@+id/inKw" style="@style/Field" android:inputType="text" />
+
+        <TextView style="@style/Label" android:text="无货关键字（出现这些字 = 无货，优先判断）" />
+        <EditText android:id="@+id/outKw" style="@style/Field" android:inputType="text" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button android:id="@+id/open" style="@style/Btn" android:text="打开页面/登录" />
+            <Button android:id="@+id/test" style="@style/Btn" android:text="测试提醒" />
+            <Button android:id="@+id/battery" style="@style/Btn" android:text="后台设置" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/log"
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:background="#F2F2F2"
+        android:fontFamily="monospace"
+        android:padding="4dp"
+        android:scrollbars="vertical"
+        android:textIsSelectable="true"
+        android:textSize="10sp" />
+
+    <WebView
+        android:id="@+id/web"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+</LinearLayout>

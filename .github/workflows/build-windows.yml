@@ -6,6 +6,8 @@ on:
     paths-ignore:
       - "android/**"
       - ".github/workflows/build-android.yml"
+      - "pagewatch/**"
+      - ".github/workflows/build-pagewatch.yml"
   workflow_dispatch:
 
 permissions:
