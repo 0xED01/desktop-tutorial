@@ -44,6 +44,9 @@
         <TextView style="@style/Label" android:text="无货关键字（出现这些字 = 无货，优先判断）" />
         <EditText android:id="@+id/outKw" style="@style/Field" android:inputType="text" />
 
+        <TextView style="@style/Label" android:text="Bark 地址（iPhone 提醒，可不填），如 https://api.day.app/xxxx" />
+        <EditText android:id="@+id/bark" style="@style/Field" android:inputType="textUri" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

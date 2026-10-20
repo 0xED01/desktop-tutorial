@@ -50,6 +50,7 @@ class MainActivity : Activity() {
     private lateinit var interval: EditText
     private lateinit var inKw: EditText
     private lateinit var outKw: EditText
+    private lateinit var bark: EditText
     private lateinit var status: TextView
     private lateinit var log: TextView
     private lateinit var settings: LinearLayout
@@ -73,6 +74,7 @@ class MainActivity : Activity() {
         interval = findViewById(R.id.interval)
         inKw = findViewById(R.id.inKw)
         outKw = findViewById(R.id.outKw)
+        bark = findViewById(R.id.bark)
         status = findViewById(R.id.status)
         log = findViewById(R.id.log)
         settings = findViewById(R.id.settings)
@@ -81,6 +83,7 @@ class MainActivity : Activity() {
         interval.setText(prefs.getInt("interval", 60).toString())
         inKw.setText(prefs.getString("in", PageCheck.DEFAULT_IN))
         outKw.setText(prefs.getString("out", PageCheck.DEFAULT_OUT))
+        bark.setText(prefs.getString("bark", ""))
 
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
@@ -105,6 +108,7 @@ class MainActivity : Activity() {
             addLog("已打开页面：如需登录，请在下方页面里登录中国移动账号（勾选免登录）")
         }
         findViewById<Button>(R.id.test).setOnClickListener {
+            save()
             alarm("测试提醒", "这是一条测试提醒，能听到铃声说明设置正常。")
         }
         findViewById<Button>(R.id.stopAlarm).setOnClickListener {
@@ -150,6 +154,7 @@ class MainActivity : Activity() {
             .putInt("interval", interval.text.toString().toIntOrNull()?.coerceIn(20, 3600) ?: 60)
             .putString("in", inKw.text.toString())
             .putString("out", outKw.text.toString())
+            .putString("bark", bark.text.toString().trim())
             .apply()
     }
 
@@ -224,7 +229,10 @@ class MainActivity : Activity() {
             addLog(desc + if (r.stock == Stock.UNKNOWN) "。页面开头文字：${r.excerpt}" else "")
             when (r.stock) {
                 Stock.IN_STOCK -> alarm("有货啦！", "页面出现「${r.matched}」，赶快去下单！")
-                Stock.NEED_LOGIN -> Notifier.alert(this, "网页监控需要重新登录", "登录已失效，请打开 App 重新登录。", urgent = false)
+                Stock.NEED_LOGIN -> {
+                    Notifier.alert(this, "网页监控需要重新登录", "登录已失效，请打开 App 重新登录。", urgent = false)
+                    push("网页监控需要重新登录", "登录已失效，请打开安卓手机上的 App 重新登录。", urgent = false)
+                }
                 else -> {}
             }
         }
@@ -235,11 +243,18 @@ class MainActivity : Activity() {
         addLog("★★★ $title $text")
         AlarmPlayer.start(this)
         Notifier.alert(this, title, text, urgent = true)
+        push(title, text, urgent = true)
         AlertDialog.Builder(this)
             .setTitle(title)
             .setMessage(text)
             .setPositiveButton("停止响铃") { _, _ -> AlarmPlayer.stop() }
             .show()
+    }
+
+    private fun push(title: String, text: String, urgent: Boolean) {
+        Bark.send(prefs.getString("bark", "") ?: "", title, text, urgent) { msg ->
+            runOnUiThread { addLog(msg) }
+        }
     }
 
     private fun batterySettings() {

@@ -20,6 +20,10 @@ import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+import kotlin.concurrent.thread
 
 /** 闹钟铃声 + 振动，静音模式也会响（走闹钟音量），最长 10 分钟。 */
 object AlarmPlayer {
@@ -162,5 +166,29 @@ class KeepAliveService : Service() {
         wakeLock?.let { if (it.isHeld) it.release() }
         wakeLock = null
         super.onDestroy()
+    }
+}
+
+/** Bark 推送到 iPhone。urgent=true 时用「重要提醒」级别，静音模式也会持续响铃。 */
+object Bark {
+    fun send(barkUrl: String, title: String, body: String, urgent: Boolean, onResult: (String) -> Unit) {
+        val base = barkUrl.trim().trimEnd('/')
+        if (!base.startsWith("http")) return
+        thread {
+            val enc = { s: String -> URLEncoder.encode(s, "UTF-8").replace("+", "%20") }
+            var url = "$base/${enc(title)}/${enc(body)}?group=${enc("网页有货监控")}"
+            if (urgent) url += "&level=critical&volume=10&call=1"
+            val msg = try {
+                val c = URL(url).openConnection() as HttpURLConnection
+                c.connectTimeout = 10000
+                c.readTimeout = 10000
+                val code = c.responseCode
+                c.disconnect()
+                if (code in 200..299) "已推送到 iPhone（Bark）" else "Bark 推送失败：HTTP $code"
+            } catch (e: Exception) {
+                "Bark 推送失败：${e.javaClass.simpleName}"
+            }
+            onResult(msg)
+        }
     }
 }
