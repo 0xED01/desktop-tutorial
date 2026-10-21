@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.MuscleUp" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+    </style>
+    <color name="bg">#FFF7F5F2</color>
+    <color name="brand">#FFE8590C</color>
+</resources>
