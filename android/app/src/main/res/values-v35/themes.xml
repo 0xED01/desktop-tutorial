@@ -1,0 +1,7 @@
+<resources>
+    <!-- Keep the page laid out below the system bars on Android 15+. -->
+    <style name="AppTheme" parent="Base.AppTheme">
+        <item name="android:windowLightNavigationBar">@bool/light_bars</item>
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+    </style>
+</resources>

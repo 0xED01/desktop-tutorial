@@ -555,6 +555,7 @@ function openSettings(){
 }
 
 function download(name, content, type){
+  if (window.AndroidBridge) return AndroidBridge.saveFile(name, content, type);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([content], {type}));
   a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -603,9 +604,9 @@ document.addEventListener('click', e => {
     case 'settings': openSettings(); break;
     case 'demo': loadDemo(); break;
     case 'hide': state.settings.hide = !state.settings.hide; save(); render(); break;
-    case 'print': window.print(); break;
+    case 'print': window.AndroidBridge ? AndroidBridge.print(sh.name) : window.print(); break;
     case 'csv': exportCSV(); break;
-    case 'export': download(`资产负债表备份_${today()}.json`, JSON.stringify(state, null, 2), 'application/json'); toast('备份已下载'); break;
+    case 'export': download(`资产负债表备份_${today()}.json`, JSON.stringify(state, null, 2), 'application/json'); if (!window.AndroidBridge) toast('备份已下载'); break;
     case 'import': $('#importFile').click(); break;
     case 'delete':
       if (confirm(`确定删除「${sh.name}」吗？此操作无法撤销。`)){ state.sheets = state.sheets.filter(s => s !== sh); state.currentId = null; save(); render(); toast('已删除'); }
@@ -665,6 +666,14 @@ $('#importFile').addEventListener('change', async e => {
   e.target.value = '';
 });
 $('#toggleSide').addEventListener('click', () => $('#side').classList.toggle('open'));
+
+// Called by the Android app on the back button; true means the page handled it.
+window.__back = () => {
+  const dlg = document.querySelector('dialog[open]');
+  if (dlg){ dlg.close('cancel'); return true; }
+  if ($('#side').classList.contains('open')){ $('#side').classList.remove('open'); return true; }
+  return false;
+};
 
 render();
 })();

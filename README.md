@@ -2,7 +2,10 @@
 
 一个打开即用的个人 / 家庭资产负债表工具，单个 HTML 文件，无需安装、无需联网，数据只保存在本机浏览器中。
 
-**使用方法：** 用浏览器直接打开 [`balance-sheet/index.html`](balance-sheet/index.html) 即可。
+**使用方法：**
+
+- **电脑 / 浏览器**：直接打开 [`balance-sheet/index.html`](balance-sheet/index.html)
+- **安卓手机**：下载安装 [`dist/资产负债表.apk`](dist/资产负债表.apk)（Android 8.0 及以上）。首次安装时需要在系统设置里允许"安装未知来源应用"
 
 ## 功能
 
@@ -19,3 +22,22 @@
 - 浅色 / 深色主题，适配手机屏幕
 
 > 提示：数据保存在浏览器本地存储中，清理浏览器数据会导致数据丢失，请定期点击「备份数据」导出 JSON。
+
+## 安卓版
+
+安卓版在 [`android/`](android/) 目录，是一个包着同一个网页的原生壳，另外补上了网页在手机上做不到的几件事：
+
+- 「备份数据」「导出表格」会弹出系统的保存位置选择界面
+- 「恢复备份」可以从手机文件里选择 JSON 备份
+- 「打印」调用系统打印，也可以另存为 PDF
+- 返回键会先关闭弹窗或侧边列表
+
+重新打包（需要 JDK 17+ 和 Android SDK）：
+
+```bash
+cd android
+./gradlew assembleRelease
+# 输出：app/build/outputs/apk/release/app-release.apk
+```
+
+签名密钥 `android/app/release.keystore` 放在仓库里，保证以后每次打包的签名一致，这样新版本可以直接覆盖安装，数据不会丢失。

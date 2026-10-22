@@ -1,0 +1,51 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.balancesheet.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.balancesheet.app'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+
+    // The app is a WebView around the web version, so ship that page as-is.
+    sourceSets {
+        main.assets.srcDirs += '../../balance-sheet'
+    }
+
+    // Kept in the repo so every build is signed with the same key:
+    // Android refuses to upgrade an app signed with a different key, and
+    // uninstalling to work around that would wipe the stored data.
+    signingConfigs {
+        release {
+            storeFile file('release.keystore')
+            storePassword 'balancesheet'
+            keyAlias 'balancesheet'
+            keyPassword 'balancesheet'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+}
