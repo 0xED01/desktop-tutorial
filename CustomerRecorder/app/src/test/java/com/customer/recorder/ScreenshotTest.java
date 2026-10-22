@@ -35,12 +35,13 @@ public class ScreenshotTest {
         db.saveActivity(act, null);
         String[] msgs = {
             "您推荐的客户胡雅萍随e贷申请已审批通过，额度为280000，利率为5.9800%。该客户首次审批通过的时间为2026年09月24日。该客户未开通我行借记卡！未开通手机银行！",
-            "您推荐的客户王建国快e贷申请已审批通过，额度为150000，利率为4.3500%。该客户首次审批通过的时间为2026年10月20日。该客户已开通我行借记卡！未开通手机银行！"};
+            "您推荐的客户王建国快e贷申请已审批通过，额度为150000，利率为4.3500%。该客户首次审批通过的时间为2026年10月20日。该客户已开通我行借记卡！未开通手机银行！",
+            "您推荐的客户陈美玲随e贷申请已审批通过，额度为100000，利率为5.2000%。该客户首次审批通过的时间为2026年10月08日。该客户已开通我行借记卡！已开通手机银行！"};
         for (int i = 0; i < msgs.length; i++) {
             Customer c = MessageParser.parse(msgs[i]);
             c.activity = act.name; c.gift = act.gift; c.giftCost = act.cost;
             c.phone = i == 0 ? "13812345678" : "";
-            c.giftGiven = i == 1;
+            c.giftGiven = i != 0;
             c.createdAt = System.currentTimeMillis() - i * 86400000L;
             db.upsert(c);
         }

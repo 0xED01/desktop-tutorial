@@ -111,6 +111,8 @@ public class MainActivitySmokeTest {
 
         MainActivity a = Robolectric.buildActivity(MainActivity.class).setup().get();
         View root = a.findViewById(android.R.id.content);
+        assertTrue(textExists(root, "2026年10月"));
+        assertTrue(textExists(root, "2026年9月"));
         assertTrue(textExists(root, "审批 10月20日"));
         assertTrue(textExists(root, "审批日期未填"));
     }

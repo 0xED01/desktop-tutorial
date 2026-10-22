@@ -6,7 +6,7 @@ Write your name on line 6, save it, and then head back to GitHub Desktop.
 
 ## 客户信息记录 Android App
 
-- 安装包：[`客户信息记录-v2.4.apk`](客户信息记录-v2.4.apk)（Android 7.0 及以上）
+- 安装包：[`客户信息记录-v2.5.apk`](客户信息记录-v2.5.apk)（Android 7.0 及以上）
 - 源码：`CustomerRecorder/`，构建命令：`cd CustomerRecorder && ./gradlew assembleRelease`
 
 使用：复制银行审批提示 → 打开 App 点“一键粘贴保存”（或长按输入框粘贴，会自动识别保存）。
@@ -35,3 +35,6 @@ Write your name on line 6, save it, and then head back to GitHub Desktop.
 
 ### v2.4 更新
 - 客户按首次审批通过日期分组和排序；今天/昨天/本周/本月筛选也按审批日期
+
+### v2.5 更新
+- 客户按审批月份分组（同一月份合在一起）；日期筛选：今天/本周/本月/上月/今年

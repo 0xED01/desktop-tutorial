@@ -57,7 +57,7 @@ public class MainActivity extends Activity {
     private static final int MAX_SHOWN = 300;
     private static final long DAY = 24L * 3600 * 1000;
 
-    private static final String[] DATE_FILTERS = {"全部", "今天", "昨天", "本周", "本月"};
+    private static final String[] DATE_FILTERS = {"全部", "今天", "本周", "本月", "上月", "今年"};
     private static final String[] STATUS_FILTERS = {
             "全部", "未开借记卡", "未开手机银行", "未开信用卡", "礼品未送"};
     private static final String[] OPEN_STATES = {
@@ -522,17 +522,36 @@ public class MainActivity extends Activity {
         switch (dateFilter[0]) {
             case "今天":
                 return new String[]{day(today), null};
-            case "昨天":
-                return new String[]{day(today - DAY), day(today)};
             case "本周":
                 Calendar week = Calendar.getInstance();
                 int sinceMonday = (week.get(Calendar.DAY_OF_WEEK) + 5) % 7;
                 return new String[]{day(today - sinceMonday * DAY), null};
             case "本月":
-                return new String[]{day(today).substring(0, 8) + "01", null};
+                return new String[]{thisMonth() + "-01", null};
+            case "上月":
+                return new String[]{lastMonth() + "-01", thisMonth() + "-01"};
+            case "今年":
+                return new String[]{thisMonth().substring(0, 4) + "-01-01", null};
             default:
                 return new String[]{null, null};
         }
+    }
+
+    /** 本月，yyyy-MM */
+    private String thisMonth() {
+        return day(startOfToday()).substring(0, 7);
+    }
+
+    /** 上月，yyyy-MM */
+    private String lastMonth() {
+        Calendar cal = Calendar.getInstance();
+        cal.set(Calendar.DAY_OF_MONTH, 1);
+        cal.add(Calendar.MONTH, -1);
+        return day(cal.getTimeInMillis()).substring(0, 7);
+    }
+
+    private static String monthOf(Customer c) {
+        return c.approveDate.length() >= 7 ? c.approveDate.substring(0, 7) : "";
     }
 
     private String day(long millis) {
@@ -554,7 +573,7 @@ public class MainActivity extends Activity {
         int noCard = 0;
         int noMobile = 0;
         int noCredit = 0;
-        Map<String, double[]> days = new LinkedHashMap<>();
+        Map<String, double[]> months = new LinkedHashMap<>();
         for (Customer c : data) {
             total += c.amount;
             cost += c.giftCost;
@@ -562,11 +581,11 @@ public class MainActivity extends Activity {
             if (MessageParser.NOT_OPENED.equals(c.debitCard)) noCard++;
             if (MessageParser.NOT_OPENED.equals(c.mobileBank)) noMobile++;
             if (MessageParser.NOT_OPENED.equals(c.creditCard)) noCredit++;
-            String day = c.approveDate;
-            double[] d = days.get(day);
+            String month = monthOf(c);
+            double[] d = months.get(month);
             if (d == null) {
                 d = new double[2];
-                days.put(day, d);
+                months.put(month, d);
             }
             d[0]++;
             d[1] += c.amount;
@@ -585,14 +604,14 @@ public class MainActivity extends Activity {
             listContainer.addView(empty);
             return;
         }
-        String lastDay = null;
+        String prevMonth = null;
         for (int i = 0; i < data.size() && i < MAX_SHOWN; i++) {
             Customer c = data.get(i);
-            String day = c.approveDate;
-            if (!day.equals(lastDay)) {
-                lastDay = day;
-                double[] d = days.get(day);
-                listContainer.addView(dayHeader(day, (int) d[0], d[1]));
+            String month = monthOf(c);
+            if (!month.equals(prevMonth)) {
+                prevMonth = month;
+                double[] d = months.get(month);
+                listContainer.addView(monthHeader(month, (int) d[0], d[1]));
             }
             listContainer.addView(itemView(c), Ui.cardParams(this));
         }
@@ -605,7 +624,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    private View dayHeader(String day, int count, double amount) {
+    private View monthHeader(String month, int count, double amount) {
         LinearLayout row = new LinearLayout(this);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(dp(4), dp(10), dp(4), dp(8));
@@ -614,28 +633,27 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(dp(4), dp(16));
         blp.rightMargin = dp(8);
         row.addView(bar, blp);
-        row.addView(Ui.text(this, (day.isEmpty() ? "" : "审批 ") + dayLabel(day), 15, Ui.TEXT, true),
+        row.addView(Ui.text(this, monthLabel(month), 16, Ui.TEXT, true),
                 new LinearLayout.LayoutParams(0, -2, 1f));
         row.addView(Ui.text(this, count + " 人 · " + wan(amount), 13, Ui.TEXT2, false));
         return row;
     }
 
-    private String dayLabel(String day) {
-        if (day.isEmpty()) return "审批日期未填";
-        long today = startOfToday();
-        String todayStr = dayFormat.format(new Date(today));
-        String yesterday = dayFormat.format(new Date(today - DAY));
+    private String monthLabel(String month) {
+        if (month.isEmpty()) return "审批日期未填";
+        String label = month.substring(0, 4) + "年" + Integer.parseInt(month.substring(5, 7)) + "月";
+        if (month.equals(thisMonth())) return label + "  本月";
+        if (month.equals(lastMonth())) return label + "  上月";
+        return label;
+    }
+
+    /** 2026-09-24 显示为 9月24日；格式不对时原样显示 */
+    private static String shortDate(String d) {
+        if (d.length() != 10) return d.isEmpty() ? "未填" : d;
         try {
-            Date d = dayFormat.parse(day);
-            String week = new SimpleDateFormat("EEEE", Locale.CHINA).format(d);
-            String md = day.startsWith(todayStr.substring(0, 4))
-                    ? new SimpleDateFormat("M月d日", Locale.CHINA).format(d)
-                    : new SimpleDateFormat("yyyy年M月d日", Locale.CHINA).format(d);
-            if (day.equals(todayStr)) return md + "  今天";
-            if (day.equals(yesterday)) return md + "  昨天";
-            return md + "  " + week;
-        } catch (Exception e) {
-            return day;
+            return Integer.parseInt(d.substring(5, 7)) + "月" + Integer.parseInt(d.substring(8)) + "日";
+        } catch (NumberFormatException e) {
+            return d;
         }
     }
 
@@ -654,8 +672,7 @@ public class MainActivity extends Activity {
         top.addView(Ui.text(this, wan(c.amount), 18, Ui.PRIMARY, true));
         card.addView(top);
 
-        TextView info = Ui.text(this, "利率 " + c.rate + "   录入于 "
-                        + new SimpleDateFormat("M月d日 HH:mm", Locale.CHINA).format(new Date(c.createdAt)),
+        TextView info = Ui.text(this, "利率 " + c.rate + "   审批 " + shortDate(c.approveDate),
                 13, Ui.TEXT2, false);
         info.setPadding(0, dp(4), 0, 0);
         card.addView(info);
