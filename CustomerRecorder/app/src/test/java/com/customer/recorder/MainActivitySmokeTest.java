@@ -44,6 +44,38 @@ public class MainActivitySmokeTest {
         assertTrue(textExists(root, "胡雅萍"));
     }
 
+    /** 录入时手动点选的开通状态，保存后不能被识别结果覆盖。 */
+    @Test
+    public void keepsManualStateChoice() {
+        MainActivity a = Robolectric.buildActivity(MainActivity.class).setup().get();
+        View root = a.findViewById(android.R.id.content);
+        find(root, EditText.class, "长按这里粘贴").setText(SAMPLE);
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        ViewGroup mobileRow = rowAfterLabel(root, "手机银行");
+        find(mobileRow, TextView.class, "已开通").performClick();
+        find(root, Button.class, "保存记录").performClick();
+        Customer c = new CustomerDb(a).query("", 0, 0, Long.MAX_VALUE, "").get(0);
+        assertEquals(MessageParser.OPENED, c.mobileBank);
+        assertEquals(MessageParser.NOT_OPENED, c.debitCard);
+    }
+
+    private static ViewGroup rowAfterLabel(View v, String label) {
+        if (v instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                View child = g.getChildAt(i);
+                if (i + 1 < g.getChildCount() && child instanceof TextView
+                        && label.contentEquals(((TextView) child).getText())
+                        && g.getChildAt(i + 1) instanceof FlowLayout) {
+                    return (ViewGroup) g.getChildAt(i + 1);
+                }
+                ViewGroup r = rowAfterLabel(child, label);
+                if (r != null) return r;
+            }
+        }
+        return null;
+    }
+
     @Test
     public void upgradesFromV1() {
         android.content.Context ctx = ApplicationProvider.getApplicationContext();

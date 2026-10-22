@@ -84,6 +84,8 @@ public class MainActivity extends Activity {
     private FlowLayout entryActivityChips;
     private TextView entryGiftInfo;
     private List<Customer> pending = new ArrayList<>();
+    /** 上次识别的文本；文本没变时不重新识别，避免覆盖用户手动点选的开通状态 */
+    private String parsedText = null;
     private final String[] entryDebit = {MessageParser.UNKNOWN};
     private final String[] entryMobile = {MessageParser.UNKNOWN};
     private final String[] entryCredit = {MessageParser.UNKNOWN};
@@ -389,7 +391,10 @@ public class MainActivity extends Activity {
     }
 
     private void updatePreview() {
-        pending = MessageParser.parseAll(input.getText().toString());
+        String text = input.getText().toString();
+        if (text.equals(parsedText)) return;
+        parsedText = text;
+        pending = MessageParser.parseAll(text);
         if (pending.isEmpty()) {
             preview.setVisibility(View.GONE);
             return;
@@ -462,6 +467,7 @@ public class MainActivity extends Activity {
         entryCredit[0] = MessageParser.UNKNOWN;
         renderStateChips();
         pending.clear();
+        parsedText = null;
         preview.setVisibility(View.GONE);
         InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         if (imm != null) imm.hideSoftInputFromWindow(input.getWindowToken(), 0);

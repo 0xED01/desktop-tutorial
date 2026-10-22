@@ -6,7 +6,7 @@ Write your name on line 6, save it, and then head back to GitHub Desktop.
 
 ## 客户信息记录 Android App
 
-- 安装包：[`客户信息记录-v2.1.apk`](客户信息记录-v2.1.apk)（Android 7.0 及以上）
+- 安装包：[`客户信息记录-v2.2.apk`](客户信息记录-v2.2.apk)（Android 7.0 及以上）
 - 源码：`CustomerRecorder/`，构建命令：`cd CustomerRecorder && ./gradlew assembleRelease`
 
 使用：复制银行审批提示 → 打开 App 点“一键粘贴保存”（或长按输入框粘贴，会自动识别保存）。
@@ -26,3 +26,6 @@ Write your name on line 6, save it, and then head back to GitHub Desktop.
 
 ### v2.1 更新
 - 录入时借记卡、手机银行也可直接点选（按识别结果自动预选）
+
+### v2.2 更新
+- 修复：录入时手动点选的借记卡/手机银行状态，保存后被识别结果覆盖
