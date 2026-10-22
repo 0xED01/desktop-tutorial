@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <EditText
+            android:id="@+id/text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="输入要做成图标的文字（一个字一个图标）"
+            android:inputType="text"
+            android:textSize="20sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="预览（点单个图标可只添加这一个）"
+            android:textSize="13sp" />
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:background="#FFE8EAF0"
+            android:padding="8dp">
+
+            <LinearLayout
+                android:id="@+id/preview"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+
+        <Button
+            android:id="@+id/btnAddAll"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="依次添加全部到桌面" />
+
+        <Button
+            android:id="@+id/btnNext"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="继续添加下一个"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="13sp" />
+
+        <!-- 文字 -->
+        <TextView style="@style/Section" android:text="文字" />
+
+        <LinearLayout style="@style/Row">
+            <TextView style="@style/Label" android:text="文字颜色" />
+            <View android:id="@+id/textColor" style="@style/Swatch" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/Row">
+            <TextView style="@style/Label" android:text="字体" />
+            <Spinner
+                android:id="@+id/font"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/Row">
+            <TextView style="@style/Label" android:text="" />
+            <Button
+                android:id="@+id/btnFont"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="导入字体文件 (.ttf/.otf)" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/fontName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="96dp"
+            android:textSize="12sp" />
+
+        <LinearLayout style="@style/Row">
+            <CheckBox android:id="@+id/bold" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="粗体" />
+            <CheckBox android:id="@+id/shadow" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="文字阴影" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/Row">
+            <TextView style="@style/Label" android:text="文字大小" />
+            <SeekBar android:id="@+id/textScale" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="80" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/Row">
+            <TextView style="@style/Label" android:text="上下位置" />
+            <SeekBar android:id="@+id/textOffset" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="60" />
+        </LinearLayout>
+
+        <!-- 背景 -->
+        <TextView style="@style/Section" android:text="背景" />
+
+        <LinearLayout style="@style/Row">
+            <TextView style="@style/Label" android:text="形状" />
+            <Spinner
+                android:id="@+id/shape"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/Row">
+            <TextView style="@style/Label" android:text="背景颜色" />
+            <View android:id="@+id/bgColor" style="@style/Swatch" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/Row">
+            <CheckBox android:id="@+id/gradient" android:layout_width="96dp" android:layout_height="wrap_content" android:text="渐变" />
+            <View android:id="@+id/bgColor2" style="@style/Swatch" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/Row">
+            <CheckBox android:id="@+id/useBgImage" android:layout_width="96dp" android:layout_height="wrap_content" android:text="背景图" />
+            <Button
+                android:id="@+id/btnBgImage"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="选择背景图片" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/Row">
+            <TextView style="@style/Label" android:text="边框颜色" />
+            <View android:id="@+id/borderColor" style="@style/Swatch" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/Row">
+            <TextView style="@style/Label" android:text="边框粗细" />
+            <SeekBar android:id="@+id/borderWidth" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="15" />
+        </LinearLayout>
+
+        <!-- 快捷方式 -->
+        <TextView style="@style/Section" android:text="快捷方式" />
+
+        <CheckBox
+            android:id="@+id/showLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="图标下方显示文字名称" />
+
+        <CheckBox
+            android:id="@+id/adaptive"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="使用系统图标形状（自适应图标，背景铺满，形状由桌面决定）" />
+
+        <EditText
+            android:id="@+id/url"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="点击图标打开的网址（可留空，留空则点击无反应）"
+            android:inputType="textUri"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/btnPermission"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="添加不了？打开本应用权限设置" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="小米/华为/OPPO/vivo 等手机需要在权限设置里开启“桌面快捷方式”权限。部分桌面每次只允许确认一个图标，添加完一个后点“继续添加下一个”。"
+            android:textSize="12sp" />
+    </LinearLayout>
+</ScrollView>

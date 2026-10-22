@@ -1,5 +1,31 @@
-# Welcome to GitHub Desktop!
+# 文字图标 (TextShortcut)
 
-This is your README. READMEs are where you can communicate what your project is and how to use it.
+一个安卓 App：输入一段文字，**每个字生成一个桌面快捷方式图标**，图标的文字和背景都可以自定义。
 
-Write your name on line 6, save it, and then head back to GitHub Desktop.
+## 下载安装
+
+直接下载 [`release/TextShortcut.apk`](release/TextShortcut.apk) 传到手机上安装（需要允许“安装未知来源应用”）。支持 Android 8.0 及以上。
+
+## 功能
+
+- 输入文字，自动按字拆分（支持中文、英文、表情符号），实时预览
+- **文字**：颜色（含透明度）、字体（系统字体 / 导入任意 `.ttf` `.otf` 字体文件）、粗体、阴影、大小、上下位置
+- **背景**：圆形 / 圆角方形 / 方形 / 透明；纯色或渐变；可选自己的图片做背景；边框颜色和粗细
+- **快捷方式**：可选择图标下方是否显示文字名称；可选“跟随系统图标形状”；可设置点击图标打开的网址
+- “依次添加全部”：桌面确认一个后自动添加下一个；如果桌面没有自动继续，点“继续添加下一个”
+- 点预览里的单个字，只添加这一个
+
+## 常见问题
+
+- **点了没反应 / 添加不了**：小米、华为、OPPO、vivo 等国产系统默认关闭了“桌面快捷方式”权限，点 App 里的“打开本应用权限设置”开启即可。
+- **图标外面多了一圈白底**：部分桌面会给非自适应图标加底板，勾选“使用系统图标形状”即可。
+- 卸载本 App 会同时移除它创建的桌面图标。
+
+## 自己编译
+
+```bash
+./gradlew assembleRelease
+# 输出: app/build/outputs/apk/release/app-release.apk
+```
+
+每次推送代码，GitHub Actions 也会自动编译 APK（在 Actions 页面下载）。
