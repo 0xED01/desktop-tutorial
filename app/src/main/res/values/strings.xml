@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">文字图标</string>
+    <string name="widget_desc">文字图标（无角标），请在“文字图标”App 中添加</string>
 </resources>

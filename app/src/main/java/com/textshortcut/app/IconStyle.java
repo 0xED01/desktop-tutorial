@@ -12,6 +12,9 @@ public class IconStyle {
 
     public static final int FONT_CUSTOM = -1;
 
+    public static final int MODE_WIDGET = 0;
+    public static final int MODE_SHORTCUT = 1;
+
     public String text = "你好世界";
     public int textColor = 0xFFFFFFFF;
     public int fontIndex = 0;
@@ -34,6 +37,10 @@ public class IconStyle {
     public boolean showLabel = true;
     public boolean adaptive = false;
     public String url = "";
+    /** 添加方式：小部件（无角标）或快捷方式 */
+    public int addMode = MODE_WIDGET;
+    /** 小部件模式下图标大小，单位 dp */
+    public int widgetIconDp = 56;
 
     private static final String PREFS = "style";
 
@@ -57,6 +64,8 @@ public class IconStyle {
         s.showLabel = p.getBoolean("showLabel", s.showLabel);
         s.adaptive = p.getBoolean("adaptive", s.adaptive);
         s.url = p.getString("url", s.url);
+        s.addMode = p.getInt("addMode", s.addMode);
+        s.widgetIconDp = p.getInt("widgetIconDp", s.widgetIconDp);
         return s;
     }
 
@@ -79,6 +88,8 @@ public class IconStyle {
                 .putBoolean("showLabel", showLabel)
                 .putBoolean("adaptive", adaptive)
                 .putString("url", url)
+                .putInt("addMode", addMode)
+                .putInt("widgetIconDp", widgetIconDp)
                 .apply();
     }
 }

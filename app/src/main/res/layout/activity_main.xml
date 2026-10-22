@@ -151,7 +151,27 @@
         </LinearLayout>
 
         <!-- 快捷方式 -->
-        <TextView style="@style/Section" android:text="快捷方式" />
+        <TextView style="@style/Section" android:text="添加到桌面" />
+
+        <LinearLayout style="@style/Row">
+            <TextView style="@style/Label" android:text="添加方式" />
+            <Spinner
+                android:id="@+id/addMode"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/addModeHint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="12sp" />
+
+        <LinearLayout android:id="@+id/widgetSizeRow" style="@style/Row">
+            <TextView android:id="@+id/widgetSizeLabel" style="@style/Label" android:text="图标大小" />
+            <SeekBar android:id="@+id/widgetIconDp" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="50" />
+        </LinearLayout>
 
         <CheckBox
             android:id="@+id/showLabel"
@@ -185,7 +205,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="小米/华为/OPPO/vivo 等手机需要在权限设置里开启“桌面快捷方式”权限。部分桌面每次只允许确认一个图标，添加完一个后点“继续添加下一个”。"
+            android:text="小米/华为/OPPO/vivo 等手机需要在权限设置里开启“桌面快捷方式”权限。部分桌面每次只允许确认一个图标，添加完一个后点“继续添加下一个”。之前用快捷方式加的带角标图标，在桌面长按删除即可。"
             android:textSize="12sp" />
     </LinearLayout>
 </ScrollView>

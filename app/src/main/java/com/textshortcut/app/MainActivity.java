@@ -3,6 +3,8 @@ package com.textshortcut.app;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.PendingIntent;
+import android.appwidget.AppWidgetManager;
+import android.content.ComponentName;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -47,7 +49,7 @@ public class MainActivity extends Activity {
 
     private static final int REQ_FONT = 1;
     private static final int REQ_IMAGE = 2;
-    private static final String ACTION_PINNED = "com.textshortcut.app.PINNED";
+    public static final String ACTION_PINNED = "com.textshortcut.app.PINNED";
 
     private static final String[] FONT_NAMES = {
             "系统默认", "无衬线 (黑体)", "衬线 (宋体)", "等宽", "手写体 (英文)",
@@ -64,6 +66,7 @@ public class MainActivity extends Activity {
             Typeface.create("sans-serif-condensed", Typeface.NORMAL),
     };
     private static final String[] SHAPE_NAMES = {"圆形", "圆角方形", "方形", "无背景 (透明)"};
+    private static final String[] MODE_NAMES = {"小部件（无角标，推荐）", "快捷方式（右下角会有角标）"};
 
     private IconStyle style;
     private Typeface customFont;
@@ -172,6 +175,15 @@ public class MainActivity extends Activity {
             changed();
         }));
 
+        Spinner addMode = findViewById(R.id.addMode);
+        addMode.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, MODE_NAMES));
+        addMode.setSelection(style.addMode);
+        addMode.setOnItemSelectedListener(new SimpleSelect(pos -> {
+            style.addMode = pos;
+            updateModeViews();
+            changed();
+        }));
+
         bindCheck(R.id.bold, style.bold, b -> style.bold = b);
         bindCheck(R.id.shadow, style.shadow, b -> style.shadow = b);
         bindCheck(R.id.gradient, style.gradient, b -> style.gradient = b);
@@ -185,6 +197,10 @@ public class MainActivity extends Activity {
         bindSeek(R.id.textScale, style.textScale - 20, p -> style.textScale = p + 20);
         bindSeek(R.id.textOffset, style.textOffset + 30, p -> style.textOffset = p - 30);
         bindSeek(R.id.borderWidth, style.borderWidth, p -> style.borderWidth = p);
+        bindSeek(R.id.widgetIconDp, style.widgetIconDp - 30, p -> {
+            style.widgetIconDp = p + 30;
+            updateModeViews();
+        });
 
         findViewById(R.id.btnBgImage).setOnClickListener(v -> pickImage());
         findViewById(R.id.btnAddAll).setOnClickListener(v -> startPinAll());
@@ -200,7 +216,18 @@ public class MainActivity extends Activity {
 
         updateSwatches();
         updateFontName();
+        updateModeViews();
         refreshPreview();
+    }
+
+    private void updateModeViews() {
+        boolean widget = style.addMode == IconStyle.MODE_WIDGET;
+        findViewById(R.id.widgetSizeRow).setVisibility(widget ? View.VISIBLE : View.GONE);
+        findViewById(R.id.adaptive).setVisibility(widget ? View.GONE : View.VISIBLE);
+        ((TextView) findViewById(R.id.widgetSizeLabel)).setText("图标大小 " + style.widgetIconDp);
+        ((TextView) findViewById(R.id.addModeHint)).setText(widget
+                ? "以 1×1 小部件的形式放到桌面，没有角标。图标大小可调到和桌面其他图标一致。小部件不能放进文件夹和底部 Dock 栏。"
+                : "桌面会在图标右下角加上本 App 的小角标，这是系统行为，无法去除。");
     }
 
     @Override
@@ -234,8 +261,9 @@ public class MainActivity extends Activity {
             cell.setOrientation(LinearLayout.VERTICAL);
             cell.setPadding((int) (6 * dp), 0, (int) (6 * dp), 0);
             ImageView iv = new ImageView(this);
-            Bitmap bmp = IconRenderer.render(ch, style, currentFace(), bgImage, size, style.adaptive);
-            if (style.adaptive) {
+            boolean adaptive = style.adaptive && style.addMode == IconStyle.MODE_SHORTCUT;
+            Bitmap bmp = IconRenderer.render(ch, style, currentFace(), bgImage, size, adaptive);
+            if (adaptive) {
                 // 预览时模拟桌面的圆形裁剪
                 iv.setClipToOutline(true);
                 GradientDrawable mask = new GradientDrawable();
@@ -340,6 +368,7 @@ public class MainActivity extends Activity {
     }
 
     private boolean pinOne(String ch, long batch, int index, boolean withCallback) {
+        if (style.addMode == IconStyle.MODE_WIDGET) return pinWidget(ch, index, withCallback);
         ShortcutManager sm = shortcutManager();
         if (sm == null) return false;
 
@@ -371,6 +400,36 @@ public class MainActivity extends Activity {
         }
         try {
             sm.requestPinShortcut(info, callback == null ? null : callback.getIntentSender());
+            if (!withCallback) status.setText("已请求添加「" + ch + "」");
+            return true;
+        } catch (Exception e) {
+            Toast.makeText(this, "添加失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
+            return false;
+        }
+    }
+
+    private boolean pinWidget(String ch, int index, boolean withCallback) {
+        AppWidgetManager mgr = AppWidgetManager.getInstance(this);
+        if (!mgr.isRequestPinAppWidgetSupported()) {
+            new AlertDialog.Builder(this)
+                    .setTitle("当前桌面不支持")
+                    .setMessage("当前桌面不支持由 App 添加小部件。可以把“添加方式”改成快捷方式，或在权限设置里开启“桌面快捷方式”权限后重试。")
+                    .setPositiveButton("去设置", (d, w) -> findViewById(R.id.btnPermission).performClick())
+                    .setNegativeButton("取消", null)
+                    .show();
+            return false;
+        }
+        try {
+            int px = Math.round(style.widgetIconDp * getResources().getDisplayMetrics().density);
+            Bitmap bmp = IconRenderer.render(ch, style, currentFace(), bgImage, px, false);
+            String token = WidgetStore.savePending(this, bmp, style.showLabel ? ch : "", style.url);
+            Intent cb = new Intent(this, WidgetPinReceiver.class);
+            cb.putExtra(WidgetPinReceiver.EXTRA_TOKEN, token);
+            // 必须是 MUTABLE，系统才能把新小部件的 id 填进来
+            PendingIntent callback = PendingIntent.getBroadcast(this, (int) (System.nanoTime() & 0xFFFFFFF), cb,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
+            boolean ok = mgr.requestPinAppWidget(new ComponentName(this, TextWidgetProvider.class), null, callback);
+            if (!ok) throw new Exception("桌面拒绝了请求");
             if (!withCallback) status.setText("已请求添加「" + ch + "」");
             return true;
         } catch (Exception e) {
