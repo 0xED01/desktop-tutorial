@@ -181,29 +181,58 @@ private fun FoodRow(f: Food, onClick: () -> Unit) {
         "${f.kcal.fmt(0)} kcal/100g · 蛋白 ${f.protein.fmt(1)}g · ${f.portionName}≈${f.portionG.fmt(0)}g",
         trailing = {
             if (f.category == "自定义") IconButton({ Store.deleteCustomFood(f.name) }) { Icon(Icons.Filled.Delete, "删除", Modifier.size(18.dp)) }
-            else Text("${(f.kcal * f.portionG / 100).fmt(0)}/${f.portionName}", style = MaterialTheme.typography.labelMedium)
+            else Text("${(f.kcal * f.portionG / 100).fmt(0)}/${if (portionUnit(f) == "份") "份" else "1" + portionUnit(f)}", style = MaterialTheme.typography.labelMedium)
         },
         onClick = onClick,
     )
 }
+
+/** 份量单位：「一个」→「个」，「10个」「100克」这类 → 「份」 */
+fun portionUnit(f: Food): String = if (f.portionName.startsWith("一")) f.portionName.drop(1) else "份"
+
+private fun countLabel(n: Double, unit: String): String = if (n == 0.5) "半$unit" else "${n.fmt()}$unit"
 
 @Composable
 private fun AmountDialog(f: Food, initialMeal: Int, onCancel: () -> Unit, onConfirm: (Int, Double) -> Unit) {
     var grams by remember { mutableStateOf(f.portionG.fmt(0)) }
     var meal by remember { mutableIntStateOf(initialMeal) }
     val g = grams.toDoubleOrNull() ?: 0.0
+    val unit = portionUnit(f)
+    val count = if (f.portionG > 0) g / f.portionG else 0.0
+    fun setCount(n: Double) {
+        grams = (n.coerceIn(0.0, 99.0) * f.portionG).fmt(1)
+    }
     AlertDialog(
         onDismissRequest = onCancel,
         title = { Text(f.name) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(0.5, 1.0, 1.5, 2.0).forEach { k ->
-                        FilterChip(g == f.portionG * k, { grams = (f.portionG * k).fmt(0) }, { Text("${k.fmt()}${f.portionName.filter { !it.isDigit() }}") })
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    if (!f.portionName.startsWith("一")) "1份 = ${f.portionName} ≈ ${f.portionG.fmt(0)}克" else "1$unit ≈ ${f.portionG.fmt(0)}克",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                // 数量加减：每次半个单位，可以选任意多个
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FilledTonalIconButton({ setCount(kotlin.math.ceil(count * 2 - 1) / 2) }, enabled = count > 0.5) {
+                        Icon(Icons.Filled.Remove, "减少")
+                    }
+                    Text(
+                        if (kotlin.math.abs(count * 2 - kotlin.math.round(count * 2)) < 0.01) countLabel(kotlin.math.round(count * 2) / 2.0, unit)
+                        else "约${count.fmt(1)}$unit",
+                        style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.weight(1f),
+                    )
+                    FilledTonalIconButton({ setCount(kotlin.math.floor(count * 2 + 1) / 2) }, enabled = count < 99) {
+                        Icon(Icons.Filled.Add, "增加")
+                    }
+                }
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(0.5, 1.0, 2.0, 3.0, 4.0, 5.0).forEach { k ->
+                        FilterChip(kotlin.math.abs(count - k) < 0.01, { setCount(k) }, { Text(countLabel(k, unit)) })
                     }
                 }
                 NumField("重量", grams, { grams = it }, Modifier.fillMaxWidth(), suffix = "克")
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     MEALS.forEachIndexed { i, m -> FilterChip(meal == i, { meal = i }, { Text(m) }) }
                 }
                 val r = g / 100

@@ -103,10 +103,19 @@ class AppFlowTest {
         rule.onAllNodes(hasText("鸡蛋", substring = false) and !hasSetTextAction())[0].performClick()
         settle()
         shot("21_amount")
+        // 数量：1个 → 加两次 → 2个 → 减一次 → 1.5个 → 快捷选 4个
+        rule.onAllNodesWithText("1个").assertCountEquals(2)
+        rule.onNodeWithContentDescription("增加").performClick()
+        rule.onNodeWithContentDescription("增加").performClick()
+        rule.onAllNodesWithText("2个").assertCountEquals(2) // 数量显示 + 快捷选项
+        rule.onNodeWithContentDescription("减少").performClick()
+        rule.onNodeWithText("1.5个").assertExists()
+        rule.onNodeWithText("4个").performScrollTo().performClick()
         rule.onNodeWithText("添加").performClick()
         settle()
         assertEquals(1, Store.foods.size)
         assertEquals("鸡蛋", Store.foods[0].name)
+        assertEquals(220.0, Store.foods[0].grams, 0.01)
         shot("22_diet_after")
 
         // 5. 身体：记录体重

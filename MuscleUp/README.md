@@ -2,7 +2,7 @@
 
 专为瘦子增肌设计的安卓健身 App。所有数据仅保存在手机本地，无需联网、无需注册。
 
-**安装包：** [`release/MuscleUp-v1.1.0.apk`](release/MuscleUp-v1.1.0.apk)（Android 7.0 及以上）
+**安装包：** [`release/MuscleUp-v1.1.1.apk`](release/MuscleUp-v1.1.1.apk)（Android 7.0 及以上）
 
 ## 功能
 
