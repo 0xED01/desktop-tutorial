@@ -16,6 +16,12 @@ public class Customer {
     public String debitCard = MessageParser.UNKNOWN;
     /** 手机银行：已开通 / 未开通 / 未知 */
     public String mobileBank = MessageParser.UNKNOWN;
+    /** 扫码活动名称 */
+    public String activity = "";
+    public String gift = "";
+    /** 礼品成本，单位：元 */
+    public double giftCost;
+    public boolean giftGiven;
     public String note = "";
     public String raw = "";
     public long createdAt;
