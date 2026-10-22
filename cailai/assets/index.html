@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>财来</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--text:#1d1d1f;--sub:#8a8a90;--line:#ededf1;--pri:#ff5a1f;--priw:#fff1ea;--up:#e53935;--down:#16a05a;--stock:#2f6bff;--stockw:#eef3ff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;font-size:15px;-webkit-user-select:none;user-select:none}
+input,textarea{-webkit-user-select:text;user-select:text}
+input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+button{font:inherit;border:0;background:none;color:inherit;padding:0;cursor:pointer}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+header{background:#fff;padding:14px 16px 10px;display:flex;align-items:center;justify-content:space-between}
+header h1{margin:0;font-size:22px;font-weight:700}
+header .hsub{color:var(--sub);font-size:13px}
+main{flex:1;overflow-y:auto;padding:12px 12px 96px;-webkit-overflow-scrolling:touch}
+nav{background:#fff;border-top:1px solid var(--line);display:flex;padding:4px 0 6px}
+nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--sub);padding:4px 0}
+nav button svg{width:24px;height:24px}
+nav button.on{color:var(--pri)}
+.fab{position:fixed;right:18px;bottom:76px;height:52px;padding:0 22px;border-radius:26px;background:var(--pri);color:#fff;font-size:16px;font-weight:600;box-shadow:0 6px 18px rgba(255,90,31,.35);display:flex;align-items:center;gap:6px;z-index:5}
+.fab:active{transform:scale(.96)}
+.card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px}
+.seg{display:flex;background:#ebebef;border-radius:10px;padding:3px;margin-bottom:12px}
+.seg button{flex:1;padding:7px 0;border-radius:8px;font-size:14px;color:#555}
+.seg button.on{background:#fff;color:var(--text);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.hero{background:linear-gradient(135deg,#ff7a45,#e8431e);color:#fff}
+.hero .lbl{opacity:.85;font-size:13px}
+.hero .big{font-size:32px;font-weight:700;margin:4px 0 10px;letter-spacing:.5px}
+.hero .row{display:flex;gap:10px;font-size:13px;opacity:.95}
+.hero .row div{flex:1}
+.hero .row b{display:block;font-size:16px;margin-top:2px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.stat{background:#fff;border-radius:14px;padding:12px 14px}
+.stat .lbl{font-size:12px;color:var(--sub)}
+.stat .v{font-size:20px;font-weight:700;margin-top:4px}
+.stat .s{font-size:12px;color:var(--sub);margin-top:2px}
+.sec{display:flex;justify-content:space-between;align-items:center;margin:16px 4px 8px;font-size:14px;color:var(--sub)}
+.sec b{color:var(--text);font-size:15px}
+.list{background:#fff;border-radius:14px;overflow:hidden;margin-bottom:12px}
+.item{display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);gap:10px}
+.item:last-child{border-bottom:0}
+.item:active{background:#fafafa}
+.i-main{flex:1;min-width:0}
+.i-title{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.i-title .q{color:var(--pri);font-weight:700;margin-left:4px}
+.i-sub{font-size:12px;color:var(--sub);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.i-right{text-align:right;flex-shrink:0}
+.tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:6px;font-weight:600}
+.tag.stock{background:var(--stockw);color:var(--stock)}
+.tag.sold{background:#f0f0f3;color:#666}
+.pf{font-size:14px;font-weight:700;margin-top:4px}
+.up{color:var(--up)}.down{color:var(--down)}
+.dayhead{display:flex;justify-content:space-between;padding:10px 14px 6px;font-size:12px;color:var(--sub);background:#fafafb}
+.empty{text-align:center;color:var(--sub);padding:40px 0;font-size:14px}
+.search{display:flex;gap:8px;margin-bottom:10px}
+.search input{flex:1;border:0;background:#fff;border-radius:10px;padding:10px 12px;font-size:15px;outline:none}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:7px 13px;border-radius:18px;background:#f2f2f5;font-size:14px;color:#333;border:1.5px solid transparent}
+.chip.on{background:var(--priw);color:var(--pri);border-color:var(--pri);font-weight:600}
+.chip.add{color:var(--pri);background:#fff;border:1.5px dashed #ffc2a8}
+.chip .x{margin-left:6px;color:#aaa}
+/* sheet */
+#mask{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:10}
+#mask.show{opacity:1;pointer-events:auto}
+#sheet{position:fixed;left:0;right:0;bottom:0;max-height:92%;background:#fff;border-radius:18px 18px 0 0;transform:translateY(105%);transition:transform .25s ease;z-index:11;display:flex;flex-direction:column}
+#sheet.show{transform:none}
+.sh-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px}
+.sh-head h2{margin:0;font-size:18px}
+.sh-head .close{font-size:26px;color:#aaa;line-height:1;padding:0 4px}
+.sh-body{overflow-y:auto;padding:4px 16px 16px;-webkit-overflow-scrolling:touch}
+.sh-foot{display:flex;gap:10px;padding:10px 16px 14px;border-top:1px solid var(--line)}
+.btn{flex:1;height:46px;border-radius:12px;font-size:16px;font-weight:600;background:#f2f2f5;color:#333}
+.btn.pri{background:var(--pri);color:#fff}
+.btn.danger{color:var(--up)}
+.btn:active{opacity:.8}
+.fld{margin-top:14px}
+.fld>label{display:block;font-size:13px;color:var(--sub);margin-bottom:7px}
+.inp{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:11px 12px;font-size:16px;outline:none;background:#fff;color:var(--text);font-family:inherit}
+.inp:focus{border-color:var(--pri)}
+.inp.money{font-size:20px;font-weight:600}
+.two{display:flex;gap:10px}.two>.fld{flex:1;min-width:0}
+.stepper{display:flex;align-items:center;border:1.5px solid var(--line);border-radius:10px;overflow:hidden}
+.stepper button{width:46px;height:46px;font-size:22px;color:var(--pri);background:#fafafa}
+.stepper input{flex:1;min-width:0;border:0;text-align:center;font-size:18px;font-weight:600;outline:none;height:46px}
+.preview{margin-top:14px;background:#fafafb;border-radius:10px;padding:10px 12px;font-size:13px;color:#555;display:flex;justify-content:space-between}
+.preview b{font-size:15px}
+details.more{margin-top:14px}
+details.more summary{color:var(--pri);font-size:14px;list-style:none;padding:4px 0}
+details.more summary::-webkit-details-marker{display:none}
+.kv{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);font-size:15px;gap:16px}
+.kv span:first-child{color:var(--sub);flex-shrink:0}
+.kv span:last-child{text-align:right;word-break:break-all;-webkit-user-select:text;user-select:text}
+.menu .mi{display:flex;justify-content:space-between;align-items:center;padding:15px 14px;border-bottom:1px solid var(--line);font-size:15px}
+.menu .mi:last-child{border-bottom:0}
+.menu .mi:active{background:#fafafa}
+.menu .mi small{color:var(--sub)}
+.addrow{display:flex;gap:8px;margin-top:10px}
+.addrow input{flex:1}
+.addrow button{padding:0 16px;border-radius:10px;background:var(--priw);color:var(--pri);font-weight:600}
+#toast{position:fixed;left:50%;bottom:150px;transform:translateX(-50%);background:rgba(30,30,30,.88);color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:80%;text-align:center}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="app">
+  <header><h1 id="title">财来</h1><span class="hsub" id="hsub"></span></header>
+  <main id="main"></main>
+  <nav id="nav"></nav>
+</div>
+<button class="fab" id="fab" onclick="openForm()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>记一笔</button>
+<div id="mask" onclick="closeSheet()"></div>
+<div id="sheet"></div>
+<div id="toast"></div>
+
+<script>
+const NATIVE = typeof window.Android !== 'undefined';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const r2 = n => Math.round(n * 100) / 100;
+const money = n => (n < 0 ? '-' : '') + '¥' + Math.abs(r2(n)).toLocaleString('zh-CN', {maximumFractionDigits: 2});
+const signMoney = n => (n > 0 ? '+' : '') + money(n);
+const pcls = n => n > 0 ? 'up' : n < 0 ? 'down' : '';
+const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const today = () => ymd(new Date());
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const clone = o => JSON.parse(JSON.stringify(o));
+
+const DEF = {
+  models: ['iPhone Duo', 'iPhone 17 Pro Max', 'iPhone 17 Pro', 'iPhone 17', 'iPhone Air'],
+  storages: ['256G', '512G', '1T', '2T'],
+  colors: ['黑色', '白色', '银色', '深蓝色', '橙色', '金色'],
+};
+
+/* ---------- 数据 ---------- */
+let db;
+function load() {
+  try {
+    const s = NATIVE ? Android.load() : localStorage.getItem('cailai');
+    db = s ? JSON.parse(s) : null;
+  } catch (e) { db = null; }
+  if (!db || !Array.isArray(db.records)) db = {records: []};
+  db.presets = db.presets || clone(DEF);
+  db.last = db.last || {};
+}
+function save() {
+  const s = JSON.stringify(db);
+  if (NATIVE) { if (!Android.save(s)) toast('保存失败，请重试'); }
+  else localStorage.setItem('cailai', s);
+}
+const recCost = r => r.buy * r.qty + (r.fee || 0);
+const recRev = r => r.status === 'sold' ? r.sell * r.qty : 0;
+const recProfit = r => r.status === 'sold' ? (r.sell - r.buy) * r.qty - (r.fee || 0) : 0;
+const recName = r => [r.model, r.storage, r.color].filter(Boolean).join(' ');
+const groupKey = r => [r.model, r.storage, r.color].join('|');
+const byId = id => db.records.find(r => r.id === id);
+
+/* ---------- 状态 ---------- */
+const S = {tab: 'home', period: 'today', filter: 'all', q: ''};
+let sheetOpen = false;
+
+const TABS = [
+  ['home', '概览', '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>'],
+  ['list', '账本', '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>'],
+  ['stock', '库存', '<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/>'],
+  ['me', '设置', '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'],
+];
+
+function renderNav() {
+  $('#nav').innerHTML = TABS.map(([k, t, ic]) =>
+    `<button class="${S.tab === k ? 'on' : ''}" onclick="go('${k}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ic}</svg>${t}</button>`).join('');
+}
+function go(tab) { S.tab = tab; render(); $('#main').scrollTop = 0; }
+
+function render() {
+  renderNav();
+  const titles = {home: '财来', list: '账本', stock: '库存', me: '设置'};
+  $('#title').textContent = titles[S.tab];
+  $('#hsub').textContent = S.tab === 'home' ? today().slice(5).replace('-', '月') + '日' : '';
+  $('#fab').style.display = S.tab === 'me' ? 'none' : '';
+  ({home: renderHome, list: renderList, stock: renderStock, me: renderMe})[S.tab]();
+}
+
+/* ---------- 概览 ---------- */
+function inPeriod(date, p) {
+  if (!date) return false;
+  if (p === 'all') return true;
+  const t = today();
+  if (p === 'today') return date === t;
+  if (p === 'month') return date.slice(0, 7) === t.slice(0, 7);
+  const d = new Date(); const dow = (d.getDay() + 6) % 7; d.setDate(d.getDate() - dow);
+  return date >= ymd(d) && date <= t;
+}
+function renderHome() {
+  const p = S.period, R = db.records;
+  let inQty = 0, inAmt = 0, outQty = 0, outAmt = 0, profit = 0;
+  R.forEach(r => {
+    if (inPeriod(r.date, p)) { inQty += r.qty; inAmt += r.buy * r.qty; }
+    if (r.status === 'sold' && inPeriod(r.soldDate || r.date, p)) { outQty += r.qty; outAmt += recRev(r); profit += recProfit(r); }
+  });
+  let stQty = 0, stAmt = 0;
+  R.forEach(r => { if (r.status === 'stock') { stQty += r.qty; stAmt += recCost(r); } });
+  const pname = {today: '今日', week: '本周', month: '本月', all: '累计'}[p];
+  const recent = [...R].sort((a, b) => b.ts - a.ts).slice(0, 8);
+  $('#main').innerHTML = `
+    <div class="seg">${[['today', '今天'], ['week', '本周'], ['month', '本月'], ['all', '全部']].map(([k, t]) =>
+      `<button class="${p === k ? 'on' : ''}" onclick="S.period='${k}';render()">${t}</button>`).join('')}</div>
+    <div class="card hero">
+      <div class="lbl">${pname}利润</div>
+      <div class="big">${signMoney(profit)}</div>
+      <div class="row"><div>卖出<b>${outQty} 台</b></div><div>卖出金额<b>${money(outAmt)}</b></div></div>
+    </div>
+    <div class="grid">
+      <div class="stat"><div class="lbl">${pname}收货</div><div class="v">${inQty} 台</div><div class="s">${money(inAmt)}</div></div>
+      <div class="stat" onclick="go('stock')"><div class="lbl">当前库存</div><div class="v">${stQty} 台</div><div class="s">成本 ${money(stAmt)}</div></div>
+    </div>
+    <div class="sec"><b>最近记录</b>${R.length ? `<span onclick="go('list')">全部 ›</span>` : ''}</div>
+    ${recent.length ? `<div class="list">${recent.map(itemHTML).join('')}</div>` : `<div class="card empty">还没有记录<br>点右下角「记一笔」开始</div>`}`;
+}
+
+function itemHTML(r) {
+  const pf = recProfit(r);
+  const sub = [`买 ${money(r.buy)}`];
+  if (r.status === 'sold') sub.push(`卖 ${money(r.sell)}`);
+  if (r.seller) sub.push(r.seller);
+  if (r.status === 'sold' && r.buyer) sub.push('→ ' + r.buyer);
+  if (r.imei) sub.push(r.imei);
+  return `<div class="item" onclick="openDetail('${r.id}')">
+    <div class="i-main"><div class="i-title">${esc(recName(r))}<span class="q">×${r.qty}</span></div>
+    <div class="i-sub">${esc(sub.join(' · '))}</div></div>
+    <div class="i-right"><span class="tag ${r.status}">${r.status === 'sold' ? '已卖' : '库存'}</span>
+    ${r.status === 'sold' ? `<div class="pf ${pcls(pf)}">${signMoney(pf)}</div>` : `<div class="pf" style="color:#888;font-weight:500">${money(r.buy * r.qty)}</div>`}</div></div>`;
+}
+
+/* ---------- 账本 ---------- */
+function renderList() {
+  $('#main').innerHTML = `
+    <div class="search"><input id="q" placeholder="搜索 型号 / 颜色 / IMEI / 卖家 / 备注" value="${esc(S.q)}" oninput="S.q=this.value;renderListBody()"></div>
+    <div class="seg">${[['all', '全部'], ['stock', '库存'], ['sold', '已卖']].map(([k, t]) =>
+      `<button class="${S.filter === k ? 'on' : ''}" onclick="S.filter='${k}';renderList()">${t}</button>`).join('')}</div>
+    <div id="lb"></div>`;
+  renderListBody();
+}
+function renderListBody() {
+  const q = S.q.trim().toLowerCase();
+  let R = db.records.filter(r => S.filter === 'all' || r.status === S.filter);
+  if (q) R = R.filter(r => [recName(r), r.seller, r.buyer, r.imei, r.store, r.note].join(' ').toLowerCase().includes(q));
+  R.sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.ts - a.ts);
+  const days = [];
+  R.forEach(r => { let d = days[days.length - 1]; if (!d || d.date !== r.date) days.push(d = {date: r.date, rs: []}); d.rs.push(r); });
+  const tq = R.reduce((s, r) => s + r.qty, 0), tp = R.reduce((s, r) => s + recProfit(r), 0);
+  $('#lb').innerHTML = !R.length ? `<div class="card empty">${q ? '没有找到匹配的记录' : '暂无记录'}</div>` :
+    `<div class="sec"><span>共 ${R.length} 笔 · ${tq} 台</span><span>利润 <b class="${pcls(tp)}">${signMoney(tp)}</b></span></div>` +
+    days.map(d => {
+      const dq = d.rs.reduce((s, r) => s + r.qty, 0), dp = d.rs.reduce((s, r) => s + recProfit(r), 0);
+      return `<div class="list"><div class="dayhead"><span>${esc(d.date)} · ${dq} 台</span><span class="${pcls(dp)}">${dp ? signMoney(dp) : ''}</span></div>${d.rs.map(itemHTML).join('')}</div>`;
+    }).join('');
+}
+
+/* ---------- 库存 ---------- */
+function stockGroups() {
+  const m = {};
+  db.records.filter(r => r.status === 'stock').forEach(r => {
+    const k = groupKey(r);
+    (m[k] = m[k] || {key: k, name: recName(r), qty: 0, cost: 0, rs: []});
+    m[k].qty += r.qty; m[k].cost += recCost(r); m[k].rs.push(r);
+  });
+  return Object.values(m).sort((a, b) => b.qty - a.qty);
+}
+function renderStock() {
+  const G = stockGroups();
+  const tq = G.reduce((s, g) => s + g.qty, 0), tc = G.reduce((s, g) => s + g.cost, 0);
+  $('#main').innerHTML = `
+    <div class="grid"><div class="stat"><div class="lbl">库存数量</div><div class="v">${tq} 台</div></div>
+    <div class="stat"><div class="lbl">库存成本</div><div class="v">${money(tc)}</div></div></div>
+    ${G.length ? `<div class="list">${G.map((g, i) => `
+      <div class="item" onclick="openGroupSell(${i})">
+        <div class="i-main"><div class="i-title">${esc(g.name)}<span class="q">×${g.qty}</span></div>
+        <div class="i-sub">均价 ${money(g.cost / g.qty)} · 共 ${g.rs.length} 笔</div></div>
+        <div class="i-right"><span class="tag stock">卖出 ›</span><div class="pf" style="color:#888;font-weight:500">${money(g.cost)}</div></div>
+      </div>`).join('')}</div><div class="sec"><span>点一行可按型号批量卖出（先进先出）</span></div>` : `<div class="card empty">没有库存</div>`}`;
+}
+
+/* ---------- 设置 ---------- */
+const PRESET_NAMES = {models: '型号', storages: '内存', colors: '颜色'};
+function renderMe() {
+  const n = db.records.length;
+  $('#main').innerHTML = `
+    ${Object.keys(PRESET_NAMES).map(k => `
+      <div class="card"><div style="font-weight:600;margin-bottom:10px">常用${PRESET_NAMES[k]}</div>
+        <div class="chips">${db.presets[k].map((v, i) => `<span class="chip" onclick="movePreset('${k}',${i})">${esc(v)}<span class="x" onclick="event.stopPropagation();delPreset('${k}',${i})">×</span></span>`).join('')}</div>
+        <div class="addrow"><input class="inp" id="add_${k}" placeholder="添加${PRESET_NAMES[k]}"><button onclick="addPreset('${k}')">添加</button></div>
+      </div>`).join('')}
+    <div class="sec"><span>点标签可移到最前，点 × 删除</span></div>
+    <div class="list menu">
+      <div class="mi" onclick="exportCSV()"><span>导出表格（Excel 可打开）</span><small>›</small></div>
+      <div class="mi" onclick="backup()"><span>备份数据到手机</span><small>›</small></div>
+      <div class="mi" onclick="shareBackup()"><span>发送备份（微信 / 其他）</span><small>›</small></div>
+      <div class="mi" onclick="restore()"><span>从备份文件恢复</span><small>›</small></div>
+      <div class="mi" onclick="clearAll()"><span style="color:var(--up)">清空所有数据</span><small>${n} 笔</small></div>
+    </div>
+    <div class="sec" style="justify-content:center"><span>财来 v1.0 · 数据仅保存在本机</span></div>`;
+}
+function addPreset(k) {
+  const v = $('#add_' + k).value.trim();
+  if (!v) return;
+  if (!db.presets[k].includes(v)) db.presets[k].push(v);
+  save(); renderMe();
+}
+function delPreset(k, i) { db.presets[k].splice(i, 1); save(); renderMe(); }
+function movePreset(k, i) { const [v] = db.presets[k].splice(i, 1); db.presets[k].unshift(v); save(); renderMe(); }
+
+/* ---------- 弹层 ---------- */
+function openSheet(title, body, foot) {
+  $('#sheet').innerHTML = `<div class="sh-head"><h2>${title}</h2><button class="close" onclick="closeSheet()">×</button></div>
+    <div class="sh-body">${body}</div>${foot ? `<div class="sh-foot">${foot}</div>` : ''}`;
+  $('#mask').classList.add('show'); $('#sheet').classList.add('show'); sheetOpen = true;
+}
+function closeSheet() {
+  if (document.activeElement) document.activeElement.blur();
+  $('#mask').classList.remove('show'); $('#sheet').classList.remove('show'); sheetOpen = false;
+}
+function handleBack() {
+  if (sheetOpen) { closeSheet(); return true; }
+  if (S.tab !== 'home') { go('home'); return true; }
+  return false;
+}
+let toastT;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1600);
+}
+
+/* ---------- 记一笔 / 编辑 ---------- */
+let F = null; // 表单状态
+function chipGroup(k, field) {
+  const list = db.presets[k];
+  const vals = F[field] && !list.includes(F[field]) ? [...list, F[field]] : list;
+  return `<div class="chips" id="cg_${field}">${vals.map(v =>
+    `<button class="chip ${F[field] === v ? 'on' : ''}" data-v="${esc(v)}" onclick="pick('${k}','${field}',this.dataset.v)">${esc(v)}</button>`).join('')}
+    <button class="chip add" onclick="customChip('${k}','${field}')">+ 其他</button></div>`;
+}
+function pick(k, field, v) {
+  F[field] = F[field] === v ? '' : v;
+  $('#cg_' + field).outerHTML = chipGroup(k, field);
+}
+function customChip(k, field) {
+  const v = (prompt('输入' + PRESET_NAMES[k]) || '').trim();
+  if (!v) return;
+  if (!db.presets[k].includes(v)) { db.presets[k].push(v); save(); }
+  F[field] = v; $('#cg_' + field).outerHTML = chipGroup(k, field);
+}
+function openForm(id, copyFrom) {
+  const src = id ? byId(id) : copyFrom ? byId(copyFrom) : null;
+  const L = db.last;
+  F = src ? clone(src) : {model: L.model || db.presets.models[0] || '', storage: L.storage || '', color: L.color || '', qty: 1, buy: '', sell: '', status: 'stock', date: today(), seller: '', buyer: '', store: L.store || '', imei: '', fee: '', note: ''};
+  if (!id) { delete F.id; F.date = today(); F.imei = ''; if (copyFrom) { F.status = 'stock'; F.sell = ''; F.buyer = ''; delete F.soldDate; } }
+  F.editId = id || null;
+  const v = x => esc(x === undefined || x === null ? '' : x);
+  openSheet(id ? '编辑记录' : '记一笔', `
+    <div class="fld"><label>型号</label>${chipGroup('models', 'model')}</div>
+    <div class="fld"><label>内存</label>${chipGroup('storages', 'storage')}</div>
+    <div class="fld"><label>颜色</label>${chipGroup('colors', 'color')}</div>
+    <div class="two">
+      <div class="fld"><label>数量</label><div class="stepper"><button onclick="step(-1)">−</button><input id="f_qty" type="number" inputmode="numeric" value="${v(F.qty)}" oninput="calc()"><button onclick="step(1)">+</button></div></div>
+      <div class="fld"><label>买入单价</label><input class="inp money" id="f_buy" type="number" inputmode="decimal" placeholder="0" value="${v(F.buy)}" oninput="calc()"></div>
+    </div>
+    <div class="fld"><label>状态</label><div class="seg" style="margin:0" id="f_status">
+      <button class="${F.status === 'stock' ? 'on' : ''}" onclick="setStatus('stock')">入库（待卖）</button>
+      <button class="${F.status === 'sold' ? 'on' : ''}" onclick="setStatus('sold')">已卖出</button></div></div>
+    <div id="soldBox" style="display:${F.status === 'sold' ? '' : 'none'}">
+      <div class="two">
+        <div class="fld"><label>卖出单价</label><input class="inp money" id="f_sell" type="number" inputmode="decimal" placeholder="0" value="${v(F.sell)}" oninput="calc()"></div>
+        <div class="fld"><label>买家</label><input class="inp" id="f_buyer" placeholder="可不填" value="${v(F.buyer)}"></div>
+      </div>
+      <div class="fld"><label>卖出日期</label><input class="inp" id="f_soldDate" type="date" value="${v(F.soldDate || today())}"></div>
+    </div>
+    <div class="preview" id="preview"></div>
+    <details class="more" ${src && (src.seller || src.imei || src.fee || src.note || src.store) ? 'open' : ''}>
+      <summary>更多信息（卖家、IMEI、费用、备注…）▾</summary>
+      <div class="two">
+        <div class="fld"><label>收货日期</label><input class="inp" id="f_date" type="date" value="${v(F.date)}"></div>
+        <div class="fld"><label>其他费用</label><input class="inp" id="f_fee" type="number" inputmode="decimal" placeholder="路费/手续费" value="${v(F.fee)}" oninput="calc()"></div>
+      </div>
+      <div class="two">
+        <div class="fld"><label>卖家 / 来源</label><input class="inp" id="f_seller" placeholder="姓名或电话" value="${v(F.seller)}"></div>
+        <div class="fld"><label>门店</label><input class="inp" id="f_store" placeholder="如 三里屯店" value="${v(F.store)}"></div>
+      </div>
+      <div class="fld"><label>IMEI / 序列号</label><input class="inp" id="f_imei" placeholder="多台可用逗号分隔" value="${v(F.imei)}"></div>
+      <div class="fld"><label>备注</label><textarea class="inp" id="f_note" rows="2" placeholder="成色、配件、发票等">${v(F.note)}</textarea></div>
+    </details>`,
+    id ? `<button class="btn" onclick="closeSheet()">取消</button><button class="btn pri" onclick="submitForm(false)">保存</button>`
+       : `<button class="btn" onclick="submitForm(true)">保存并再记</button><button class="btn pri" onclick="submitForm(false)">保存</button>`);
+  calc();
+}
+function step(d) { const el = $('#f_qty'); el.value = Math.max(1, (parseInt(el.value) || 0) + d); calc(); }
+function setStatus(s) {
+  F.status = s;
+  [...$('#f_status').children].forEach((b, i) => b.classList.toggle('on', (i === 1) === (s === 'sold')));
+  $('#soldBox').style.display = s === 'sold' ? '' : 'none';
+  calc();
+}
+function calc() {
+  const q = parseInt($('#f_qty').value) || 0, b = num($('#f_buy').value), fee = num($('#f_fee') ? $('#f_fee').value : 0);
+  let h = `<span>成本 <b>${money(b * q + fee)}</b></span>`;
+  if (F.status === 'sold') { const p = (num($('#f_sell').value) - b) * q - fee; h += `<span>利润 <b class="${pcls(p)}">${signMoney(p)}</b></span>`; }
+  $('#preview').innerHTML = h;
+}
+function submitForm(again) {
+  const qty = parseInt($('#f_qty').value) || 0, buy = num($('#f_buy').value);
+  if (!F.model) return toast('请选择型号');
+  if (qty < 1) return toast('数量至少为 1');
+  if (buy <= 0) return toast('请填写买入单价');
+  const r = {
+    id: F.editId || uid(), ts: F.editId ? (byId(F.editId).ts) : Date.now(),
+    model: F.model, storage: F.storage, color: F.color, qty, buy,
+    status: F.status, date: $('#f_date').value || today(),
+    seller: $('#f_seller').value.trim(), store: $('#f_store').value.trim(), imei: $('#f_imei').value.trim(),
+    fee: num($('#f_fee').value), note: $('#f_note').value.trim(),
+  };
+  if (r.status === 'sold') {
+    r.sell = num($('#f_sell').value);
+    if (r.sell <= 0) return toast('请填写卖出单价');
+    r.buyer = $('#f_buyer').value.trim(); r.soldDate = $('#f_soldDate').value || today();
+  }
+  if (F.editId) db.records[db.records.findIndex(x => x.id === F.editId)] = r;
+  else db.records.push(r);
+  db.last = {model: r.model, storage: r.storage, color: r.color, store: r.store};
+  save(); render();
+  if (again) { toast('已记录，继续下一笔'); openForm(null, r.id); }
+  else { closeSheet(); toast(F.editId ? '已保存' : '已记录'); }
+}
+
+/* ---------- 详情 ---------- */
+function openDetail(id) {
+  const r = byId(id); if (!r) return;
+  const pf = recProfit(r);
+  const kv = (k, v) => v || v === 0 ? `<div class="kv"><span>${k}</span><span>${v}</span></div>` : '';
+  openSheet(esc(recName(r)), `
+    <div class="card" style="background:#fafafb;margin:6px 0 8px;display:flex;justify-content:space-between;align-items:center">
+      <div><span class="tag ${r.status}">${r.status === 'sold' ? '已卖出' : '库存中'}</span><div style="margin-top:6px;color:var(--sub);font-size:13px">数量 ${r.qty} 台</div></div>
+      <div style="text-align:right">${r.status === 'sold' ? `<div style="font-size:12px;color:var(--sub)">利润</div><div style="font-size:24px;font-weight:700" class="${pcls(pf)}">${signMoney(pf)}</div>` : `<div style="font-size:12px;color:var(--sub)">成本</div><div style="font-size:24px;font-weight:700">${money(recCost(r))}</div>`}</div>
+    </div>
+    ${kv('买入单价', money(r.buy))}
+    ${r.status === 'sold' ? kv('卖出单价', money(r.sell)) + kv('卖出金额', money(recRev(r))) : ''}
+    ${r.fee ? kv('其他费用', money(r.fee)) : ''}
+    ${kv('收货日期', esc(r.date))}
+    ${r.status === 'sold' ? kv('卖出日期', esc(r.soldDate)) : ''}
+    ${kv('卖家 / 来源', esc(r.seller))}${r.status === 'sold' ? kv('买家', esc(r.buyer)) : ''}
+    ${kv('门店', esc(r.store))}${kv('IMEI / 序列号', esc(r.imei))}${kv('备注', esc(r.note))}
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn" onclick="openForm(null,'${r.id}')">再记一单</button>
+      <button class="btn" onclick="openForm('${r.id}')">编辑</button>
+      <button class="btn danger" onclick="delRec('${r.id}')">删除</button>
+    </div>`,
+    r.status === 'stock' ? `<button class="btn pri" onclick="openSell('${r.id}')">卖出</button>`
+                         : `<button class="btn" onclick="unsell('${r.id}')">撤销卖出（退回库存）</button>`);
+}
+function delRec(id) {
+  if (!confirm('确定删除这条记录？')) return;
+  db.records = db.records.filter(r => r.id !== id); save(); closeSheet(); render(); toast('已删除');
+}
+function unsell(id) {
+  const r = byId(id);
+  r.status = 'stock'; delete r.sell; delete r.buyer; delete r.soldDate;
+  save(); render(); openDetail(id); toast('已退回库存');
+}
+
+/* ---------- 卖出 ---------- */
+function sellForm(max, defPrice) {
+  return `
+    <div class="two">
+      <div class="fld"><label>卖出数量（最多 ${max}）</label><div class="stepper"><button onclick="sstep(-1,${max})">−</button><input id="s_qty" type="number" inputmode="numeric" value="${max}" oninput="scalc()"><button onclick="sstep(1,${max})">+</button></div></div>
+      <div class="fld"><label>卖出单价</label><input class="inp money" id="s_price" type="number" inputmode="decimal" placeholder="0" value="${defPrice || ''}" oninput="scalc()"></div>
+    </div>
+    <div class="two">
+      <div class="fld"><label>买家</label><input class="inp" id="s_buyer" placeholder="可不填"></div>
+      <div class="fld"><label>卖出日期</label><input class="inp" id="s_date" type="date" value="${today()}"></div>
+    </div>
+    <div class="preview" id="s_prev"></div>`;
+}
+let SELL = null; // {recs:[...]} 按先进先出排序
+function sstep(d, max) { const el = $('#s_qty'); el.value = Math.min(max, Math.max(1, (parseInt(el.value) || 0) + d)); scalc(); }
+function scalc() {
+  let n = Math.min(parseInt($('#s_qty').value) || 0, SELL.max), price = num($('#s_price').value), cost = 0;
+  for (const r of SELL.recs) { if (n <= 0) break; const k = Math.min(n, r.qty); cost += r.buy * k + (r.fee || 0) * k / r.qty; n -= k; }
+  const q = Math.min(parseInt($('#s_qty').value) || 0, SELL.max), p = price * q - cost;
+  $('#s_prev').innerHTML = `<span>收入 <b>${money(price * q)}</b></span><span>利润 <b class="${pcls(p)}">${signMoney(p)}</b></span>`;
+}
+function openSell(id) {
+  const r = byId(id);
+  SELL = {recs: [r], max: r.qty};
+  openSheet('卖出 · ' + esc(recName(r)), sellForm(r.qty), `<button class="btn" onclick="openDetail('${id}')">返回</button><button class="btn pri" onclick="doSell()">确认卖出</button>`);
+  scalc(); setTimeout(() => $('#s_price').focus(), 300);
+}
+function openGroupSell(i) {
+  const g = stockGroups()[i];
+  const recs = [...g.rs].sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.ts - b.ts);
+  SELL = {recs, max: g.qty};
+  openSheet('卖出 · ' + esc(g.name), `<div style="color:var(--sub);font-size:13px">库存 ${g.qty} 台 · 均价 ${money(g.cost / g.qty)}</div>` + sellForm(g.qty) +
+    `<div class="sec"><b>包含记录</b></div><div class="list" style="border:1px solid var(--line)">${recs.map(itemHTML).join('')}</div>`,
+    `<button class="btn" onclick="closeSheet()">取消</button><button class="btn pri" onclick="doSell()">确认卖出</button>`);
+  scalc();
+}
+function doSell() {
+  let n = parseInt($('#s_qty').value) || 0;
+  const price = num($('#s_price').value), buyer = $('#s_buyer').value.trim(), date = $('#s_date').value || today();
+  if (n < 1 || n > SELL.max) return toast('数量应在 1 ~ ' + SELL.max + ' 之间');
+  if (price <= 0) return toast('请填写卖出单价');
+  for (const r of SELL.recs) {
+    if (n <= 0) break;
+    const k = Math.min(n, r.qty);
+    if (k === r.qty) Object.assign(r, {status: 'sold', sell: price, buyer, soldDate: date});
+    else {
+      // 部分卖出：拆分成两条，费用按数量分摊
+      const fee = r2((r.fee || 0) * k / r.qty);
+      db.records.push(Object.assign(clone(r), {id: uid(), ts: Date.now(), qty: k, fee, status: 'sold', sell: price, buyer, soldDate: date}));
+      r.qty -= k; r.fee = r2((r.fee || 0) - fee);
+    }
+    n -= k;
+  }
+  save(); closeSheet(); render(); toast('已卖出');
+}
+
+/* ---------- 导出 / 备份 ---------- */
+function stamp() { const d = new Date(); return ymd(d).replace(/-/g, '') + '_' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0'); }
+function saveFile(name, content, mime) {
+  if (NATIVE) {
+    const res = Android.exportFile(name, content, mime);
+    if (res.startsWith('ERR:')) alert('保存失败：' + res.slice(4)); else alert('已保存到：\n' + res);
+  } else {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content], {type: mime})); a.download = name; a.click();
+  }
+}
+function exportCSV() {
+  if (!db.records.length) return toast('没有数据');
+  const head = ['收货日期', '型号', '内存', '颜色', '数量', '买入单价', '买入总额', '其他费用', '状态', '卖出单价', '卖出总额', '利润', '卖出日期', '卖家/来源', '买家', '门店', 'IMEI/序列号', '备注'];
+  const cell = v => { v = String(v ?? ''); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const rows = [...db.records].sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.ts - b.ts).map(r => [
+    r.date, r.model, r.storage, r.color, r.qty, r.buy, r2(r.buy * r.qty), r.fee || 0, r.status === 'sold' ? '已卖' : '库存',
+    r.status === 'sold' ? r.sell : '', r.status === 'sold' ? r2(recRev(r)) : '', r.status === 'sold' ? r2(recProfit(r)) : '',
+    r.soldDate || '', r.seller, r.buyer || '', r.store, r.imei ? '\t' + r.imei : '', r.note]);
+  const csv = '﻿' + [head, ...rows].map(row => row.map(cell).join(',')).join('\r\n');
+  saveFile('财来账本_' + stamp() + '.csv', csv, 'text/csv');
+}
+function backupJSON() { return JSON.stringify({app: 'cailai', v: 1, at: Date.now(), data: db}); }
+function backup() { saveFile('财来备份_' + stamp() + '.json', backupJSON(), 'application/json'); }
+function shareBackup() {
+  if (NATIVE) Android.shareText('财来备份', backupJSON());
+  else toast('仅在手机上可用');
+}
+function restore() {
+  if (NATIVE) Android.pickImport();
+  else { const i = document.createElement('input'); i.type = 'file'; i.onchange = () => i.files[0].text().then(onImport); i.click(); }
+}
+function onImport(text) {
+  let d;
+  try { const o = JSON.parse(text.trim()); d = o && o.app === 'cailai' ? o.data : o; } catch (e) {}
+  if (!d || !Array.isArray(d.records)) return alert('不是有效的财来备份文件');
+  if (!confirm(`备份中有 ${d.records.length} 笔记录。\n恢复会覆盖当前的 ${db.records.length} 笔记录，确定吗？`)) return;
+  db = d; db.presets = db.presets || clone(DEF); db.last = db.last || {};
+  save(); render(); toast('恢复成功');
+}
+function clearAll() {
+  if (!db.records.length) return toast('没有数据');
+  if (!confirm('确定清空所有 ' + db.records.length + ' 笔记录？此操作不可恢复，建议先备份。')) return;
+  if (!confirm('再次确认：真的要清空吗？')) return;
+  db.records = []; save(); render(); toast('已清空');
+}
+
+load(); render();
+</script>
+</body>
+</html>
