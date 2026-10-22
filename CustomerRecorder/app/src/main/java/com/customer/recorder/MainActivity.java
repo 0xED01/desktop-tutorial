@@ -277,7 +277,7 @@ public class MainActivity extends Activity {
             }
         });
         card.addView(search, new LinearLayout.LayoutParams(-1, -2));
-        card.addView(Ui.label(this, "日期"));
+        card.addView(Ui.label(this, "审批日期"));
         dateChips = new FlowLayout(this);
         card.addView(dateChips);
         card.addView(Ui.label(this, "状态"));
@@ -516,29 +516,31 @@ public class MainActivity extends Activity {
         return cal.getTimeInMillis();
     }
 
-    private long[] dateRange() {
+    /** 当前日期筛选对应的审批日期范围 {起（含）, 止（不含）}，null 表示不限。 */
+    private String[] dateRange() {
         long today = startOfToday();
         switch (dateFilter[0]) {
             case "今天":
-                return new long[]{today, Long.MAX_VALUE};
+                return new String[]{day(today), null};
             case "昨天":
-                return new long[]{today - DAY, today};
+                return new String[]{day(today - DAY), day(today)};
             case "本周":
                 Calendar week = Calendar.getInstance();
                 int sinceMonday = (week.get(Calendar.DAY_OF_WEEK) + 5) % 7;
-                return new long[]{today - sinceMonday * DAY, Long.MAX_VALUE};
+                return new String[]{day(today - sinceMonday * DAY), null};
             case "本月":
-                Calendar month = Calendar.getInstance();
-                month.setTimeInMillis(today);
-                month.set(Calendar.DAY_OF_MONTH, 1);
-                return new long[]{month.getTimeInMillis(), Long.MAX_VALUE};
+                return new String[]{day(today).substring(0, 8) + "01", null};
             default:
-                return new long[]{0, Long.MAX_VALUE};
+                return new String[]{null, null};
         }
     }
 
+    private String day(long millis) {
+        return dayFormat.format(new Date(millis));
+    }
+
     private List<Customer> currentData() {
-        long[] range = dateRange();
+        String[] range = dateRange();
         int status = indexOf(STATUS_FILTERS, statusFilter[0]);
         return db.query(search.getText().toString(), status, range[0], range[1], activityFilter[0]);
     }
@@ -560,7 +562,7 @@ public class MainActivity extends Activity {
             if (MessageParser.NOT_OPENED.equals(c.debitCard)) noCard++;
             if (MessageParser.NOT_OPENED.equals(c.mobileBank)) noMobile++;
             if (MessageParser.NOT_OPENED.equals(c.creditCard)) noCredit++;
-            String day = dayFormat.format(new Date(c.createdAt));
+            String day = c.approveDate;
             double[] d = days.get(day);
             if (d == null) {
                 d = new double[2];
@@ -586,7 +588,7 @@ public class MainActivity extends Activity {
         String lastDay = null;
         for (int i = 0; i < data.size() && i < MAX_SHOWN; i++) {
             Customer c = data.get(i);
-            String day = dayFormat.format(new Date(c.createdAt));
+            String day = c.approveDate;
             if (!day.equals(lastDay)) {
                 lastDay = day;
                 double[] d = days.get(day);
@@ -595,7 +597,7 @@ public class MainActivity extends Activity {
             listContainer.addView(itemView(c), Ui.cardParams(this));
         }
         if (data.size() > MAX_SHOWN) {
-            TextView more = Ui.text(this, "仅显示最近 " + MAX_SHOWN + " 条，请用日期或搜索筛选",
+            TextView more = Ui.text(this, "仅显示前 " + MAX_SHOWN + " 条，请用日期或搜索筛选",
                     13, Ui.TEXT2, false);
             more.setGravity(Gravity.CENTER);
             more.setPadding(0, dp(8), 0, dp(16));
@@ -612,13 +614,14 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(dp(4), dp(16));
         blp.rightMargin = dp(8);
         row.addView(bar, blp);
-        row.addView(Ui.text(this, dayLabel(day), 15, Ui.TEXT, true),
+        row.addView(Ui.text(this, (day.isEmpty() ? "" : "审批 ") + dayLabel(day), 15, Ui.TEXT, true),
                 new LinearLayout.LayoutParams(0, -2, 1f));
         row.addView(Ui.text(this, count + " 人 · " + wan(amount), 13, Ui.TEXT2, false));
         return row;
     }
 
     private String dayLabel(String day) {
+        if (day.isEmpty()) return "审批日期未填";
         long today = startOfToday();
         String todayStr = dayFormat.format(new Date(today));
         String yesterday = dayFormat.format(new Date(today - DAY));
@@ -651,7 +654,8 @@ public class MainActivity extends Activity {
         top.addView(Ui.text(this, wan(c.amount), 18, Ui.PRIMARY, true));
         card.addView(top);
 
-        TextView info = Ui.text(this, "利率 " + c.rate + "   首次审批 " + c.approveDate,
+        TextView info = Ui.text(this, "利率 " + c.rate + "   录入于 "
+                        + new SimpleDateFormat("M月d日 HH:mm", Locale.CHINA).format(new Date(c.createdAt)),
                 13, Ui.TEXT2, false);
         info.setPadding(0, dp(4), 0, 0);
         card.addView(info);
@@ -803,7 +807,7 @@ public class MainActivity extends Activity {
                     c.product = product.getText().toString().trim();
                     c.amount = parseMoney(amount.getText().toString());
                     c.rate = rate.getText().toString().trim();
-                    c.approveDate = date.getText().toString().trim();
+                    c.approveDate = MessageParser.normalizeDate(date.getText().toString());
                     c.debitCard = debit[0];
                     c.mobileBank = mobile[0];
                     c.creditCard = credit[0];

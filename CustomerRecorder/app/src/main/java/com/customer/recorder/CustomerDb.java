@@ -116,15 +116,24 @@ public class CustomerDb extends SQLiteOpenHelper {
     }
 
     /**
-     * @param from     记录时间下限（含），毫秒
-     * @param to       记录时间上限（不含），毫秒
+     * 按首次审批通过日期筛选和排序。
+     *
+     * @param fromDay  审批日期下限（含），yyyy-MM-dd；null 表示不限日期
+     * @param toDay    审批日期上限（不含），yyyy-MM-dd；null 表示不设上限
      * @param activity 为空表示全部活动
      */
-    public List<Customer> query(String keyword, int filter, long from, long to, String activity) {
-        StringBuilder where = new StringBuilder("created_at>=? AND created_at<?");
+    public List<Customer> query(String keyword, int filter, String fromDay, String toDay,
+                                String activity) {
+        StringBuilder where = new StringBuilder("1=1");
         List<String> args = new ArrayList<>();
-        args.add(String.valueOf(from));
-        args.add(String.valueOf(to));
+        if (fromDay != null) {
+            where.append(" AND approve_date>=?");
+            args.add(fromDay);
+        }
+        if (toDay != null) {
+            where.append(" AND approve_date<?");
+            args.add(toDay);
+        }
         if (keyword != null && !keyword.trim().isEmpty()) {
             where.append(" AND (name LIKE ? OR product LIKE ? OR note LIKE ? OR phone LIKE ?"
                     + " OR activity LIKE ? OR gift LIKE ?)");
@@ -156,7 +165,8 @@ public class CustomerDb extends SQLiteOpenHelper {
         }
         List<Customer> list = new ArrayList<>();
         try (Cursor cur = getReadableDatabase().query(TABLE, null, where.toString(),
-                args.toArray(new String[0]), null, null, "created_at DESC, id DESC")) {
+                args.toArray(new String[0]), null, null,
+                "approve_date='', approve_date DESC, created_at DESC, id DESC")) {
             while (cur.moveToNext()) list.add(fromCursor(cur));
         }
         return list;

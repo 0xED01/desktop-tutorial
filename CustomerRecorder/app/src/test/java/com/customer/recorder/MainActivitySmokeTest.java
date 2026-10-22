@@ -38,7 +38,7 @@ public class MainActivitySmokeTest {
         Button save = find(root, Button.class, "保存记录");
         assertEquals(View.VISIBLE, ((View) save.getParent()).getVisibility());
         save.performClick();
-        List<Customer> all = new CustomerDb(a).query("", 0, 0, Long.MAX_VALUE, "");
+        List<Customer> all = new CustomerDb(a).query("", 0, null, null, "");
         assertEquals(1, all.size());
         assertEquals("胡雅萍", all.get(0).name);
         assertTrue(textExists(root, "胡雅萍"));
@@ -54,7 +54,7 @@ public class MainActivitySmokeTest {
         ViewGroup mobileRow = rowAfterLabel(root, "手机银行");
         find(mobileRow, TextView.class, "已开通").performClick();
         find(root, Button.class, "保存记录").performClick();
-        Customer c = new CustomerDb(a).query("", 0, 0, Long.MAX_VALUE, "").get(0);
+        Customer c = new CustomerDb(a).query("", 0, null, null, "").get(0);
         assertEquals(MessageParser.OPENED, c.mobileBank);
         assertEquals(MessageParser.NOT_OPENED, c.debitCard);
     }
@@ -78,11 +78,41 @@ public class MainActivitySmokeTest {
         assertEquals("45", cost.getText().toString());
         cost.setText("50");
         find(root, Button.class, "保存记录").performClick();
-        Customer c = new CustomerDb(a).query("", 0, 0, Long.MAX_VALUE, "").get(0);
+        Customer c = new CustomerDb(a).query("", 0, null, null, "").get(0);
         assertEquals("扫码送油", c.activity);
         assertEquals("食用油", c.gift);
         assertEquals(50, c.giftCost, 0.001);
         assertEquals("食用油", gift.getText().toString());
+    }
+
+    /** 列表按首次审批日期排序、分组，而不是录入时间。 */
+    @Test
+    public void groupsByApprovalDate() {
+        android.content.Context ctx = ApplicationProvider.getApplicationContext();
+        CustomerDb db = new CustomerDb(ctx);
+        String[][] rows = {{"早审批", "2026-09-01"}, {"晚审批", "2026-10-20"}, {"无日期", ""}};
+        long t = 1000;
+        for (String[] r : rows) {
+            Customer c = new Customer();
+            c.name = r[0];
+            c.approveDate = r[1];
+            c.createdAt = t--;  // 录入顺序与审批顺序相反
+            db.upsert(c);
+        }
+        List<Customer> all = db.query("", 0, null, null, "");
+        assertEquals("晚审批", all.get(0).name);
+        assertEquals("早审批", all.get(1).name);
+        assertEquals("无日期", all.get(2).name);
+        List<Customer> oct = db.query("", 0, "2026-10-01", null, "");
+        assertEquals(1, oct.size());
+        assertEquals("晚审批", oct.get(0).name);
+        assertEquals("2026-09-24", MessageParser.normalizeDate("2026年9月24日"));
+        assertEquals("2026-09-24", MessageParser.normalizeDate("2026/9/24"));
+
+        MainActivity a = Robolectric.buildActivity(MainActivity.class).setup().get();
+        View root = a.findViewById(android.R.id.content);
+        assertTrue(textExists(root, "审批 10月20日"));
+        assertTrue(textExists(root, "审批日期未填"));
     }
 
     private static ViewGroup rowAfterLabel(View v, String label) {
@@ -112,7 +142,7 @@ public class MainActivitySmokeTest {
         old.execSQL("INSERT INTO customers (name, product, amount, created_at) VALUES ('张三','随e贷',1000,1)");
         old.setVersion(1);
         old.close();
-        List<Customer> all = new CustomerDb(ctx).query("", 0, 0, Long.MAX_VALUE, "");
+        List<Customer> all = new CustomerDb(ctx).query("", 0, null, null, "");
         assertEquals(1, all.size());
         assertEquals("张三", all.get(0).name);
         assertEquals(MessageParser.UNKNOWN, all.get(0).creditCard);

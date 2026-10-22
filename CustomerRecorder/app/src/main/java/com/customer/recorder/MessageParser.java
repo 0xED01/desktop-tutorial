@@ -96,6 +96,15 @@ public final class MessageParser {
         return c;
     }
 
+    /** 把 2026/9/24、2026年9月24日 等写法统一成 2026-09-24；认不出时原样返回。 */
+    public static String normalizeDate(String s) {
+        if (s == null) return "";
+        Matcher d = ANY_DATE.matcher(s);
+        if (!d.find()) return s.trim();
+        return String.format("%s-%02d-%02d", d.group(1),
+                Integer.parseInt(d.group(2)), Integer.parseInt(d.group(3)));
+    }
+
     static void splitNameProduct(String s, Customer c) {
         for (String p : PRODUCTS) {
             int i = s.indexOf(p);

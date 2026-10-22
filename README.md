@@ -6,7 +6,7 @@ Write your name on line 6, save it, and then head back to GitHub Desktop.
 
 ## 客户信息记录 Android App
 
-- 安装包：[`客户信息记录-v2.3.apk`](客户信息记录-v2.3.apk)（Android 7.0 及以上）
+- 安装包：[`客户信息记录-v2.4.apk`](客户信息记录-v2.4.apk)（Android 7.0 及以上）
 - 源码：`CustomerRecorder/`，构建命令：`cd CustomerRecorder && ./gradlew assembleRelease`
 
 使用：复制银行审批提示 → 打开 App 点“一键粘贴保存”（或长按输入框粘贴，会自动识别保存）。
@@ -32,3 +32,6 @@ Write your name on line 6, save it, and then head back to GitHub Desktop.
 
 ### v2.3 更新
 - 录入时直接显示礼品和礼品成本输入框：选活动自动带出，可改；不选活动也能单独填
+
+### v2.4 更新
+- 客户按首次审批通过日期分组和排序；今天/昨天/本周/本月筛选也按审批日期
