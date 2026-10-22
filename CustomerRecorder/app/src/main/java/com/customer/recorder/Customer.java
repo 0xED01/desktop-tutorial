@@ -16,6 +16,9 @@ public class Customer {
     public String debitCard = MessageParser.UNKNOWN;
     /** 手机银行：已开通 / 未开通 / 未知 */
     public String mobileBank = MessageParser.UNKNOWN;
+    /** 信用卡：已开通 / 未开通 / 未知 */
+    public String creditCard = MessageParser.UNKNOWN;
+    public String phone = "";
     /** 扫码活动名称 */
     public String activity = "";
     public String gift = "";

@@ -13,9 +13,24 @@ import java.util.List;
 public class CustomerDb extends SQLiteOpenHelper {
 
     private static final String TABLE = "customers";
+    private static final String ACTIVITIES = "activities";
+
+    public static final int FILTER_ALL = 0;
+    public static final int FILTER_NO_DEBIT = 1;
+    public static final int FILTER_NO_MOBILE = 2;
+    public static final int FILTER_NO_CREDIT = 3;
+    public static final int FILTER_GIFT_PENDING = 4;
+
+    /** 扫码活动：名称、礼品、单个礼品成本。 */
+    public static class Act {
+        public long id;
+        public String name = "";
+        public String gift = "";
+        public double cost;
+    }
 
     public CustomerDb(Context context) {
-        super(context, "customers.db", null, 2);
+        super(context, "customers.db", null, 3);
     }
 
     @Override
@@ -26,11 +41,13 @@ public class CustomerDb extends SQLiteOpenHelper {
                 + "status TEXT, debit_card TEXT, mobile_bank TEXT, note TEXT, raw TEXT,"
                 + "created_at INTEGER)");
         addV2Columns(db);
+        addV3Columns(db);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         if (oldVersion < 2) addV2Columns(db);
+        if (oldVersion < 3) addV3Columns(db);
     }
 
     private static void addV2Columns(SQLiteDatabase db) {
@@ -39,6 +56,21 @@ public class CustomerDb extends SQLiteOpenHelper {
         db.execSQL("ALTER TABLE " + TABLE + " ADD COLUMN gift_cost REAL DEFAULT 0");
         db.execSQL("ALTER TABLE " + TABLE + " ADD COLUMN gift_given INTEGER DEFAULT 0");
     }
+
+    private static void addV3Columns(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE " + TABLE + " ADD COLUMN phone TEXT DEFAULT ''");
+        db.execSQL("ALTER TABLE " + TABLE + " ADD COLUMN credit_card TEXT DEFAULT '"
+                + MessageParser.UNKNOWN + "'");
+        db.execSQL("CREATE TABLE " + ACTIVITIES + " ("
+                + "id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, gift TEXT,"
+                + "cost REAL, created_at INTEGER)");
+        // 旧版本里填过的活动自动加入活动列表
+        db.execSQL("INSERT OR IGNORE INTO " + ACTIVITIES + " (name, gift, cost, created_at)"
+                + " SELECT activity, MAX(gift), MAX(gift_cost), MAX(created_at) FROM " + TABLE
+                + " WHERE activity<>'' GROUP BY activity");
+    }
+
+    // ---------------- 客户 ----------------
 
     /**
      * 保存记录。姓名+产品+首次审批日期相同视为同一条，更新而不重复添加。
@@ -55,13 +87,17 @@ public class CustomerDb extends SQLiteOpenHelper {
         }
         ContentValues v = toValues(c);
         if (existing >= 0) {
-            // 已有记录只更新审批信息，保留用户填写的活动、礼品、备注
+            // 已有记录：只更新新填的内容，保留之前录入的备注、礼品发放等
             v.remove("note");
             v.remove("created_at");
-            v.remove("activity");
-            v.remove("gift");
-            v.remove("gift_cost");
             v.remove("gift_given");
+            if (c.activity.isEmpty()) {
+                v.remove("activity");
+                v.remove("gift");
+                v.remove("gift_cost");
+            }
+            if (c.phone.isEmpty()) v.remove("phone");
+            if (MessageParser.UNKNOWN.equals(c.creditCard)) v.remove("credit_card");
             db.update(TABLE, v, "id=?", new String[]{String.valueOf(existing)});
             c.id = existing;
             return false;
@@ -79,27 +115,44 @@ public class CustomerDb extends SQLiteOpenHelper {
         getWritableDatabase().delete(TABLE, "id=?", new String[]{String.valueOf(id)});
     }
 
-    public List<Customer> query(String keyword, int filter) {
-        StringBuilder where = new StringBuilder("1=1");
+    /**
+     * @param from     记录时间下限（含），毫秒
+     * @param to       记录时间上限（不含），毫秒
+     * @param activity 为空表示全部活动
+     */
+    public List<Customer> query(String keyword, int filter, long from, long to, String activity) {
+        StringBuilder where = new StringBuilder("created_at>=? AND created_at<?");
         List<String> args = new ArrayList<>();
+        args.add(String.valueOf(from));
+        args.add(String.valueOf(to));
         if (keyword != null && !keyword.trim().isEmpty()) {
-            where.append(" AND (name LIKE ? OR product LIKE ? OR note LIKE ?"
+            where.append(" AND (name LIKE ? OR product LIKE ? OR note LIKE ? OR phone LIKE ?"
                     + " OR activity LIKE ? OR gift LIKE ?)");
             String k = "%" + keyword.trim() + "%";
-            for (int i = 0; i < 5; i++) args.add(k);
+            for (int i = 0; i < 6; i++) args.add(k);
         }
-        if (filter == 1) {
-            where.append(" AND debit_card=?");
-            args.add(MessageParser.NOT_OPENED);
-        } else if (filter == 2) {
-            where.append(" AND mobile_bank=?");
-            args.add(MessageParser.NOT_OPENED);
-        } else if (filter == 3) {
-            where.append(" AND (debit_card=? OR mobile_bank=?)");
-            args.add(MessageParser.NOT_OPENED);
-            args.add(MessageParser.NOT_OPENED);
-        } else if (filter == 4) {
-            where.append(" AND gift<>'' AND gift_given=0");
+        if (activity != null && !activity.isEmpty()) {
+            where.append(" AND activity=?");
+            args.add(activity);
+        }
+        switch (filter) {
+            case FILTER_NO_DEBIT:
+                where.append(" AND debit_card=?");
+                args.add(MessageParser.NOT_OPENED);
+                break;
+            case FILTER_NO_MOBILE:
+                where.append(" AND mobile_bank=?");
+                args.add(MessageParser.NOT_OPENED);
+                break;
+            case FILTER_NO_CREDIT:
+                where.append(" AND credit_card=?");
+                args.add(MessageParser.NOT_OPENED);
+                break;
+            case FILTER_GIFT_PENDING:
+                where.append(" AND gift<>'' AND gift_given=0");
+                break;
+            default:
+                break;
         }
         List<Customer> list = new ArrayList<>();
         try (Cursor cur = getReadableDatabase().query(TABLE, null, where.toString(),
@@ -120,6 +173,68 @@ public class CustomerDb extends SQLiteOpenHelper {
         return list;
     }
 
+    // ---------------- 活动 ----------------
+
+    public List<Act> activities() {
+        List<Act> list = new ArrayList<>();
+        try (Cursor cur = getReadableDatabase().query(ACTIVITIES, null, null, null, null, null,
+                "created_at DESC, id DESC")) {
+            while (cur.moveToNext()) {
+                Act a = new Act();
+                a.id = cur.getLong(cur.getColumnIndexOrThrow("id"));
+                a.name = str(cur, "name");
+                a.gift = str(cur, "gift");
+                a.cost = cur.getDouble(cur.getColumnIndexOrThrow("cost"));
+                list.add(a);
+            }
+        }
+        return list;
+    }
+
+    public Act findActivity(String name) {
+        if (name == null || name.isEmpty()) return null;
+        for (Act a : activities()) {
+            if (a.name.equals(name)) return a;
+        }
+        return null;
+    }
+
+    /** 新增或修改活动；改名时同步更新客户记录里的活动名。 */
+    public void saveActivity(Act a, String oldName) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues v = new ContentValues();
+        v.put("name", a.name);
+        v.put("gift", a.gift);
+        v.put("cost", a.cost);
+        if (a.id > 0) {
+            db.update(ACTIVITIES, v, "id=?", new String[]{String.valueOf(a.id)});
+            if (oldName != null && !oldName.equals(a.name)) {
+                ContentValues cv = new ContentValues();
+                cv.put("activity", a.name);
+                db.update(TABLE, cv, "activity=?", new String[]{oldName});
+            }
+        } else {
+            v.put("created_at", System.currentTimeMillis());
+            a.id = db.insertWithOnConflict(ACTIVITIES, null, v, SQLiteDatabase.CONFLICT_REPLACE);
+        }
+    }
+
+    public void deleteActivity(long id) {
+        getWritableDatabase().delete(ACTIVITIES, "id=?", new String[]{String.valueOf(id)});
+    }
+
+    /** @return {客户数, 礼品成本合计, 礼品未送人数} */
+    public double[] activityStats(String name) {
+        try (Cursor cur = getReadableDatabase().rawQuery("SELECT COUNT(*), TOTAL(gift_cost),"
+                + " TOTAL(CASE WHEN gift<>'' AND gift_given=0 THEN 1 ELSE 0 END)"
+                + " FROM " + TABLE + " WHERE activity=?", new String[]{name})) {
+            cur.moveToFirst();
+            return new double[]{cur.getInt(0), cur.getDouble(1), cur.getDouble(2)};
+        }
+    }
+
+    // ---------------- 转换 ----------------
+
     private static ContentValues toValues(Customer c) {
         ContentValues v = new ContentValues();
         v.put("name", c.name);
@@ -130,6 +245,8 @@ public class CustomerDb extends SQLiteOpenHelper {
         v.put("status", c.status);
         v.put("debit_card", c.debitCard);
         v.put("mobile_bank", c.mobileBank);
+        v.put("credit_card", c.creditCard);
+        v.put("phone", c.phone);
         v.put("note", c.note);
         v.put("activity", c.activity);
         v.put("gift", c.gift);
@@ -151,6 +268,8 @@ public class CustomerDb extends SQLiteOpenHelper {
         c.status = str(cur, "status");
         c.debitCard = str(cur, "debit_card");
         c.mobileBank = str(cur, "mobile_bank");
+        c.creditCard = str(cur, "credit_card");
+        c.phone = str(cur, "phone");
         c.note = str(cur, "note");
         c.activity = str(cur, "activity");
         c.gift = str(cur, "gift");

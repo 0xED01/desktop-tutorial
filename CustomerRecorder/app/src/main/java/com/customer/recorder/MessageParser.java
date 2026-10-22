@@ -33,6 +33,7 @@ public final class MessageParser {
             "首次审批通过的?时间\\s*(?:为|是)?\\s*[:：]?\\s*(\\d{4})\\s*[年\\-/.]\\s*(\\d{1,2})\\s*[月\\-/.]\\s*(\\d{1,2})");
     private static final Pattern ANY_DATE =
             Pattern.compile("(\\d{4})\\s*[年\\-/.]\\s*(\\d{1,2})\\s*[月\\-/.]\\s*(\\d{1,2})");
+    private static final Pattern PHONE = Pattern.compile("(?<!\\d)1[3-9]\\d{9}(?!\\d)");
     private static final Pattern SENTENCE = Pattern.compile("[，,。！!；;\\n]");
 
     private MessageParser() {
@@ -89,6 +90,9 @@ public final class MessageParser {
 
         c.debitCard = openState(t, "借记卡");
         c.mobileBank = openState(t, "手机银行");
+        c.creditCard = openState(t, "信用卡");
+        Matcher p = PHONE.matcher(t);
+        if (p.find()) c.phone = p.group();
         return c;
     }
 

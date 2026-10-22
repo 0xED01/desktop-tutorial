@@ -8,8 +8,6 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Color;
-import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -21,23 +19,18 @@ import android.text.Editable;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.text.TextWatcher;
-import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.AdapterView;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
-import android.widget.BaseAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.ListView;
 import android.widget.ScrollView;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -48,45 +41,76 @@ import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.function.Consumer;
 
 public class MainActivity extends Activity {
 
-    private static final int MENU_EXPORT = 1;
-    private static final int MENU_SHARE = 2;
-    private static final int MENU_AUTO_CLIP = 3;
-    private static final String[] FILTERS = {"全部客户", "未开通借记卡", "未开通手机银行",
-            "借记卡或手机银行未开通", "礼品未送"};
+    private static final int MENU_ACTIVITIES = 1;
+    private static final int MENU_EXPORT = 2;
+    private static final int MENU_SHARE = 3;
+    private static final int MAX_SHOWN = 300;
+    private static final long DAY = 24L * 3600 * 1000;
+
+    private static final String[] DATE_FILTERS = {"全部", "今天", "昨天", "本周", "本月"};
+    private static final String[] STATUS_FILTERS = {
+            "全部", "未开借记卡", "未开手机银行", "未开信用卡", "礼品未送"};
     private static final String[] OPEN_STATES = {
             MessageParser.NOT_OPENED, MessageParser.OPENED, MessageParser.UNKNOWN};
-    private static final int RED = Color.parseColor("#C62828");
-    private static final int GREEN = Color.parseColor("#2E7D32");
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final DecimalFormat money = new DecimalFormat("#,##0.##");
     private final SimpleDateFormat timeFormat =
             new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA);
+    private final SimpleDateFormat dayFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.CHINA);
 
     private CustomerDb db;
     private SharedPreferences prefs;
-    private TextView activityBar;
-    private EditText input;
-    private EditText search;
-    private Spinner filter;
-    private TextView stats;
-    private CustomerAdapter adapter;
-    private List<Customer> data = new ArrayList<>();
 
-    private final Runnable autoSave = () -> saveFromText(input.getText().toString(), true);
+    // 录入区
+    private EditText input;
+    private LinearLayout preview;
+    private TextView previewInfo;
+    private FlowLayout previewTags;
+    private LinearLayout phoneBox;
+    private EditText phoneInput;
+    private FlowLayout creditChips;
+    private FlowLayout entryActivityChips;
+    private TextView entryGiftInfo;
+    private List<Customer> pending = new ArrayList<>();
+    private final String[] entryCredit = {MessageParser.UNKNOWN};
+    private final String[] entryActivity = {""};
+
+    // 筛选区
+    private EditText search;
+    private FlowLayout dateChips;
+    private FlowLayout statusChips;
+    private FlowLayout activityFilterChips;
+    private final String[] dateFilter = {DATE_FILTERS[0]};
+    private final String[] statusFilter = {STATUS_FILTERS[0]};
+    private final String[] activityFilter = {""};
+    private TextView stats;
+    private LinearLayout listContainer;
+
+    private final Runnable parseRunnable = this::updatePreview;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         db = new CustomerDb(this);
         prefs = getSharedPreferences("settings", MODE_PRIVATE);
+        String last = prefs.getString("last_activity", "");
+        entryActivity[0] = db.findActivity(last) == null ? "" : last;
         setContentView(buildLayout());
+        renderActivityChips();
+        renderCreditChips();
+        bindChoices(dateChips, DATE_FILTERS, dateFilter, this::refresh);
+        bindChoices(statusChips, STATUS_FILTERS, statusFilter, this::refresh);
         refresh();
         handleShareIntent(getIntent());
     }
@@ -97,460 +121,667 @@ public class MainActivity extends Activity {
         handleShareIntent(intent);
     }
 
-    /** 回到 App 时自动读取剪贴板，有新的审批信息就直接保存。 */
-    @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-        if (!hasFocus || !prefs.getBoolean("auto_clip", true)) return;
-        String text = clipboardText();
-        if (text == null || text.equals(prefs.getString("last_clip", ""))) return;
-        if (MessageParser.parseAll(text).isEmpty()) return;
-        saveFromText(text, false);
-    }
-
-    private String clipboardText() {
-        try {
-            ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-            ClipData clip = cm == null ? null : cm.getPrimaryClip();
-            if (clip == null || clip.getItemCount() == 0) return null;
-            CharSequence text = clip.getItemAt(0).coerceToText(this);
-            return text == null || text.length() == 0 ? null : text.toString();
-        } catch (RuntimeException e) {
-            return null;
-        }
-    }
-
+    /** 从其他 App 分享过来的文字放进输入框，由用户确认保存。 */
     private void handleShareIntent(Intent intent) {
         if (intent != null && Intent.ACTION_SEND.equals(intent.getAction())) {
             String text = intent.getStringExtra(Intent.EXTRA_TEXT);
-            if (text != null) saveFromText(text, false);
+            if (text != null) input.setText(text);
         }
     }
 
-    // ---------------- 界面 ----------------
+    // ================= 界面 =================
 
     private View buildLayout() {
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         int pad = dp(12);
-        root.setPadding(pad, pad, pad, 0);
+        root.setPadding(pad, pad, pad, pad);
+        scroll.addView(root);
 
-        activityBar = new TextView(this);
-        activityBar.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        activityBar.setTextColor(Color.parseColor("#0D47A1"));
-        activityBar.setBackgroundColor(Color.parseColor("#E3F2FD"));
-        activityBar.setPadding(dp(10), dp(8), dp(10), dp(8));
-        activityBar.setOnClickListener(v -> showActivitySettings());
-        root.addView(activityBar, new LinearLayout.LayoutParams(-1, -2));
-        updateActivityBar();
+        root.addView(buildEntryCard(), Ui.cardParams(this));
+        root.addView(buildFilterCard(), Ui.cardParams(this));
+        listContainer = new LinearLayout(this);
+        listContainer.setOrientation(LinearLayout.VERTICAL);
+        root.addView(listContainer, new LinearLayout.LayoutParams(-1, -2));
+        return scroll;
+    }
 
-        input = new EditText(this);
-        input.setHint("在这里粘贴审批提示信息，会自动识别并保存（可一次粘贴多条）");
-        input.setMinLines(3);
-        input.setMaxLines(6);
-        input.setGravity(Gravity.TOP | Gravity.START);
-        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+    private View buildEntryCard() {
+        LinearLayout card = Ui.card(this);
+
+        LinearLayout head = new LinearLayout(this);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.addView(Ui.text(this, "录入客户", 17, Ui.TEXT, true),
+                new LinearLayout.LayoutParams(0, -2, 1f));
+        TextView paste = Ui.chip(this, "粘贴", false);
+        paste.setOnClickListener(v -> pasteFromClipboard());
+        TextView clear = Ui.chip(this, "清空", false);
+        clear.setOnClickListener(v -> clearEntry());
+        head.addView(paste);
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-2, -2);
+        clp.leftMargin = dp(8);
+        head.addView(clear, clp);
+        card.addView(head);
+
+        input = Ui.input(this, "长按这里粘贴银行审批提示信息，可一次粘贴多条");
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        input.setMinLines(3);
+        input.setMaxLines(8);
+        input.setGravity(Gravity.TOP | Gravity.START);
         input.addTextChangedListener(new SimpleWatcher() {
             @Override
             public void afterTextChanged(Editable s) {
-                handler.removeCallbacks(autoSave);
-                if (s.length() > 0) handler.postDelayed(autoSave, 700);
+                handler.removeCallbacks(parseRunnable);
+                handler.postDelayed(parseRunnable, 300);
             }
         });
-        root.addView(input, new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(-1, -2);
+        ilp.topMargin = dp(10);
+        card.addView(input, ilp);
 
-        LinearLayout buttons = new LinearLayout(this);
-        buttons.setOrientation(LinearLayout.HORIZONTAL);
-        Button paste = new Button(this);
-        paste.setText("一键粘贴保存");
-        paste.setOnClickListener(v -> pasteFromClipboard());
-        Button save = new Button(this);
-        save.setText("识别保存");
-        save.setOnClickListener(v -> saveFromText(input.getText().toString(), false));
-        Button clear = new Button(this);
-        clear.setText("清空");
-        clear.setOnClickListener(v -> input.setText(""));
-        buttons.addView(paste, new LinearLayout.LayoutParams(0, -2, 1.4f));
-        buttons.addView(save, new LinearLayout.LayoutParams(0, -2, 1f));
-        buttons.addView(clear, new LinearLayout.LayoutParams(0, -2, 0.8f));
-        root.addView(buttons, new LinearLayout.LayoutParams(-1, -2));
+        preview = new LinearLayout(this);
+        preview.setOrientation(LinearLayout.VERTICAL);
+        preview.setVisibility(View.GONE);
 
-        LinearLayout searchRow = new LinearLayout(this);
-        searchRow.setOrientation(LinearLayout.HORIZONTAL);
-        searchRow.setGravity(Gravity.CENTER_VERTICAL);
-        search = new EditText(this);
-        search.setHint("搜索姓名/产品/备注");
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setBackground(Ui.round(this, Ui.GREEN_BG, 10));
+        box.setPadding(dp(12), dp(10), dp(12), dp(10));
+        previewInfo = Ui.text(this, "", 15, Ui.TEXT, false);
+        previewInfo.setLineSpacing(dp(2), 1f);
+        box.addView(previewInfo);
+        previewTags = new FlowLayout(this);
+        previewTags.setPadding(0, dp(8), 0, 0);
+        box.addView(previewTags);
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(-1, -2);
+        blp.topMargin = dp(10);
+        preview.addView(box, blp);
+
+        phoneBox = new LinearLayout(this);
+        phoneBox.setOrientation(LinearLayout.VERTICAL);
+        phoneBox.addView(Ui.label(this, "手机号"));
+        phoneInput = Ui.input(this, "客户手机号（选填）");
+        phoneInput.setInputType(InputType.TYPE_CLASS_PHONE);
+        phoneBox.addView(phoneInput, new LinearLayout.LayoutParams(-1, -2));
+        phoneBox.addView(Ui.label(this, "信用卡"));
+        creditChips = new FlowLayout(this);
+        phoneBox.addView(creditChips);
+        preview.addView(phoneBox);
+
+        preview.addView(Ui.label(this, "扫码活动"));
+        entryActivityChips = new FlowLayout(this);
+        preview.addView(entryActivityChips);
+        entryGiftInfo = Ui.text(this, "", 13, Ui.ORANGE, false);
+        entryGiftInfo.setPadding(0, dp(6), 0, 0);
+        preview.addView(entryGiftInfo);
+
+        Button save = Ui.button(this, "保存记录", true);
+        save.setOnClickListener(v -> saveEntry());
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(-1, -2);
+        slp.topMargin = dp(14);
+        preview.addView(save, slp);
+
+        card.addView(preview);
+        return card;
+    }
+
+    private View buildFilterCard() {
+        LinearLayout card = Ui.card(this);
+        search = Ui.input(this, "搜索 姓名 / 电话 / 产品 / 活动 / 备注");
         search.setSingleLine(true);
-        search.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         search.addTextChangedListener(new SimpleWatcher() {
             @Override
             public void afterTextChanged(Editable s) {
                 refresh();
             }
         });
-        filter = new Spinner(this);
-        ArrayAdapter<String> fa = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, FILTERS);
-        fa.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        filter.setAdapter(fa);
-        filter.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
-                refresh();
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> p) {
-            }
-        });
-        searchRow.addView(search, new LinearLayout.LayoutParams(0, -2, 1f));
-        searchRow.addView(filter, new LinearLayout.LayoutParams(-2, -2));
-        root.addView(searchRow, new LinearLayout.LayoutParams(-1, -2));
-
-        stats = new TextView(this);
-        stats.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        stats.setPadding(0, dp(4), 0, dp(4));
-        root.addView(stats);
-
-        ListView list = new ListView(this);
-        adapter = new CustomerAdapter();
-        list.setAdapter(adapter);
-        list.setOnItemClickListener((p, v, pos, id) -> showDetail(data.get(pos)));
-        list.setOnItemLongClickListener((p, v, pos, id) -> {
-            confirmDelete(data.get(pos));
-            return true;
-        });
-        TextView empty = new TextView(this);
-        empty.setText("暂无记录\n复制银行审批提示后，打开本App即自动记录\n（或点“一键粘贴保存”）");
-        empty.setGravity(Gravity.CENTER);
-        empty.setPadding(0, dp(40), 0, 0);
-        root.addView(empty, new LinearLayout.LayoutParams(-1, -2));
-        list.setEmptyView(empty);
-        root.addView(list, new LinearLayout.LayoutParams(-1, 0, 1f));
-        return root;
+        card.addView(search, new LinearLayout.LayoutParams(-1, -2));
+        card.addView(Ui.label(this, "日期"));
+        dateChips = new FlowLayout(this);
+        card.addView(dateChips);
+        card.addView(Ui.label(this, "状态"));
+        statusChips = new FlowLayout(this);
+        card.addView(statusChips);
+        card.addView(Ui.label(this, "扫码活动（长按活动可修改）"));
+        activityFilterChips = new FlowLayout(this);
+        card.addView(activityFilterChips);
+        stats = Ui.text(this, "", 14, Ui.TEXT, false);
+        stats.setBackground(Ui.round(this, Ui.BLUE_BG, 10));
+        stats.setPadding(dp(12), dp(10), dp(12), dp(10));
+        stats.setLineSpacing(dp(2), 1f);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.topMargin = dp(14);
+        card.addView(stats, lp);
+        return card;
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add(0, MENU_EXPORT, 0, "导出Excel(CSV)")
-                .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
-        menu.add(0, MENU_SHARE, 1, "分享当前列表");
-        menu.add(0, MENU_AUTO_CLIP, 2, "打开App自动读取剪贴板")
-                .setCheckable(true).setChecked(prefs.getBoolean("auto_clip", true));
+        menu.add(0, MENU_ACTIVITIES, 0, "活动管理").setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        menu.add(0, MENU_EXPORT, 1, "导出Excel(CSV)");
+        menu.add(0, MENU_SHARE, 2, "分享当前列表");
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == MENU_EXPORT) {
-            exportCsv();
-            return true;
-        } else if (item.getItemId() == MENU_SHARE) {
-            Intent send = new Intent(Intent.ACTION_SEND);
-            send.setType("text/plain");
-            send.putExtra(Intent.EXTRA_TEXT, buildCsv(data, ","));
-            startActivity(Intent.createChooser(send, "分享客户列表"));
-            return true;
-        } else if (item.getItemId() == MENU_AUTO_CLIP) {
-            boolean on = !item.isChecked();
-            item.setChecked(on);
-            prefs.edit().putBoolean("auto_clip", on).apply();
-            toast(on ? "已开启：打开App自动记录剪贴板里的审批信息" : "已关闭自动读取剪贴板");
-            return true;
+        switch (item.getItemId()) {
+            case MENU_ACTIVITIES:
+                showActivityManager();
+                return true;
+            case MENU_EXPORT:
+                exportCsv();
+                return true;
+            case MENU_SHARE:
+                Intent send = new Intent(Intent.ACTION_SEND);
+                send.setType("text/plain");
+                send.putExtra(Intent.EXTRA_TEXT, buildCsv(currentData(), ","));
+                startActivity(Intent.createChooser(send, "分享客户列表"));
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
         }
-        return super.onOptionsItemSelected(item);
     }
 
-    // ---------------- 业务 ----------------
+    // ================= 选项 =================
+
+    /** 单选标签组：点击后更新 holder[0] 并重新绘制。 */
+    private void bindChoices(FlowLayout box, String[] items, String[] holder, Runnable onChange) {
+        box.removeAllViews();
+        for (String it : items) {
+            TextView chip = Ui.chip(this, it, it.equals(holder[0]));
+            chip.setOnClickListener(v -> {
+                holder[0] = it;
+                bindChoices(box, items, holder, onChange);
+                if (onChange != null) onChange.run();
+            });
+            box.addView(chip);
+        }
+    }
+
+    /** 活动标签组，最后带一个“＋ 新增活动”。 */
+    private void bindActivityChips(FlowLayout box, String noneLabel, String[] holder,
+                                   boolean manage, Runnable onChange) {
+        box.removeAllViews();
+        TextView none = Ui.chip(this, noneLabel, holder[0].isEmpty());
+        none.setOnClickListener(v -> {
+            holder[0] = "";
+            bindActivityChips(box, noneLabel, holder, manage, onChange);
+            if (onChange != null) onChange.run();
+        });
+        box.addView(none);
+        for (CustomerDb.Act a : db.activities()) {
+            TextView chip = Ui.chip(this, a.name, a.name.equals(holder[0]));
+            chip.setOnClickListener(v -> {
+                holder[0] = a.name;
+                bindActivityChips(box, noneLabel, holder, manage, onChange);
+                if (onChange != null) onChange.run();
+            });
+            if (manage) {
+                chip.setOnLongClickListener(v -> {
+                    String before = a.name;
+                    showActivityEditor(a, saved -> {
+                        if (holder[0].equals(before)) holder[0] = saved == null ? "" : saved.name;
+                        renderActivityChips();
+                        refresh();
+                    });
+                    return true;
+                });
+            }
+            box.addView(chip);
+        }
+        TextView add = Ui.addChip(this, "＋ 新增活动");
+        add.setOnClickListener(v -> showActivityEditor(null, saved -> {
+            if (saved != null) holder[0] = saved.name;
+            renderActivityChips();
+            bindActivityChips(box, noneLabel, holder, manage, onChange);
+            if (onChange != null) onChange.run();
+        }));
+        box.addView(add);
+    }
+
+    private void renderActivityChips() {
+        bindActivityChips(entryActivityChips, "不参加", entryActivity, false, () -> {
+            prefs.edit().putString("last_activity", entryActivity[0]).apply();
+            updateEntryGiftInfo();
+        });
+        bindActivityChips(activityFilterChips, "全部活动", activityFilter, true, this::refresh);
+        updateEntryGiftInfo();
+    }
+
+    private void renderCreditChips() {
+        bindChoices(creditChips, OPEN_STATES, entryCredit, null);
+    }
+
+    private void updateEntryGiftInfo() {
+        CustomerDb.Act a = db.findActivity(entryActivity[0]);
+        if (a == null || a.gift.isEmpty()) {
+            entryGiftInfo.setVisibility(View.GONE);
+        } else {
+            entryGiftInfo.setVisibility(View.VISIBLE);
+            entryGiftInfo.setText("礼品：" + a.gift + " · 成本 " + money.format(a.cost) + " 元");
+        }
+    }
+
+    // ================= 录入 =================
 
     private void pasteFromClipboard() {
-        String text = clipboardText();
-        if (text == null) {
+        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        ClipData clip = cm == null ? null : cm.getPrimaryClip();
+        CharSequence text = clip == null || clip.getItemCount() == 0
+                ? null : clip.getItemAt(0).coerceToText(this);
+        if (text == null || text.length() == 0) {
             toast("剪贴板是空的，请先复制审批提示信息");
             return;
         }
-        handler.removeCallbacks(autoSave);
-        saveFromText(text, false);
+        input.setText(text);
+        input.setSelection(input.length());
     }
 
-    // ---------------- 当前活动（新记录自动带上） ----------------
-
-    private String curActivity() {
-        return prefs.getString("cur_activity", "");
-    }
-
-    private String curGift() {
-        return prefs.getString("cur_gift", "");
-    }
-
-    private double curCost() {
-        return prefs.getFloat("cur_cost", 0f);
-    }
-
-    private void updateActivityBar() {
-        if (curActivity().isEmpty() && curGift().isEmpty()) {
-            activityBar.setText("当前活动：未设置（点这里设置活动/礼品/成本，新记录自动带上）");
-        } else {
-            activityBar.setText("当前活动：" + or(curActivity(), "无")
-                    + "｜礼品：" + or(curGift(), "无")
-                    + "｜成本：" + money.format(curCost()) + "元   ✎修改");
-        }
-    }
-
-    private static String or(String s, String def) {
-        return s == null || s.isEmpty() ? def : s;
-    }
-
-    private void showActivitySettings() {
-        LinearLayout form = new LinearLayout(this);
-        form.setOrientation(LinearLayout.VERTICAL);
-        form.setPadding(dp(20), dp(8), dp(20), 0);
-        AutoCompleteTextView activity = suggestField(form, "扫码活动名称", curActivity(), "activity");
-        AutoCompleteTextView gift = suggestField(form, "礼品", curGift(), "gift");
-        EditText cost = field(form, "礼品成本（元）", curCost() == 0 ? "" : plain(curCost()),
-                InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        bindGiftCost(gift, cost);
-        TextView tip = new TextView(this);
-        tip.setText("设置后，之后粘贴记录的客户都会自动带上这个活动和礼品，不用每次填写。");
-        tip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        form.addView(tip);
-
-        new AlertDialog.Builder(this)
-                .setTitle("设置当前活动")
-                .setView(form)
-                .setPositiveButton("保存", (d, w) -> {
-                    String g = gift.getText().toString().trim();
-                    double c = parseMoney(cost.getText().toString());
-                    prefs.edit()
-                            .putString("cur_activity", activity.getText().toString().trim())
-                            .putString("cur_gift", g)
-                            .putFloat("cur_cost", (float) c)
-                            .apply();
-                    rememberGiftCost(g, c);
-                    updateActivityBar();
-                })
-                .setNeutralButton("清除", (d, w) -> {
-                    prefs.edit().remove("cur_activity").remove("cur_gift").remove("cur_cost").apply();
-                    updateActivityBar();
-                })
-                .setNegativeButton("取消", null)
-                .show();
-    }
-
-    /** 选择/输入已用过的礼品时，自动填入上次的成本。 */
-    private void bindGiftCost(AutoCompleteTextView gift, EditText cost) {
-        gift.setOnItemClickListener((p, v, pos, id) -> fillCost(gift, cost));
-        gift.setOnFocusChangeListener((v, has) -> {
-            if (!has) fillCost(gift, cost);
-        });
-    }
-
-    private void fillCost(AutoCompleteTextView gift, EditText cost) {
-        String key = "giftcost_" + gift.getText().toString().trim();
-        if (prefs.contains(key)) cost.setText(plain(prefs.getFloat(key, 0f)));
-    }
-
-    private void rememberGiftCost(String gift, double cost) {
-        if (!gift.isEmpty()) prefs.edit().putFloat("giftcost_" + gift, (float) cost).apply();
-    }
-
-    private static double parseMoney(String s) {
-        try {
-            return Double.parseDouble(s.trim().replace(",", ""));
-        } catch (NumberFormatException e) {
-            return 0;
-        }
-    }
-
-    private static String plain(double v) {
-        return new DecimalFormat("0.##").format(v);
-    }
-
-    /**
-     * @param auto 由输入框自动触发时为 true：识别不到内容不提示，等待用户继续输入
-     */
-    private void saveFromText(String text, boolean auto) {
-        List<Customer> parsed = MessageParser.parseAll(text);
-        if (parsed.isEmpty()) {
-            if (!auto) {
-                if (input.getText().length() == 0) input.setText(text);
-                toast("没有识别到客户信息，请检查内容格式");
-            }
+    private void updatePreview() {
+        pending = MessageParser.parseAll(input.getText().toString());
+        if (pending.isEmpty()) {
+            preview.setVisibility(View.GONE);
             return;
         }
-        prefs.edit().putString("last_clip", text).apply();
-        int added = 0;
+        preview.setVisibility(View.VISIBLE);
+        StringBuilder sb = new StringBuilder();
+        if (pending.size() > 1) sb.append("识别到 ").append(pending.size()).append(" 位客户\n\n");
+        for (int i = 0; i < pending.size(); i++) {
+            Customer c = pending.get(i);
+            if (i > 0) sb.append("\n\n");
+            sb.append("✔ ").append(c.name).append("  ").append(c.product)
+                    .append("\n额度 ").append(money.format(c.amount)).append(" 元 · 利率 ")
+                    .append(c.rate).append("\n首次审批 ").append(c.approveDate);
+        }
+        previewInfo.setText(sb);
+
+        previewTags.removeAllViews();
+        boolean single = pending.size() == 1;
+        phoneBox.setVisibility(single ? View.VISIBLE : View.GONE);
+        if (single) {
+            Customer c = pending.get(0);
+            previewTags.addView(stateTag("借记卡", c.debitCard));
+            previewTags.addView(stateTag("手机银行", c.mobileBank));
+            if (!c.phone.isEmpty() && phoneInput.length() == 0) phoneInput.setText(c.phone);
+            if (!MessageParser.UNKNOWN.equals(c.creditCard)) {
+                entryCredit[0] = c.creditCard;
+                renderCreditChips();
+            }
+        }
+        previewTags.setVisibility(single ? View.VISIBLE : View.GONE);
+    }
+
+    private void saveEntry() {
+        handler.removeCallbacks(parseRunnable);
+        updatePreview();
+        if (pending.isEmpty()) {
+            toast("没有识别到客户信息，请检查内容");
+            return;
+        }
+        CustomerDb.Act act = db.findActivity(entryActivity[0]);
+        String phone = phoneInput.getText().toString().trim();
         int updated = 0;
         StringBuilder names = new StringBuilder();
-        for (Customer c : parsed) {
-            // 新记录自动带上当前活动；已有记录的活动信息保持不变
-            c.activity = curActivity();
-            c.gift = curGift();
-            c.giftCost = curGift().isEmpty() ? 0 : curCost();
-            if (db.upsert(c)) added++;
-            else updated++;
+        for (Customer c : pending) {
+            if (act != null) {
+                c.activity = act.name;
+                c.gift = act.gift;
+                c.giftCost = act.gift.isEmpty() ? 0 : act.cost;
+            }
+            if (pending.size() == 1) {
+                if (!phone.isEmpty()) c.phone = phone;
+                c.creditCard = entryCredit[0];
+            }
+            if (!db.upsert(c)) updated++;
             if (names.length() > 0) names.append("、");
             names.append(c.name);
         }
-        input.setText("");
-        handler.removeCallbacks(autoSave);
-        search.setText("");
+        clearEntry();
         refresh();
-        String msg = "已记录：" + names;
-        if (updated > 0) msg += "\n（新增" + added + "条，更新已有" + updated + "条）";
+        String msg = "已保存：" + names;
+        if (updated > 0) msg += "（其中 " + updated + " 位已存在，已更新）";
         toast(msg);
     }
 
+    private void clearEntry() {
+        input.setText("");
+        handler.removeCallbacks(parseRunnable);
+        phoneInput.setText("");
+        entryCredit[0] = MessageParser.UNKNOWN;
+        renderCreditChips();
+        pending.clear();
+        preview.setVisibility(View.GONE);
+        InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (imm != null) imm.hideSoftInputFromWindow(input.getWindowToken(), 0);
+        input.clearFocus();
+    }
+
+    // ================= 列表 =================
+
+    private long startOfToday() {
+        Calendar cal = Calendar.getInstance();
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        return cal.getTimeInMillis();
+    }
+
+    private long[] dateRange() {
+        long today = startOfToday();
+        switch (dateFilter[0]) {
+            case "今天":
+                return new long[]{today, Long.MAX_VALUE};
+            case "昨天":
+                return new long[]{today - DAY, today};
+            case "本周":
+                Calendar week = Calendar.getInstance();
+                int sinceMonday = (week.get(Calendar.DAY_OF_WEEK) + 5) % 7;
+                return new long[]{today - sinceMonday * DAY, Long.MAX_VALUE};
+            case "本月":
+                Calendar month = Calendar.getInstance();
+                month.setTimeInMillis(today);
+                month.set(Calendar.DAY_OF_MONTH, 1);
+                return new long[]{month.getTimeInMillis(), Long.MAX_VALUE};
+            default:
+                return new long[]{0, Long.MAX_VALUE};
+        }
+    }
+
+    private List<Customer> currentData() {
+        long[] range = dateRange();
+        int status = indexOf(STATUS_FILTERS, statusFilter[0]);
+        return db.query(search.getText().toString(), status, range[0], range[1], activityFilter[0]);
+    }
+
     private void refresh() {
-        if (adapter == null) return;
-        data = db.query(search.getText().toString(), filter.getSelectedItemPosition());
+        if (listContainer == null) return;
+        List<Customer> data = currentData();
         double total = 0;
-        int noCard = 0;
-        int noMobile = 0;
         double cost = 0;
         int giftPending = 0;
+        int noCard = 0;
+        int noMobile = 0;
+        int noCredit = 0;
+        Map<String, double[]> days = new LinkedHashMap<>();
         for (Customer c : data) {
             total += c.amount;
             cost += c.giftCost;
             if (!c.gift.isEmpty() && !c.giftGiven) giftPending++;
             if (MessageParser.NOT_OPENED.equals(c.debitCard)) noCard++;
             if (MessageParser.NOT_OPENED.equals(c.mobileBank)) noMobile++;
+            if (MessageParser.NOT_OPENED.equals(c.creditCard)) noCredit++;
+            String day = dayFormat.format(new Date(c.createdAt));
+            double[] d = days.get(day);
+            if (d == null) {
+                d = new double[2];
+                days.put(day, d);
+            }
+            d[0]++;
+            d[1] += c.amount;
         }
-        stats.setText("共 " + data.size() + " 位客户，总额度 " + money.format(total)
-                + " 元｜礼品成本 " + money.format(cost) + " 元｜礼品未送 " + giftPending
-                + "\n未开借记卡 " + noCard + "｜未开手机银行 " + noMobile);
-        adapter.notifyDataSetChanged();
+        stats.setText("共 " + data.size() + " 位客户 · 总额度 " + wan(total)
+                + "\n礼品成本 " + money.format(cost) + " 元 · 礼品未送 " + giftPending + " 人"
+                + "\n未开借记卡 " + noCard + " · 未开手机银行 " + noMobile
+                + " · 未开信用卡 " + noCredit);
+
+        listContainer.removeAllViews();
+        if (data.isEmpty()) {
+            TextView empty = Ui.text(this, "暂无记录\n复制银行审批提示，粘贴到上面的输入框即可",
+                    14, Ui.TEXT2, false);
+            empty.setGravity(Gravity.CENTER);
+            empty.setPadding(0, dp(30), 0, dp(30));
+            listContainer.addView(empty);
+            return;
+        }
+        String lastDay = null;
+        for (int i = 0; i < data.size() && i < MAX_SHOWN; i++) {
+            Customer c = data.get(i);
+            String day = dayFormat.format(new Date(c.createdAt));
+            if (!day.equals(lastDay)) {
+                lastDay = day;
+                double[] d = days.get(day);
+                listContainer.addView(dayHeader(day, (int) d[0], d[1]));
+            }
+            listContainer.addView(itemView(c), Ui.cardParams(this));
+        }
+        if (data.size() > MAX_SHOWN) {
+            TextView more = Ui.text(this, "仅显示最近 " + MAX_SHOWN + " 条，请用日期或搜索筛选",
+                    13, Ui.TEXT2, false);
+            more.setGravity(Gravity.CENTER);
+            more.setPadding(0, dp(8), 0, dp(16));
+            listContainer.addView(more);
+        }
     }
 
-    private void showDetail(Customer c) {
-        String msg = "姓名：" + c.name
-                + "\n产品：" + c.product
-                + "\n审批状态：" + c.status
-                + "\n额度：" + money.format(c.amount) + " 元"
-                + "\n利率：" + c.rate
-                + "\n首次审批通过：" + c.approveDate
-                + "\n借记卡：" + c.debitCard
-                + "\n手机银行：" + c.mobileBank
-                + "\n\n扫码活动：" + c.activity
-                + "\n礼品：" + c.gift + (c.gift.isEmpty() ? "" : (c.giftGiven ? "（已送）" : "（未送）"))
-                + "\n礼品成本：" + money.format(c.giftCost) + " 元"
-                + "\n备注：" + c.note
-                + "\n记录时间：" + timeFormat.format(new Date(c.createdAt))
-                + "\n\n原始信息：\n" + c.raw;
+    private View dayHeader(String day, int count, double amount) {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(4), dp(10), dp(4), dp(8));
+        View bar = new View(this);
+        bar.setBackground(Ui.round(this, Ui.PRIMARY, 2));
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(dp(4), dp(16));
+        blp.rightMargin = dp(8);
+        row.addView(bar, blp);
+        row.addView(Ui.text(this, dayLabel(day), 15, Ui.TEXT, true),
+                new LinearLayout.LayoutParams(0, -2, 1f));
+        row.addView(Ui.text(this, count + " 人 · " + wan(amount), 13, Ui.TEXT2, false));
+        return row;
+    }
+
+    private String dayLabel(String day) {
+        long today = startOfToday();
+        String todayStr = dayFormat.format(new Date(today));
+        String yesterday = dayFormat.format(new Date(today - DAY));
+        try {
+            Date d = dayFormat.parse(day);
+            String week = new SimpleDateFormat("EEEE", Locale.CHINA).format(d);
+            String md = day.startsWith(todayStr.substring(0, 4))
+                    ? new SimpleDateFormat("M月d日", Locale.CHINA).format(d)
+                    : new SimpleDateFormat("yyyy年M月d日", Locale.CHINA).format(d);
+            if (day.equals(todayStr)) return md + "  今天";
+            if (day.equals(yesterday)) return md + "  昨天";
+            return md + "  " + week;
+        } catch (Exception e) {
+            return day;
+        }
+    }
+
+    private View itemView(Customer c) {
+        LinearLayout card = Ui.card(this);
+
+        LinearLayout top = new LinearLayout(this);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        top.addView(Ui.text(this, c.name, 18, Ui.TEXT, true));
+        if (!c.product.isEmpty()) {
+            LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(-2, -2);
+            plp.leftMargin = dp(8);
+            top.addView(Ui.tag(this, c.product, Ui.PRIMARY, Ui.RED_BG), plp);
+        }
+        top.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
+        top.addView(Ui.text(this, wan(c.amount), 18, Ui.PRIMARY, true));
+        card.addView(top);
+
+        TextView info = Ui.text(this, "利率 " + c.rate + "   首次审批 " + c.approveDate,
+                13, Ui.TEXT2, false);
+        info.setPadding(0, dp(4), 0, 0);
+        card.addView(info);
+
+        TextView phone;
+        if (c.phone.isEmpty()) {
+            phone = Ui.text(this, "＋ 添加电话", 14, Ui.BLUE, false);
+            phone.setOnClickListener(v -> quickPhone(c));
+        } else {
+            phone = Ui.text(this, "☎ " + c.phone + "  拨打", 14, Ui.BLUE, false);
+            phone.setOnClickListener(v -> startActivity(
+                    new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + c.phone))));
+            phone.setOnLongClickListener(v -> {
+                quickPhone(c);
+                return true;
+            });
+        }
+        phone.setPadding(0, dp(6), dp(12), dp(2));
+        card.addView(phone, new LinearLayout.LayoutParams(-2, -2));
+
+        FlowLayout tags = new FlowLayout(this);
+        tags.setPadding(0, dp(8), 0, 0);
+        tags.addView(stateTag("借记卡", c.debitCard));
+        tags.addView(stateTag("手机银行", c.mobileBank));
+        tags.addView(stateTag("信用卡", c.creditCard));
+        if (!c.activity.isEmpty()) {
+            tags.addView(Ui.tag(this, "活动：" + c.activity, Ui.BLUE, Ui.BLUE_BG));
+        }
+        if (!c.gift.isEmpty()) {
+            TextView gift = Ui.tag(this, "礼品：" + c.gift + " ¥" + money.format(c.giftCost)
+                            + (c.giftGiven ? " ✓已送" : " · 点击标记已送"),
+                    c.giftGiven ? Ui.GREEN : Ui.ORANGE, c.giftGiven ? Ui.GREEN_BG : Ui.ORANGE_BG);
+            gift.setOnClickListener(v -> {
+                c.giftGiven = !c.giftGiven;
+                db.update(c);
+                refresh();
+                toast(c.name + (c.giftGiven ? "：礼品已送" : "：礼品改为未送"));
+            });
+            tags.addView(gift);
+        }
+        card.addView(tags);
+
+        if (!c.note.isEmpty()) {
+            TextView note = Ui.text(this, "备注：" + c.note, 13, Ui.TEXT2, false);
+            note.setPadding(0, dp(6), 0, 0);
+            card.addView(note);
+        }
+
+        card.setOnClickListener(v -> showEdit(c));
+        card.setOnLongClickListener(v -> {
+            confirmDelete(c);
+            return true;
+        });
+        return card;
+    }
+
+    private TextView stateTag(String label, String state) {
+        if (MessageParser.OPENED.equals(state)) {
+            return Ui.tag(this, "✓ " + label, Ui.GREEN, Ui.GREEN_BG);
+        } else if (MessageParser.NOT_OPENED.equals(state)) {
+            return Ui.tag(this, "✗ " + label + "未开", Ui.RED, Ui.RED_BG);
+        }
+        return Ui.tag(this, "? " + label, Ui.TEXT2, Ui.GRAY_BG);
+    }
+
+    private void quickPhone(Customer c) {
+        EditText et = Ui.input(this, "手机号");
+        et.setInputType(InputType.TYPE_CLASS_PHONE);
+        et.setText(c.phone);
+        LinearLayout box = new LinearLayout(this);
+        box.setPadding(dp(20), dp(12), dp(20), 0);
+        box.addView(et, new LinearLayout.LayoutParams(-1, -2));
         new AlertDialog.Builder(this)
-                .setTitle(c.name)
-                .setMessage(msg)
-                .setPositiveButton("编辑", (d, w) -> showEdit(c))
-                .setNeutralButton("删除", (d, w) -> confirmDelete(c))
-                .setNegativeButton(c.giftGiven ? "改为礼品未送" : "礼品已送", (d, w) -> {
-                    c.giftGiven = !c.giftGiven;
+                .setTitle(c.name + " 的手机号")
+                .setView(box)
+                .setPositiveButton("保存", (d, w) -> {
+                    c.phone = et.getText().toString().trim();
                     db.update(c);
                     refresh();
-                    toast(c.name + (c.giftGiven ? "：礼品已送" : "：礼品未送"));
                 })
+                .setNegativeButton("取消", null)
                 .show();
+        et.requestFocus();
     }
+
+    // ================= 编辑客户 =================
 
     private void showEdit(Customer c) {
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
-        form.setPadding(dp(20), dp(8), dp(20), 0);
+        form.setPadding(dp(20), dp(4), dp(20), dp(8));
         EditText name = field(form, "姓名", c.name, InputType.TYPE_CLASS_TEXT);
+        EditText phone = field(form, "手机号", c.phone, InputType.TYPE_CLASS_PHONE);
         EditText product = field(form, "产品", c.product, InputType.TYPE_CLASS_TEXT);
-        EditText amount = field(form, "额度（元）", c.amount == 0 ? "" : money.format(c.amount)
-                .replace(",", ""), InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        EditText amount = field(form, "额度（元）", c.amount == 0 ? "" : plain(c.amount),
+                InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
         EditText rate = field(form, "利率", c.rate, InputType.TYPE_CLASS_TEXT);
         EditText date = field(form, "首次审批通过日期", c.approveDate, InputType.TYPE_CLASS_TEXT);
-        Spinner card = stateSpinner(form, "借记卡", c.debitCard);
-        Spinner mobile = stateSpinner(form, "手机银行", c.mobileBank);
-        AutoCompleteTextView activity = suggestField(form, "扫码活动名称", c.activity, "activity");
-        AutoCompleteTextView gift = suggestField(form, "礼品", c.gift, "gift");
+
+        String[] debit = {c.debitCard};
+        String[] mobile = {c.mobileBank};
+        String[] credit = {c.creditCard};
+        form.addView(Ui.label(this, "借记卡"));
+        FlowLayout debitBox = new FlowLayout(this);
+        form.addView(debitBox);
+        bindChoices(debitBox, OPEN_STATES, debit, null);
+        form.addView(Ui.label(this, "手机银行"));
+        FlowLayout mobileBox = new FlowLayout(this);
+        form.addView(mobileBox);
+        bindChoices(mobileBox, OPEN_STATES, mobile, null);
+        form.addView(Ui.label(this, "信用卡"));
+        FlowLayout creditBox = new FlowLayout(this);
+        form.addView(creditBox);
+        bindChoices(creditBox, OPEN_STATES, credit, null);
+
+        String[] activity = {c.activity};
+        form.addView(Ui.label(this, "扫码活动"));
+        FlowLayout actBox = new FlowLayout(this);
+        form.addView(actBox);
+        EditText gift = field(form, "礼品", c.gift, InputType.TYPE_CLASS_TEXT);
         EditText cost = field(form, "礼品成本（元）", c.giftCost == 0 ? "" : plain(c.giftCost),
                 InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        bindGiftCost(gift, cost);
+        bindActivityChips(actBox, "不参加", activity, false, () -> {
+            CustomerDb.Act a = db.findActivity(activity[0]);
+            gift.setText(a == null ? "" : a.gift);
+            cost.setText(a == null || a.cost == 0 ? "" : plain(a.cost));
+        });
         CheckBox given = new CheckBox(this);
         given.setText("礼品已送");
         given.setChecked(c.giftGiven);
         form.addView(given);
-        EditText note = field(form, "备注（如联系情况）", c.note, InputType.TYPE_CLASS_TEXT
-                | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(form);
 
+        EditText note = field(form, "备注", c.note,
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        TextView raw = Ui.text(this, "记录时间：" + timeFormat.format(new Date(c.createdAt))
+                + "\n原始信息：" + c.raw, 12, Ui.TEXT2, false);
+        raw.setPadding(0, dp(12), 0, 0);
+        raw.setTextIsSelectable(true);
+        form.addView(raw);
+
+        ScrollView sv = new ScrollView(this);
+        sv.addView(form);
         new AlertDialog.Builder(this)
-                .setTitle("编辑客户信息")
-                .setView(scroll)
+                .setTitle("客户详情")
+                .setView(sv)
                 .setPositiveButton("保存", (d, w) -> {
                     c.name = name.getText().toString().trim();
+                    c.phone = phone.getText().toString().trim();
                     c.product = product.getText().toString().trim();
                     c.amount = parseMoney(amount.getText().toString());
                     c.rate = rate.getText().toString().trim();
                     c.approveDate = date.getText().toString().trim();
-                    c.debitCard = OPEN_STATES[card.getSelectedItemPosition()];
-                    c.mobileBank = OPEN_STATES[mobile.getSelectedItemPosition()];
-                    c.activity = activity.getText().toString().trim();
+                    c.debitCard = debit[0];
+                    c.mobileBank = mobile[0];
+                    c.creditCard = credit[0];
+                    c.activity = activity[0];
                     c.gift = gift.getText().toString().trim();
                     c.giftCost = parseMoney(cost.getText().toString());
                     c.giftGiven = given.isChecked();
                     c.note = note.getText().toString().trim();
-                    rememberGiftCost(c.gift, c.giftCost);
                     db.update(c);
                     refresh();
                     toast("已保存");
                 })
+                .setNeutralButton("删除", (d, w) -> confirmDelete(c))
                 .setNegativeButton("取消", null)
                 .show();
     }
 
     private EditText field(LinearLayout form, String label, String value, int type) {
-        TextView tv = new TextView(this);
-        tv.setText(label);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        form.addView(tv);
-        EditText et = new EditText(this);
+        form.addView(Ui.label(this, label));
+        EditText et = Ui.input(this, label);
         et.setInputType(type);
         et.setText(value);
         form.addView(et, new LinearLayout.LayoutParams(-1, -2));
         return et;
-    }
-
-    /** 带历史输入提示的输入框，点一下就能选以前填过的内容。 */
-    private AutoCompleteTextView suggestField(LinearLayout form, String label, String value,
-                                              String column) {
-        TextView tv = new TextView(this);
-        tv.setText(label);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        form.addView(tv);
-        AutoCompleteTextView et = new AutoCompleteTextView(this);
-        et.setSingleLine(true);
-        et.setThreshold(0);
-        et.setAdapter(new ArrayAdapter<>(this,
-                android.R.layout.simple_dropdown_item_1line, db.distinct(column)));
-        et.setText(value);
-        et.setOnClickListener(v -> et.showDropDown());
-        et.setOnFocusChangeListener((v, has) -> {
-            if (has) et.post(et::showDropDown);
-        });
-        form.addView(et, new LinearLayout.LayoutParams(-1, -2));
-        return et;
-    }
-
-    private Spinner stateSpinner(LinearLayout form, String label, String value) {
-        TextView tv = new TextView(this);
-        tv.setText(label);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        form.addView(tv);
-        Spinner sp = new Spinner(this);
-        ArrayAdapter<String> a = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, OPEN_STATES);
-        a.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        sp.setAdapter(a);
-        for (int i = 0; i < OPEN_STATES.length; i++) {
-            if (OPEN_STATES[i].equals(value)) sp.setSelection(i);
-        }
-        form.addView(sp, new LinearLayout.LayoutParams(-1, -2));
-        return sp;
     }
 
     private void confirmDelete(Customer c) {
@@ -565,17 +796,126 @@ public class MainActivity extends Activity {
                 .show();
     }
 
+    // ================= 活动 =================
+
+    private void showActivityManager() {
+        List<CustomerDb.Act> acts = db.activities();
+        String[] rows = new String[acts.size()];
+        for (int i = 0; i < acts.size(); i++) {
+            CustomerDb.Act a = acts.get(i);
+            double[] st = db.activityStats(a.name);
+            rows[i] = a.name + "\n    礼品：" + (a.gift.isEmpty() ? "无" : a.gift + " ¥"
+                    + money.format(a.cost)) + "\n    客户 " + (int) st[0] + " 人 · 礼品成本 "
+                    + money.format(st[1]) + " 元 · 未送 " + (int) st[2] + " 人";
+        }
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
+                .setTitle("活动管理（点击修改）")
+                .setPositiveButton("＋ 新增活动", (d, w) -> showActivityEditor(null, saved -> {
+                    renderActivityChips();
+                    showActivityManager();
+                }))
+                .setNegativeButton("关闭", null);
+        if (acts.isEmpty()) {
+            b.setMessage("还没有活动，点“新增活动”添加");
+        } else {
+            b.setItems(rows, (d, which) -> {
+                String before = acts.get(which).name;
+                showActivityEditor(acts.get(which), saved -> {
+                    if (activityFilter[0].equals(before)) {
+                        activityFilter[0] = saved == null ? "" : saved.name;
+                    }
+                    renderActivityChips();
+                    refresh();
+                    showActivityManager();
+                });
+            });
+        }
+        b.show();
+    }
+
+    /** 新增/修改活动。done 回调参数为保存后的活动，删除时为 null。 */
+    private void showActivityEditor(CustomerDb.Act existing, Consumer<CustomerDb.Act> done) {
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(20), dp(4), dp(20), dp(8));
+        EditText name = field(form, "活动名称", existing == null ? "" : existing.name,
+                InputType.TYPE_CLASS_TEXT);
+        form.addView(Ui.label(this, "礼品（选填）"));
+        AutoCompleteTextView gift = new AutoCompleteTextView(this);
+        gift.setBackground(Ui.round(this, Ui.GRAY_BG, 10));
+        gift.setPadding(dp(12), dp(10), dp(12), dp(10));
+        gift.setSingleLine(true);
+        gift.setThreshold(1);
+        gift.setHint("如：大米、食用油");
+        gift.setAdapter(new ArrayAdapter<>(this,
+                android.R.layout.simple_dropdown_item_1line, db.distinct("gift")));
+        gift.setOnClickListener(v -> gift.showDropDown());
+        if (existing != null) gift.setText(existing.gift);
+        form.addView(gift, new LinearLayout.LayoutParams(-1, -2));
+        EditText cost = field(form, "每份礼品成本（元）",
+                existing == null || existing.cost == 0 ? "" : plain(existing.cost),
+                InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
+                .setTitle(existing == null ? "新增扫码活动" : "修改活动")
+                .setView(form)
+                .setPositiveButton("保存", (d, w) -> {
+                    String n = name.getText().toString().trim();
+                    if (n.isEmpty()) {
+                        toast("请填写活动名称");
+                        return;
+                    }
+                    CustomerDb.Act a = existing == null ? new CustomerDb.Act() : existing;
+                    String oldName = a.name;
+                    a.name = n;
+                    a.gift = gift.getText().toString().trim();
+                    a.cost = parseMoney(cost.getText().toString());
+                    try {
+                        db.saveActivity(a, oldName);
+                    } catch (android.database.SQLException e) {
+                        a.name = oldName;
+                        toast("已有同名活动“" + n + "”");
+                        return;
+                    }
+                    if (existing != null && oldName.equals(entryActivity[0])) {
+                        entryActivity[0] = n;
+                        prefs.edit().putString("last_activity", n).apply();
+                    }
+                    toast("活动已保存：" + n);
+                    done.accept(a);
+                })
+                .setNegativeButton("取消", null);
+        if (existing != null) {
+            b.setNeutralButton("删除", (d, w) -> new AlertDialog.Builder(this)
+                    .setTitle("删除活动")
+                    .setMessage("删除活动“" + existing.name + "”？已记录的客户信息不受影响。")
+                    .setPositiveButton("删除", (d2, w2) -> {
+                        db.deleteActivity(existing.id);
+                        if (existing.name.equals(entryActivity[0])) entryActivity[0] = "";
+                        done.accept(null);
+                    })
+                    .setNegativeButton("取消", null)
+                    .show());
+        }
+        b.show();
+        if (existing == null) name.requestFocus();
+    }
+
+    // ================= 导出 =================
+
     private String buildCsv(List<Customer> list, String sep) {
         StringBuilder sb = new StringBuilder();
-        sb.append(TextUtils.join(sep, new String[]{"姓名", "产品", "审批状态", "额度(元)", "利率",
-                "首次审批通过日期", "借记卡", "手机银行", "扫码活动", "礼品", "礼品成本(元)", "礼品已送",
-                "备注", "记录时间"})).append("\n");
+        sb.append(TextUtils.join(sep, new String[]{"记录时间", "姓名", "手机号", "产品", "审批状态",
+                "额度(元)", "利率", "首次审批通过日期", "借记卡", "手机银行", "信用卡", "扫码活动",
+                "礼品", "礼品成本(元)", "礼品已送", "备注"})).append("\n");
         for (Customer c : list) {
-            sb.append(TextUtils.join(sep, new String[]{csv(c.name), csv(c.product), csv(c.status),
-                    csv(plain(c.amount)), csv(c.rate),
-                    csv(c.approveDate), csv(c.debitCard), csv(c.mobileBank), csv(c.activity), csv(c.gift),
-                    csv(plain(c.giftCost)), c.giftGiven ? "是" : "否", csv(c.note),
-                    csv(timeFormat.format(new Date(c.createdAt)))})).append("\n");
+            sb.append(TextUtils.join(sep, new String[]{
+                    csv(timeFormat.format(new Date(c.createdAt))), csv(c.name), csv(c.phone),
+                    csv(c.product), csv(c.status), csv(plain(c.amount)), csv(c.rate),
+                    csv(c.approveDate), csv(c.debitCard), csv(c.mobileBank), csv(c.creditCard),
+                    csv(c.activity), csv(c.gift), csv(plain(c.giftCost)),
+                    c.gift.isEmpty() ? "" : (c.giftGiven ? "是" : "否"), csv(c.note)}))
+                    .append("\n");
         }
         return sb.toString();
     }
@@ -589,6 +929,7 @@ public class MainActivity extends Activity {
     }
 
     private void exportCsv() {
+        List<Customer> data = currentData();
         if (data.isEmpty()) {
             toast("没有可导出的记录");
             return;
@@ -612,8 +953,7 @@ public class MainActivity extends Activity {
                 }
                 where = "手机“下载(Download)”目录";
             } else {
-                File dir = getExternalFilesDir(null);
-                File f = new File(dir, fileName);
+                File f = new File(getExternalFilesDir(null), fileName);
                 try (FileOutputStream os = new FileOutputStream(f)) {
                     os.write(bytes);
                 }
@@ -621,7 +961,8 @@ public class MainActivity extends Activity {
             }
             new AlertDialog.Builder(this)
                     .setTitle("导出成功")
-                    .setMessage("已导出 " + data.size() + " 条记录到：\n" + where + "\n\n文件名：" + fileName)
+                    .setMessage("已导出当前筛选的 " + data.size() + " 条记录到：\n" + where
+                            + "\n\n文件名：" + fileName)
                     .setPositiveButton("确定", null)
                     .show();
         } catch (Exception e) {
@@ -629,87 +970,38 @@ public class MainActivity extends Activity {
         }
     }
 
+    // ================= 工具 =================
+
+    private String wan(double v) {
+        if (v >= 10000) return money.format(v / 10000) + " 万";
+        return money.format(v) + " 元";
+    }
+
+    private static double parseMoney(String s) {
+        try {
+            return Double.parseDouble(s.trim().replace(",", ""));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private static String plain(double v) {
+        return new DecimalFormat("0.##").format(v);
+    }
+
+    private static int indexOf(String[] items, String s) {
+        for (int i = 0; i < items.length; i++) {
+            if (items[i].equals(s)) return i;
+        }
+        return 0;
+    }
+
     private void toast(String s) {
         Toast.makeText(this, s, Toast.LENGTH_LONG).show();
     }
 
-    private int dp(int v) {
-        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v,
-                getResources().getDisplayMetrics());
-    }
-
-    // ---------------- 列表 ----------------
-
-    private class CustomerAdapter extends BaseAdapter {
-        @Override
-        public int getCount() {
-            return data.size();
-        }
-
-        @Override
-        public Object getItem(int position) {
-            return data.get(position);
-        }
-
-        @Override
-        public long getItemId(int position) {
-            return data.get(position).id;
-        }
-
-        @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-            LinearLayout row;
-            TextView title;
-            TextView line2;
-            TextView line3;
-            TextView line4;
-            if (convertView == null) {
-                row = new LinearLayout(MainActivity.this);
-                row.setOrientation(LinearLayout.VERTICAL);
-                row.setPadding(dp(4), dp(10), dp(4), dp(10));
-                title = new TextView(MainActivity.this);
-                title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
-                title.setTypeface(Typeface.DEFAULT_BOLD);
-                title.setTextColor(Color.BLACK);
-                line2 = new TextView(MainActivity.this);
-                line2.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-                line3 = new TextView(MainActivity.this);
-                line3.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-                row.addView(title);
-                row.addView(line2);
-                line4 = new TextView(MainActivity.this);
-                line4.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-                line4.setTextColor(Color.parseColor("#0D47A1"));
-                row.addView(line3);
-                row.addView(line4);
-                row.setTag(new TextView[]{title, line2, line3, line4});
-            } else {
-                row = (LinearLayout) convertView;
-                TextView[] tags = (TextView[]) row.getTag();
-                title = tags[0];
-                line2 = tags[1];
-                line3 = tags[2];
-                line4 = tags[3];
-            }
-            Customer c = data.get(position);
-            title.setText(c.name + "  " + c.product);
-            line2.setText("额度 " + money.format(c.amount) + " 元   利率 " + c.rate
-                    + "\n首次审批通过 " + c.approveDate
-                    + (c.note.isEmpty() ? "" : "\n备注：" + c.note));
-            line3.setText("借记卡：" + c.debitCard + "    手机银行：" + c.mobileBank);
-            boolean missing = MessageParser.NOT_OPENED.equals(c.debitCard)
-                    || MessageParser.NOT_OPENED.equals(c.mobileBank);
-            line3.setTextColor(missing ? RED : GREEN);
-            if (c.activity.isEmpty() && c.gift.isEmpty()) {
-                line4.setVisibility(View.GONE);
-            } else {
-                line4.setVisibility(View.VISIBLE);
-                line4.setText("活动：" + or(c.activity, "无") + "  礼品：" + or(c.gift, "无")
-                        + "(" + money.format(c.giftCost) + "元)"
-                        + (c.gift.isEmpty() ? "" : (c.giftGiven ? " ✔已送" : " ✘未送")));
-            }
-            return row;
-        }
+    private int dp(float v) {
+        return Ui.dp(this, v);
     }
 
     private abstract static class SimpleWatcher implements TextWatcher {

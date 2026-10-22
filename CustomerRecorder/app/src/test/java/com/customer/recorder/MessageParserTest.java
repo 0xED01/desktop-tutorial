@@ -41,6 +41,14 @@ public class MessageParserTest {
     }
 
     @Test
+    public void parsesPhoneAndCreditCard() {
+        Customer c = MessageParser.parse(SAMPLE + "联系电话13812345678，该客户已开通我行信用卡。");
+        assertEquals("13812345678", c.phone);
+        assertEquals(MessageParser.OPENED, c.creditCard);
+        assertEquals(MessageParser.UNKNOWN, MessageParser.parse(SAMPLE).creditCard);
+    }
+
+    @Test
     public void ignoresUnrelatedText() {
         assertTrue(MessageParser.parseAll("你好").isEmpty());
     }
