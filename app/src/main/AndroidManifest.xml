@@ -31,7 +31,7 @@
         <!-- 小部件形式的文字图标：桌面不会给小部件加角标 -->
         <receiver
             android:name=".TextWidgetProvider"
-            android:exported="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

@@ -24,6 +24,7 @@ import android.os.Looper;
 import android.provider.OpenableColumns;
 import android.provider.Settings;
 import android.text.Editable;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.View;
 import android.widget.AdapterView;
@@ -205,6 +206,7 @@ public class MainActivity extends Activity {
         findViewById(R.id.btnBgImage).setOnClickListener(v -> pickImage());
         findViewById(R.id.btnAddAll).setOnClickListener(v -> startPinAll());
         btnNext.setOnClickListener(v -> pinNextInQueue());
+        findViewById(R.id.btnManual).setOnClickListener(v -> prepareManualWidgets());
         findViewById(R.id.btnPermission).setOnClickListener(v -> {
             Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                     Uri.fromParts("package", getPackageName(), null));
@@ -224,6 +226,7 @@ public class MainActivity extends Activity {
         boolean widget = style.addMode == IconStyle.MODE_WIDGET;
         findViewById(R.id.widgetSizeRow).setVisibility(widget ? View.VISIBLE : View.GONE);
         findViewById(R.id.adaptive).setVisibility(widget ? View.GONE : View.VISIBLE);
+        findViewById(R.id.btnManual).setVisibility(widget ? View.VISIBLE : View.GONE);
         ((TextView) findViewById(R.id.widgetSizeLabel)).setText("图标大小 " + style.widgetIconDp);
         ((TextView) findViewById(R.id.addModeHint)).setText(widget
                 ? "以 1×1 小部件的形式放到桌面，没有角标。图标大小可调到和桌面其他图标一致。小部件不能放进文件夹和底部 Dock 栏。"
@@ -280,6 +283,7 @@ public class MainActivity extends Activity {
                 cell.addView(tv, new LinearLayout.LayoutParams(size, LinearLayout.LayoutParams.WRAP_CONTENT));
             }
             cell.setOnClickListener(v -> {
+                WidgetStore.clearPending(this);
                 queue.clear();
                 pinOne(ch, System.currentTimeMillis(), 0, false);
             });
@@ -334,6 +338,7 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "请先输入文字", Toast.LENGTH_SHORT).show();
             return;
         }
+        WidgetStore.clearPending(this);
         queue.clear();
         queue.addAll(chars);
         queueIndex = 0;
@@ -428,14 +433,86 @@ public class MainActivity extends Activity {
             // 必须是 MUTABLE，系统才能把新小部件的 id 填进来
             PendingIntent callback = PendingIntent.getBroadcast(this, (int) (System.nanoTime() & 0xFFFFFFF), cb,
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
+            pausedSinceRequest = false;
             boolean ok = mgr.requestPinAppWidget(new ComponentName(this, TextWidgetProvider.class), null, callback);
             if (!ok) throw new Exception("桌面拒绝了请求");
+            // 正常情况下桌面会弹出确认框，本界面会失去焦点；如果一直没动静，说明桌面忽略了请求
+            handler.removeCallbacks(noResponseCheck);
+            handler.postDelayed(noResponseCheck, 2500);
             if (!withCallback) status.setText("已请求添加「" + ch + "」");
             return true;
         } catch (Exception e) {
             Toast.makeText(this, "添加失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
             return false;
         }
+    }
+
+    private boolean pausedSinceRequest;
+
+    private final Runnable noResponseCheck = () -> {
+        if (pausedSinceRequest || !hasWindowFocus() || isFinishing()) return;
+        new AlertDialog.Builder(this)
+                .setTitle("桌面没有弹出确认框")
+                .setMessage("你的桌面可能不允许 App 直接添加小部件。可以：\n\n"
+                        + "1. 用“手动添加小部件”：在桌面的小部件列表里把“文字图标”拖出来，会按顺序自动显示每个字；\n"
+                        + "2. 或到权限设置里开启“桌面快捷方式”权限后重试；\n"
+                        + "3. 或把添加方式改成“快捷方式”（会有角标）。")
+                .setPositiveButton("手动添加", (d, w) -> prepareManualWidgets())
+                .setNeutralButton("权限设置", (d, w) -> findViewById(R.id.btnPermission).performClick())
+                .setNegativeButton("取消", null)
+                .show();
+    };
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        pausedSinceRequest = true;
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (!hasFocus) pausedSinceRequest = true;
+    }
+
+    /** 把所有字排进待添加队列，用户从桌面小部件列表拖出的小部件会按顺序领取。 */
+    private void prepareManualWidgets() {
+        List<String> chars = IconRenderer.splitChars(style.text);
+        if (chars.isEmpty()) {
+            Toast.makeText(this, "请先输入文字", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        handler.removeCallbacks(noResponseCheck);
+        queue.clear();
+        btnNext.setVisibility(View.GONE);
+        WidgetStore.clearPending(this);
+        int px = Math.round(style.widgetIconDp * getResources().getDisplayMetrics().density);
+        try {
+            for (String ch : chars) {
+                Bitmap bmp = IconRenderer.render(ch, style, currentFace(), bgImage, px, false);
+                WidgetStore.savePending(this, bmp, style.showLabel ? ch : "", style.url);
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "准备失败：" + e.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        }
+        String order = TextUtils.join(" ", chars);
+        status.setText("已准备好 " + chars.size() + " 个：" + order);
+        new AlertDialog.Builder(this)
+                .setTitle("手动添加小部件")
+                .setMessage("已准备好 " + chars.size() + " 个字：" + order + "\n\n"
+                        + "1. 回到桌面，长按空白处（或双指捏合）\n"
+                        + "2. 点“小部件 / 插件”，找到“文字图标”\n"
+                        + "3. 把它拖到桌面，按顺序重复 " + chars.size() + " 次\n\n"
+                        + "每拖出一个，会自动按顺序显示下一个字（1 小时内有效）。")
+                .setPositiveButton("去桌面", (d, w) -> {
+                    Intent home = new Intent(Intent.ACTION_MAIN);
+                    home.addCategory(Intent.CATEGORY_HOME);
+                    home.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(home);
+                })
+                .setNegativeButton("知道了", null)
+                .show();
     }
 
     // ---------- 导入字体 / 背景图 ----------

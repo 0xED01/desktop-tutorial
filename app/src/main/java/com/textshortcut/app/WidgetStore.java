@@ -7,12 +7,15 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.text.TextUtils;
 import android.view.View;
 import android.widget.RemoteViews;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 保存每个小部件显示的图标和文字。
@@ -20,7 +23,7 @@ import java.io.OutputStream;
  */
 public class WidgetStore {
     private static final String PREFS = "widgets";
-    private static final long PENDING_TIMEOUT_MS = 5 * 60 * 1000;
+    private static final long PENDING_TIMEOUT_MS = 60 * 60 * 1000;
 
     private static SharedPreferences prefs(Context c) {
         return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -32,19 +35,38 @@ public class WidgetStore {
         return new File(dir, key + ".png");
     }
 
-    /** 保存一个待添加的图标，返回它的 token。 */
+    /** 保存一个待添加的图标，排到待添加队列末尾，返回它的 token。 */
     public static String savePending(Context c, Bitmap icon, String label, String url) throws Exception {
         String token = "p" + System.nanoTime();
         try (OutputStream out = new FileOutputStream(iconFile(c, token))) {
             icon.compress(Bitmap.CompressFormat.PNG, 100, out);
         }
+        List<String> list = pendingList(c);
+        list.add(token);
         prefs(c).edit()
                 .putString(token + ".label", label)
                 .putString(token + ".url", url)
-                .putString("lastPending", token)
-                .putLong("lastPendingTime", System.currentTimeMillis())
+                .putString("pending", TextUtils.join(",", list))
+                .putLong("pendingTime", System.currentTimeMillis())
                 .apply();
         return token;
+    }
+
+    /** 清空待添加队列（开始新一轮添加前调用）。 */
+    public static void clearPending(Context c) {
+        SharedPreferences.Editor e = prefs(c).edit();
+        for (String token : pendingList(c)) {
+            iconFile(c, token).delete();
+            e.remove(token + ".label").remove(token + ".url");
+        }
+        e.remove("pending").apply();
+    }
+
+    private static List<String> pendingList(Context c) {
+        String s = prefs(c).getString("pending", "");
+        List<String> list = new ArrayList<>();
+        for (String t : s.split(",")) if (!t.isEmpty()) list.add(t);
+        return list;
     }
 
     /** 把待添加的内容绑定到小部件 id 上。 */
@@ -54,25 +76,33 @@ public class WidgetStore {
         SharedPreferences p = prefs(c);
         String key = "w" + widgetId;
         src.renameTo(iconFile(c, key));
-        SharedPreferences.Editor e = p.edit()
+        List<String> list = pendingList(c);
+        list.remove(token);
+        p.edit()
                 .putString(key + ".label", p.getString(token + ".label", ""))
                 .putString(key + ".url", p.getString(token + ".url", ""))
                 .remove(token + ".label")
-                .remove(token + ".url");
-        if (token.equals(p.getString("lastPending", null))) e.remove("lastPending");
-        e.apply();
+                .remove(token + ".url")
+                .putString("pending", TextUtils.join(",", list))
+                .commit();
         return true;
     }
 
-    /** 部分系统不回调添加结果，这时把最近一次待添加的内容给新出现的小部件。 */
-    public static void bindLastPendingIfUnknown(Context c, int widgetId) {
-        SharedPreferences p = prefs(c);
+    /**
+     * 新出现但还没有内容的小部件（桌面没回调，或者用户从小部件列表手动拖出来的），
+     * 按顺序领取待添加队列里的下一个字。
+     */
+    public static void bindNextPendingIfUnknown(Context c, int widgetId) {
         if (iconFile(c, "w" + widgetId).exists()) return;
-        String token = p.getString("lastPending", null);
-        long time = p.getLong("lastPendingTime", 0);
-        if (token != null && System.currentTimeMillis() - time < PENDING_TIMEOUT_MS) {
-            bind(c, token, widgetId);
+        long time = prefs(c).getLong("pendingTime", 0);
+        if (System.currentTimeMillis() - time > PENDING_TIMEOUT_MS) return;
+        for (String token : pendingList(c)) {
+            if (bind(c, token, widgetId)) return;
         }
+    }
+
+    public static int pendingCount(Context c) {
+        return pendingList(c).size();
     }
 
     public static void delete(Context c, int widgetId) {
