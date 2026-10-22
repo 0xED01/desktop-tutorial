@@ -76,13 +76,16 @@ public class MainActivity extends Activity {
     private EditText input;
     private LinearLayout preview;
     private TextView previewInfo;
-    private FlowLayout previewTags;
     private LinearLayout phoneBox;
     private EditText phoneInput;
+    private FlowLayout debitChips;
+    private FlowLayout mobileChips;
     private FlowLayout creditChips;
     private FlowLayout entryActivityChips;
     private TextView entryGiftInfo;
     private List<Customer> pending = new ArrayList<>();
+    private final String[] entryDebit = {MessageParser.UNKNOWN};
+    private final String[] entryMobile = {MessageParser.UNKNOWN};
     private final String[] entryCredit = {MessageParser.UNKNOWN};
     private final String[] entryActivity = {""};
 
@@ -108,7 +111,7 @@ public class MainActivity extends Activity {
         entryActivity[0] = db.findActivity(last) == null ? "" : last;
         setContentView(buildLayout());
         renderActivityChips();
-        renderCreditChips();
+        renderStateChips();
         bindChoices(dateChips, DATE_FILTERS, dateFilter, this::refresh);
         bindChoices(statusChips, STATUS_FILTERS, statusFilter, this::refresh);
         refresh();
@@ -192,9 +195,6 @@ public class MainActivity extends Activity {
         previewInfo = Ui.text(this, "", 15, Ui.TEXT, false);
         previewInfo.setLineSpacing(dp(2), 1f);
         box.addView(previewInfo);
-        previewTags = new FlowLayout(this);
-        previewTags.setPadding(0, dp(8), 0, 0);
-        box.addView(previewTags);
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(-1, -2);
         blp.topMargin = dp(10);
         preview.addView(box, blp);
@@ -205,6 +205,12 @@ public class MainActivity extends Activity {
         phoneInput = Ui.input(this, "客户手机号（选填）");
         phoneInput.setInputType(InputType.TYPE_CLASS_PHONE);
         phoneBox.addView(phoneInput, new LinearLayout.LayoutParams(-1, -2));
+        phoneBox.addView(Ui.label(this, "借记卡"));
+        debitChips = new FlowLayout(this);
+        phoneBox.addView(debitChips);
+        phoneBox.addView(Ui.label(this, "手机银行"));
+        mobileChips = new FlowLayout(this);
+        phoneBox.addView(mobileChips);
         phoneBox.addView(Ui.label(this, "信用卡"));
         creditChips = new FlowLayout(this);
         phoneBox.addView(creditChips);
@@ -351,7 +357,9 @@ public class MainActivity extends Activity {
         updateEntryGiftInfo();
     }
 
-    private void renderCreditChips() {
+    private void renderStateChips() {
+        bindChoices(debitChips, OPEN_STATES, entryDebit, null);
+        bindChoices(mobileChips, OPEN_STATES, entryMobile, null);
         bindChoices(creditChips, OPEN_STATES, entryCredit, null);
     }
 
@@ -398,20 +406,17 @@ public class MainActivity extends Activity {
         }
         previewInfo.setText(sb);
 
-        previewTags.removeAllViews();
         boolean single = pending.size() == 1;
         phoneBox.setVisibility(single ? View.VISIBLE : View.GONE);
         if (single) {
             Customer c = pending.get(0);
-            previewTags.addView(stateTag("借记卡", c.debitCard));
-            previewTags.addView(stateTag("手机银行", c.mobileBank));
             if (!c.phone.isEmpty() && phoneInput.length() == 0) phoneInput.setText(c.phone);
-            if (!MessageParser.UNKNOWN.equals(c.creditCard)) {
-                entryCredit[0] = c.creditCard;
-                renderCreditChips();
-            }
+            // 按识别结果预选，用户可再点选修改
+            entryDebit[0] = c.debitCard;
+            entryMobile[0] = c.mobileBank;
+            if (!MessageParser.UNKNOWN.equals(c.creditCard)) entryCredit[0] = c.creditCard;
+            renderStateChips();
         }
-        previewTags.setVisibility(single ? View.VISIBLE : View.GONE);
     }
 
     private void saveEntry() {
@@ -433,6 +438,8 @@ public class MainActivity extends Activity {
             }
             if (pending.size() == 1) {
                 if (!phone.isEmpty()) c.phone = phone;
+                c.debitCard = entryDebit[0];
+                c.mobileBank = entryMobile[0];
                 c.creditCard = entryCredit[0];
             }
             if (!db.upsert(c)) updated++;
@@ -450,8 +457,10 @@ public class MainActivity extends Activity {
         input.setText("");
         handler.removeCallbacks(parseRunnable);
         phoneInput.setText("");
+        entryDebit[0] = MessageParser.UNKNOWN;
+        entryMobile[0] = MessageParser.UNKNOWN;
         entryCredit[0] = MessageParser.UNKNOWN;
-        renderCreditChips();
+        renderStateChips();
         pending.clear();
         preview.setVisibility(View.GONE);
         InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
