@@ -184,7 +184,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="图标下方显示文字名称" />
+            android:text="显示图标名称（取消勾选，图标下面就是空白）" />
 
         <CheckBox
             android:id="@+id/adaptive"

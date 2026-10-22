@@ -119,8 +119,9 @@ public class WidgetStore {
         if (bmp != null) {
             rv.setImageViewBitmap(R.id.widget_icon, bmp);
             String label = prefs(c).getString(key + ".label", "");
-            rv.setTextViewText(R.id.widget_label, label);
-            rv.setViewVisibility(R.id.widget_label, label.trim().isEmpty() ? View.GONE : View.VISIBLE);
+            rv.setTextViewText(R.id.widget_label, label.trim().isEmpty() ? " " : label);
+            // 不显示名称时保留占位，图标位置才和桌面上其他图标对齐
+            rv.setViewVisibility(R.id.widget_label, label.trim().isEmpty() ? View.INVISIBLE : View.VISIBLE);
             String url = prefs(c).getString(key + ".url", "");
             Intent i = new Intent(c, ShortcutActivity.class);
             i.putExtra(ShortcutActivity.EXTRA_URL, url);
