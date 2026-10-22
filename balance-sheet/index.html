@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>个人资产负债表</title>
+<style>
+:root{
+  --bg:#f5f6f8; --panel:#ffffff; --text:#1d2330; --muted:#6b7385; --line:#e6e8ee;
+  --accent:#3b6cf6; --accent-soft:#eaf0ff; --asset:#16a37a; --debt:#e0574f; --warn:#e3a008;
+  --shadow:0 1px 2px rgba(16,24,40,.04),0 4px 16px rgba(16,24,40,.06); --radius:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1218; --panel:#171b23; --text:#e7eaf0; --muted:#8c94a6; --line:#262c38;
+    --accent:#6d8fff; --accent-soft:#1e2740; --asset:#34c796; --debt:#f07068; --warn:#f2b632;
+    --shadow:0 1px 2px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1218; --panel:#171b23; --text:#e7eaf0; --muted:#8c94a6; --line:#262c38;
+  --accent:#6d8fff; --accent-soft:#1e2740; --asset:#34c796; --debt:#f07068; --warn:#f2b632;
+  --shadow:0 1px 2px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+
+/* layout */
+.app{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+aside{background:var(--panel);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:14px;position:sticky;top:0;height:100vh;overflow:auto}
+.brand{display:flex;align-items:center;gap:10px;padding:0 6px;font-weight:650;font-size:16px}
+.brand .logo{width:30px;height:30px;border-radius:9px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:15px}
+.sheet-list{display:flex;flex-direction:column;gap:4px}
+.sheet-item{display:block;width:100%;text-align:left;border:0;background:transparent;padding:10px 12px;border-radius:10px;cursor:pointer}
+.sheet-item:hover{background:var(--bg)}
+.sheet-item.active{background:var(--accent-soft)}
+.sheet-item .t{font-weight:560;display:flex;justify-content:space-between;gap:8px}
+.sheet-item .d{color:var(--muted);font-size:12px;display:flex;justify-content:space-between}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:6px}
+main{padding:24px 28px 60px;max-width:1240px;width:100%}
+
+/* buttons */
+.btn{border:1px solid var(--line);background:var(--panel);padding:7px 13px;border-radius:9px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{filter:brightness(1.07);color:#fff}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.danger:hover{border-color:var(--debt);color:var(--debt)}
+.btn.block{width:100%;justify-content:center}
+.icon-btn{border:0;background:transparent;cursor:pointer;color:var(--muted);padding:4px 6px;border-radius:6px;font-size:15px;line-height:1}
+.icon-btn:hover{color:var(--debt);background:var(--bg)}
+
+/* header */
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+.title-input{font-size:24px;font-weight:680;border:0;background:transparent;padding:2px 0;width:100%;max-width:420px;border-bottom:1px dashed transparent}
+.title-input:hover,.title-input:focus{border-bottom-color:var(--line);outline:none}
+.meta{display:flex;gap:10px;align-items:center;color:var(--muted);margin-top:4px;flex-wrap:wrap}
+.meta input[type=date]{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:3px 8px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}
+
+/* kpi */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.kpi{padding:16px 18px}
+.kpi .l{color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px}
+.kpi .v{font-size:24px;font-weight:680;margin-top:4px;letter-spacing:-.3px}
+.kpi .s{font-size:12px;color:var(--muted);margin-top:2px}
+.kpi.net{background:linear-gradient(135deg,var(--accent),#7a5cf0);color:#fff;border:0}
+.kpi.net .l,.kpi.net .s{color:rgba(255,255,255,.82)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.up{color:var(--asset)} .down{color:var(--debt)}
+.kpi.net .up,.kpi.net .down{color:#fff}
+
+/* tables */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.panel-h{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line)}
+.panel-h h3{margin:0;font-size:15px;display:flex;align-items:center;gap:8px}
+.panel-h .total{font-weight:650}
+.group{padding:4px 0}
+.group-h{display:flex;justify-content:space-between;padding:10px 18px 4px;color:var(--muted);font-size:12px;font-weight:560;letter-spacing:.3px}
+.row{display:grid;grid-template-columns:112px 1fr 128px 26px;gap:8px;align-items:center;padding:3px 12px 3px 14px}
+.row input,.row select{border:1px solid transparent;background:transparent;border-radius:7px;padding:5px 7px;width:100%;min-width:0}
+.row input:hover,.row select:hover{border-color:var(--line)}
+.row input:focus,.row select:focus{border-color:var(--accent);outline:none;background:var(--panel)}
+.row input.amt{text-align:right;font-variant-numeric:tabular-nums}
+.row select{color:var(--muted);font-size:12.5px;cursor:pointer}
+.add-row{padding:10px 18px 14px}
+.empty-tip{color:var(--muted);text-align:center;padding:26px 10px 6px;font-size:13px}
+
+/* analysis */
+.panel-b{padding:16px 18px}
+.health{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.metric{border:1px solid var(--line);border-radius:11px;padding:12px 14px}
+.metric .l{color:var(--muted);font-size:12.5px;display:flex;justify-content:space-between}
+.metric .v{font-size:19px;font-weight:650;margin:2px 0 6px}
+.bar{height:6px;background:var(--bg);border-radius:6px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:6px}
+.tag{font-size:11.5px;padding:1px 8px;border-radius:20px;font-weight:560}
+.tag.good{background:color-mix(in srgb,var(--asset) 15%,transparent);color:var(--asset)}
+.tag.mid{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.tag.bad{background:color-mix(in srgb,var(--debt) 15%,transparent);color:var(--debt)}
+.tips{margin:14px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.tips li{background:var(--bg);border-radius:9px;padding:9px 12px;font-size:13px}
+.donut-wrap{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.legend{display:flex;flex-direction:column;gap:7px;flex:1;min-width:170px}
+.legend div{display:flex;align-items:center;gap:8px;font-size:13px}
+.legend .p{margin-left:auto;color:var(--muted)}
+.chart{width:100%;height:auto;display:block}
+.chart text{fill:var(--muted);font-size:11px}
+.chart .grid{stroke:var(--line)}
+.change-list{display:flex;flex-direction:column;gap:2px}
+.change-list div{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.change-list div:last-child{border:0}
+.goal{margin-top:14px}
+.goal .l{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.muted{color:var(--muted)}
+textarea.note{width:100%;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:10px 12px;resize:vertical;min-height:64px}
+textarea.note:focus{outline:none;border-color:var(--accent)}
+
+/* empty */
+.welcome{max-width:520px;margin:12vh auto;text-align:center}
+.welcome .logo{width:56px;height:56px;border-radius:16px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:26px;margin:0 auto 18px}
+.welcome h1{font-size:24px;margin:0 0 8px}
+.welcome p{color:var(--muted);margin:0 0 22px}
+.welcome .acts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+
+/* dialog */
+dialog{border:0;border-radius:16px;padding:0;background:var(--panel);color:var(--text);width:min(420px,calc(100vw - 32px));box-shadow:0 20px 60px rgba(0,0,0,.25)}
+dialog::backdrop{background:rgba(15,18,24,.45)}
+dialog form{padding:22px}
+dialog h3{margin:0 0 16px}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.field label{font-size:12.5px;color:var(--muted)}
+.field input,.field select{border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:8px 10px}
+.field input:focus{outline:none;border-color:var(--accent)}
+.check{display:flex;gap:8px;align-items:center;margin-bottom:14px;font-size:13px}
+.dlg-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:9px 16px;border-radius:10px;opacity:0;transition:.25s;pointer-events:none;z-index:9}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+/* privacy */
+.privacy .amt,.privacy .money{filter:blur(7px);transition:filter .2s}
+.privacy .amt:focus{filter:none}
+
+.mobile-bar{display:none}
+@media (max-width:1080px){.kpis{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr}
+  aside{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);display:none}
+  aside.open{display:flex}
+  .mobile-bar{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+  main{padding:18px 16px 50px}
+  .kpis{gap:10px}.kpi{padding:12px 14px}.kpi .v{font-size:19px}
+  .health{grid-template-columns:1fr}
+  .row{grid-template-columns:88px 1fr 100px 24px;padding:3px 8px;gap:4px}
+}
+@media print{
+  aside,.toolbar,.mobile-bar,.add-row,.icon-btn,.no-print{display:none!important}
+  .app{display:block} body{background:#fff} .card{box-shadow:none;break-inside:avoid}
+  .privacy .amt,.privacy .money{filter:none}
+}
+</style>
+</head>
+<body>
+<div class="mobile-bar">
+  <div class="brand"><span class="logo">¥</span>资产负债表</div>
+  <button class="btn" id="toggleSide">表单列表</button>
+</div>
+<div class="app">
+  <aside id="side">
+    <div class="brand"><span class="logo">¥</span>个人资产负债表</div>
+    <button class="btn primary block" data-act="new">＋ 新建资产负债表</button>
+    <div class="sheet-list" id="sheetList"></div>
+    <div class="side-foot">
+      <button class="btn ghost block" data-act="settings">⚙ 设置</button>
+      <button class="btn ghost block" data-act="export">⇩ 备份数据 (JSON)</button>
+      <button class="btn ghost block" data-act="import">⇧ 恢复备份</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+    </div>
+  </aside>
+  <main id="main"></main>
+</div>
+
+<dialog id="newDlg">
+  <form method="dialog">
+    <h3>新建资产负债表</h3>
+    <div class="field"><label>名称</label><input name="name" required></div>
+    <div class="field"><label>统计日期</label><input name="date" type="date" required></div>
+    <label class="check" id="copyWrap"><input type="checkbox" name="copy" checked> 复制上一期的条目（只需更新金额）</label>
+    <div class="dlg-acts"><button class="btn" value="cancel" formnovalidate>取消</button><button class="btn primary" value="ok">创建</button></div>
+  </form>
+</dialog>
+
+<dialog id="setDlg">
+  <form method="dialog">
+    <h3>设置</h3>
+    <div class="field"><label>货币符号</label><input name="currency" maxlength="4"></div>
+    <div class="field"><label>每月家庭支出（用于计算应急备用金可覆盖月数）</label><input name="monthly" type="number" min="0" step="any"></div>
+    <div class="field"><label>净资产目标</label><input name="goal" type="number" min="0" step="any"></div>
+    <div class="field"><label>外观</label>
+      <select name="theme"><option value="auto">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select>
+    </div>
+    <div class="dlg-acts"><button class="btn" value="cancel" formnovalidate>取消</button><button class="btn primary" value="ok">保存</button></div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+const KEY = 'balance-sheet-v1';
+
+const CATS = {
+  asset: [
+    {id:'cash',     name:'现金及存款',   color:'#3b82f6', liquid:true},
+    {id:'invest',   name:'投资理财',     color:'#8b5cf6', invest:true},
+    {id:'fund',     name:'公积金/养老金', color:'#06b6d4'},
+    {id:'property', name:'房产',         color:'#f59e0b'},
+    {id:'vehicle',  name:'车辆',         color:'#10b981'},
+    {id:'receive',  name:'应收借出',     color:'#ec4899'},
+    {id:'other',    name:'其他资产',     color:'#94a3b8'},
+  ],
+  liability: [
+    {id:'mortgage', name:'房贷',     long:true},
+    {id:'carloan',  name:'车贷',     long:true},
+    {id:'credit',   name:'信用卡'},
+    {id:'consumer', name:'消费贷/网贷'},
+    {id:'personal', name:'亲友借款'},
+    {id:'other',    name:'其他负债'},
+  ],
+};
+const catOf = (type, id) => CATS[type].find(c => c.id === id) || CATS[type][CATS[type].length - 1];
+
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+const today = () => new Date().toISOString().slice(0, 10);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = s => document.querySelector(s);
+
+// ---------- state ----------
+let state = load();
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if (s && Array.isArray(s.sheets)) return normalize(s);
+  }catch(e){}
+  return normalize({});
+}
+function normalize(s){
+  return {
+    settings: Object.assign({currency:'¥', monthly:0, goal:0, hide:false, theme:'auto'}, s.settings || {}),
+    sheets: (s.sheets || []).map(sh => ({id:sh.id||uid(), name:sh.name||'未命名', date:sh.date||today(), note:sh.note||'', items:(sh.items||[]).map(i => ({id:i.id||uid(), type:i.type==='liability'?'liability':'asset', cat:i.cat||'other', name:i.name||'', amount:+i.amount||0}))})),
+    currentId: s.currentId || null,
+  };
+}
+let saveTimer;
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){ toast('保存失败：浏览器存储不可用'); } }, 150);
+}
+
+const sorted = () => [...state.sheets].sort((a, b) => a.date.localeCompare(b.date));
+const current = () => state.sheets.find(s => s.id === state.currentId) || sorted().at(-1) || null;
+function previousOf(sheet){
+  const list = sorted(); const i = list.findIndex(s => s.id === sheet.id);
+  return i > 0 ? list[i - 1] : null;
+}
+function totals(sheet){
+  const t = {asset:0, liability:0, byCat:{asset:{}, liability:{}}};
+  for (const it of sheet.items){
+    const v = +it.amount || 0;
+    t[it.type] += v;
+    t.byCat[it.type][it.cat] = (t.byCat[it.type][it.cat] || 0) + v;
+  }
+  t.net = t.asset - t.liability;
+  return t;
+}
+
+// ---------- format ----------
+const fmt = n => state.settings.currency + (+n || 0).toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtShort = n => {
+  const a = Math.abs(n), sgn = n < 0 ? '-' : '';
+  if (a >= 1e8) return sgn + (a / 1e8).toFixed(2).replace(/\.?0+$/, '') + '亿';
+  if (a >= 1e4) return sgn + (a / 1e4).toFixed(1).replace(/\.0$/, '') + '万';
+  return sgn + Math.round(a);
+};
+const pct = n => isFinite(n) ? (n * 100).toFixed(1) + '%' : '—';
+const signed = n => (n > 0 ? '+' : n < 0 ? '−' : '') + fmt(Math.abs(n));
+
+// ---------- render ----------
+function applyTheme(){
+  const t = state.settings.theme;
+  if (t === 'auto') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', t);
+  document.body.classList.toggle('privacy', !!state.settings.hide);
+}
+
+function renderSide(){
+  const cur = current();
+  const list = sorted().reverse();
+  $('#sheetList').innerHTML = list.length ? list.map(s => {
+    const t = totals(s);
+    return `<button class="sheet-item ${cur && cur.id === s.id ? 'active' : ''}" data-id="${s.id}">
+      <div class="t"><span>${esc(s.name)}</span></div>
+      <div class="d"><span>${s.date}</span><span class="money num">${fmtShort(t.net)}</span></div>
+    </button>`;
+  }).join('') : '<div class="muted" style="padding:6px 10px;font-size:13px">还没有记录</div>';
+}
+
+function render(){
+  applyTheme();
+  renderSide();
+  const sh = current();
+  if (!sh){
+    $('#main').innerHTML = `<div class="welcome">
+      <div class="logo">¥</div>
+      <h1>清楚掌握你的每一分家底</h1>
+      <p>定期记录资产与负债，自动计算净资产、财务健康指标和变化趋势。数据仅保存在本机浏览器中。</p>
+      <div class="acts"><button class="btn primary" data-act="new">创建第一张资产负债表</button><button class="btn" data-act="demo">加载示例数据看看</button></div>
+    </div>`;
+    return;
+  }
+  state.currentId = sh.id;
+  $('#main').innerHTML = `
+    <div class="topbar">
+      <div style="flex:1;min-width:240px">
+        <input class="title-input" id="sheetName" value="${esc(sh.name)}" aria-label="名称">
+        <div class="meta">统计日期 <input type="date" id="sheetDate" value="${sh.date}"> <span id="prevInfo"></span></div>
+      </div>
+      <div class="toolbar">
+        <button class="btn" data-act="hide" title="隐藏金额">${state.settings.hide ? '◉ 显示金额' : '◎ 隐藏金额'}</button>
+        <button class="btn" data-act="duplicate">⎘ 复制为新一期</button>
+        <button class="btn" data-act="csv">⇩ 导出表格</button>
+        <button class="btn" data-act="print">⎙ 打印</button>
+        <button class="btn danger" data-act="delete">删除</button>
+      </div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="grid2">
+      <section class="card" id="assetPanel"></section>
+      <section class="card" id="liabilityPanel"></section>
+    </div>
+    <div class="grid2">
+      <section class="card"><div class="panel-h"><h3>财务健康诊断</h3></div><div class="panel-b" id="health"></div></section>
+      <section class="card"><div class="panel-h"><h3>资产结构</h3></div><div class="panel-b" id="alloc"></div></section>
+    </div>
+    <div class="grid2">
+      <section class="card"><div class="panel-h"><h3>净资产趋势</h3><span class="muted" style="font-size:12px">共 ${state.sheets.length} 期</span></div><div class="panel-b" id="trend"></div></section>
+      <section class="card"><div class="panel-h"><h3>与上期对比</h3></div><div class="panel-b" id="changes"></div></section>
+    </div>
+    <section class="card"><div class="panel-h"><h3>备注</h3></div><div class="panel-b"><textarea class="note" id="sheetNote" placeholder="记录本期的重要变化，例如：年终奖到账、提前还贷 10 万……">${esc(sh.note)}</textarea></div></section>
+  `;
+  renderItems('asset'); renderItems('liability');
+  renderSummary();
+}
+
+function renderItems(type){
+  const sh = current();
+  const panel = $(type === 'asset' ? '#assetPanel' : '#liabilityPanel');
+  const items = sh.items.filter(i => i.type === type);
+  const label = type === 'asset' ? '资产' : '负债';
+  const color = type === 'asset' ? 'var(--asset)' : 'var(--debt)';
+  const groups = CATS[type].map(c => ({c, items:items.filter(i => catOf(type, i.cat).id === c.id)})).filter(g => g.items.length);
+  const opts = sel => CATS[type].map(c => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${c.name}</option>`).join('');
+  panel.innerHTML = `
+    <div class="panel-h"><h3><span class="dot" style="background:${color}"></span>${label}</h3><span class="total money num" data-total="${type}"></span></div>
+    ${groups.length ? groups.map(g => `
+      <div class="group">
+        <div class="group-h"><span>${g.c.name}</span><span class="money num" data-sub="${type}:${g.c.id}"></span></div>
+        ${g.items.map(i => `<div class="row" data-item="${i.id}">
+          <select data-f="cat" aria-label="类别">${opts(catOf(type, i.cat).id)}</select>
+          <input data-f="name" value="${esc(i.name)}" placeholder="${type === 'asset' ? '如：招商银行活期' : '如：公积金房贷'}">
+          <input data-f="amount" class="amt" type="number" step="any" inputmode="decimal" value="${i.amount || ''}" placeholder="0.00">
+          <button class="icon-btn" data-del="${i.id}" title="删除">×</button>
+        </div>`).join('')}
+      </div>`).join('') : `<div class="empty-tip">还没有${label}条目</div>`}
+    <div class="add-row">
+      <select class="btn" data-add="${type}" style="padding-right:8px">
+        <option value="">＋ 添加${label}…</option>
+        ${CATS[type].map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+      </select>
+    </div>`;
+}
+
+function renderSummary(){
+  const sh = current(); if (!sh) return;
+  const t = totals(sh);
+  const prev = previousOf(sh);
+  const pt = prev ? totals(prev) : null;
+  renderSide();
+
+  // totals on panels
+  document.querySelectorAll('[data-total]').forEach(el => el.textContent = fmt(t[el.dataset.total]));
+  document.querySelectorAll('[data-sub]').forEach(el => { const [ty, c] = el.dataset.sub.split(':'); el.textContent = fmt(t.byCat[ty][c] || 0); });
+  $('#prevInfo').textContent = prev ? `· 上期：${prev.name}（${prev.date}）` : '· 这是最早的一期';
+
+  const delta = (cur, old, invert) => {
+    if (old == null) return '<span class="s">暂无上期数据</span>';
+    const d = cur - old; const good = invert ? d < 0 : d > 0;
+    const rate = old ? ` (${d >= 0 ? '+' : ''}${pct(d / Math.abs(old))})` : '';
+    return `<div class="s">较上期 <span class="money num ${d === 0 ? '' : good ? 'up' : 'down'}">${signed(d)}${rate}</span></div>`;
+  };
+  const ratio = t.asset ? t.liability / t.asset : (t.liability ? Infinity : 0);
+  $('#kpis').innerHTML = `
+    <div class="card kpi net"><div class="l">净资产</div><div class="v money num">${fmt(t.net)}</div>${delta(t.net, pt?.net)}</div>
+    <div class="card kpi"><div class="l"><span class="dot" style="background:var(--asset)"></span>总资产</div><div class="v money num">${fmt(t.asset)}</div>${delta(t.asset, pt?.asset)}</div>
+    <div class="card kpi"><div class="l"><span class="dot" style="background:var(--debt)"></span>总负债</div><div class="v money num">${fmt(t.liability)}</div>${delta(t.liability, pt?.liability, true)}</div>
+    <div class="card kpi"><div class="l">资产负债率</div><div class="v num">${pct(ratio)}</div><div class="s">${ratio <= .3 ? '负债水平健康' : ratio <= .6 ? '负债适中，注意控制' : '负债偏高，需警惕'}</div></div>`;
+
+  renderHealth(t);
+  renderAlloc(t);
+  renderTrend();
+  renderChanges(t, pt, prev);
+}
+
+function metric(label, value, level, fill, hint){
+  const col = {good:'var(--asset)', mid:'var(--warn)', bad:'var(--debt)', none:'var(--line)'}[level];
+  const txt = {good:'良好', mid:'一般', bad:'需改善', none:'待完善'}[level];
+  return `<div class="metric"><div class="l"><span>${label}</span><span class="tag ${level === 'none' ? '' : level}">${txt}</span></div>
+    <div class="v num">${value}</div><div class="bar"><i style="width:${Math.max(0, Math.min(1, fill)) * 100}%;background:${col}"></i></div>
+    <div class="muted" style="font-size:11.5px;margin-top:6px">${hint}</div></div>`;
+}
+
+function renderHealth(t){
+  const S = state.settings, A = t.byCat.asset, L = t.byCat.liability;
+  const cash = A.cash || 0, invest = A.invest || 0;
+  const shortDebt = CATS.liability.filter(c => !c.long).reduce((s, c) => s + (L[c.id] || 0), 0);
+  const ratio = t.asset ? t.liability / t.asset : (t.liability ? Infinity : 0);
+  const months = S.monthly > 0 ? cash / S.monthly : null;
+  const liquid = shortDebt ? cash / shortDebt : null;
+  const investR = t.asset ? invest / t.asset : 0;
+  const lv = (v, a, b, rev) => v == null ? 'none' : rev ? (v <= a ? 'good' : v <= b ? 'mid' : 'bad') : (v >= a ? 'good' : v >= b ? 'mid' : 'bad');
+
+  const tips = [];
+  if (ratio > .6) tips.push('资产负债率超过 60%，偿债压力较大，建议优先偿还高息负债（信用卡、网贷）。');
+  if (months != null && months < 3) tips.push(`现金仅能覆盖 ${months.toFixed(1)} 个月支出，建议先储备 3～6 个月的应急资金。`);
+  if (months == null) tips.push('在「设置」中填写每月支出，即可评估应急备用金是否充足。');
+  if (liquid != null && liquid < 1) tips.push('现金不足以覆盖短期负债（信用卡、消费贷等），存在流动性风险。');
+  if ((L.credit || 0) + (L.consumer || 0) > 0 && cash > (L.credit || 0) + (L.consumer || 0)) tips.push('现金足以还清信用卡/消费贷，提前还清可省下可观的利息。');
+  if (t.asset && investR < .1 && (months == null || months >= 6)) tips.push('投资资产占比偏低，在备用金充足的前提下可考虑适度配置，让钱为你工作。');
+  if (t.net < 0) tips.push('当前净资产为负，建议制定还款计划并控制非必要支出。');
+  if (!tips.length) tips.push('财务状况良好，继续保持定期记录的习惯！');
+
+  $('#health').innerHTML = `<div class="health">
+    ${metric('资产负债率', pct(ratio), t.asset || t.liability ? lv(ratio, .3, .6, true) : 'none', ratio, '总负债 ÷ 总资产，建议 ≤ 30%')}
+    ${metric('应急备用金', months == null ? '—' : months.toFixed(1) + ' 个月', lv(months, 6, 3), months == null ? 0 : months / 12, '现金及存款 ÷ 每月支出，建议 3～6 个月')}
+    ${metric('流动性比率', liquid == null ? (cash ? '无短期负债' : '—') : liquid.toFixed(2), liquid == null ? (cash ? 'good' : 'none') : lv(liquid, 2, 1), liquid == null ? (cash ? 1 : 0) : liquid / 3, '现金 ÷ 短期负债，建议 ≥ 2')}
+    ${metric('投资资产占比', pct(investR), t.asset ? lv(investR, .3, .1) : 'none', investR / .6, '投资理财 ÷ 总资产，体现钱生钱能力')}
+  </div>
+  ${S.goal > 0 ? `<div class="goal"><div class="l"><span>净资产目标 <span class="money">${fmt(S.goal)}</span></span><span>${pct(Math.max(0, t.net) / S.goal)}</span></div>
+    <div class="bar" style="height:8px"><i style="width:${Math.max(0, Math.min(1, t.net / S.goal)) * 100}%;background:var(--accent)"></i></div></div>` : ''}
+  <ul class="tips">${tips.map(x => `<li>💡 ${x}</li>`).join('')}</ul>`;
+}
+
+function renderAlloc(t){
+  const data = CATS.asset.map(c => ({...c, v:t.byCat.asset[c.id] || 0})).filter(d => d.v > 0).sort((a, b) => b.v - a.v);
+  if (!data.length){ $('#alloc').innerHTML = '<div class="empty-tip">添加资产后显示资产结构</div>'; return; }
+  const R = 54, C = 2 * Math.PI * R; let off = 0;
+  const arcs = data.map(d => {
+    const len = d.v / t.asset * C;
+    const s = `<circle r="${R}" cx="70" cy="70" fill="none" stroke="${d.color}" stroke-width="20" stroke-dasharray="${len} ${C - len}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"><title>${d.name} ${pct(d.v / t.asset)}</title></circle>`;
+    off += len; return s;
+  }).join('');
+  const L = t.byCat.liability;
+  const mortgage = L.mortgage || 0, prop = t.byCat.asset.property || 0;
+  $('#alloc').innerHTML = `<div class="donut-wrap">
+    <svg viewBox="0 0 140 140" width="150" height="150">${arcs}
+      <text x="70" y="66" text-anchor="middle" style="fill:var(--muted);font-size:10px">总资产</text>
+      <text x="70" y="84" text-anchor="middle" class="money" style="fill:var(--text);font-size:15px;font-weight:650">${fmtShort(t.asset)}</text></svg>
+    <div class="legend">${data.map(d => `<div><span class="dot" style="background:${d.color}"></span>${d.name}<span class="p num"><span class="money">${fmtShort(d.v)}</span> · ${pct(d.v / t.asset)}</span></div>`).join('')}</div>
+  </div>
+  ${prop ? `<div class="muted" style="font-size:12.5px;margin-top:12px">房产占总资产 ${pct(prop / t.asset)}${mortgage ? `，房产净值 <span class="money">${fmt(prop - mortgage)}</span>（扣除房贷）` : ''}${prop / t.asset > .7 ? '。资产过度集中于房产，流动性较弱。' : '。'}</div>` : ''}`;
+}
+
+function renderTrend(){
+  const list = sorted();
+  const el = $('#trend');
+  if (list.length < 2){ el.innerHTML = '<div class="empty-tip">记录两期及以上即可查看趋势。<br>建议每月或每季度记录一次。</div>'; return; }
+  const pts = list.map(s => ({s, ...totals(s)}));
+  const W = 560, H = 230, pl = 48, pr = 14, pt = 14, pb = 30;
+  const vals = pts.flatMap(p => [p.asset, p.liability, p.net]);
+  let max = Math.max(...vals, 0), min = Math.min(...vals, 0);
+  if (max === min) max = min + 1;
+  const pad = (max - min) * .08; max += pad; if (min < 0) min -= pad;
+  const x = i => pl + (W - pl - pr) * (pts.length === 1 ? .5 : i / (pts.length - 1));
+  const y = v => pt + (H - pt - pb) * (1 - (v - min) / (max - min));
+  const ticks = 4, grid = [];
+  for (let i = 0; i <= ticks; i++){ const v = min + (max - min) * i / ticks; grid.push(`<line class="grid" x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}"/><text class="money" x="${pl - 6}" y="${y(v) + 4}" text-anchor="end">${fmtShort(v)}</text>`); }
+  const line = (k, col, w, dash) => `<polyline fill="none" stroke="${col}" stroke-width="${w}" ${dash ? 'stroke-dasharray="4 4"' : ''} stroke-linejoin="round" stroke-linecap="round" points="${pts.map((p, i) => `${x(i)},${y(p[k])}`).join(' ')}"/>`;
+  const area = `<polygon fill="url(#g)" points="${x(0)},${y(Math.max(min, 0))} ${pts.map((p, i) => `${x(i)},${y(p.net)}`).join(' ')} ${x(pts.length - 1)},${y(Math.max(min, 0))}"/>`;
+  const step = Math.ceil(pts.length / 7);
+  const labels = pts.map((p, i) => (i % step === 0 || i === pts.length - 1) ? `<text x="${x(i)}" y="${H - 10}" text-anchor="${i === pts.length - 1 ? 'end' : i === 0 ? 'start' : 'middle'}">${p.s.date.slice(2).replace(/-/g, '/')}</text>` : '').join('');
+  const dots = pts.map((p, i) => `<circle cx="${x(i)}" cy="${y(p.net)}" r="${p.s.id === state.currentId ? 5 : 3.5}" fill="var(--panel)" stroke="var(--accent)" stroke-width="2" style="cursor:pointer" data-id="${p.s.id}"><title>${esc(p.s.name)} ${p.s.date}\n净资产 ${fmt(p.net)}\n资产 ${fmt(p.asset)}\n负债 ${fmt(p.liability)}</title></circle>`).join('');
+  const first = pts[0], last = pts.at(-1);
+  const days = (new Date(last.s.date) - new Date(first.s.date)) / 864e5;
+  const growth = last.net - first.net;
+  el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}">
+    <defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".22"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+    ${grid.join('')}${area}${line('asset', 'var(--asset)', 1.6, true)}${line('liability', 'var(--debt)', 1.6, true)}${line('net', 'var(--accent)', 2.6)}${dots}${labels}</svg>
+    <div class="legend" style="flex-direction:row;flex-wrap:wrap;gap:14px;margin-top:6px">
+      <div><span class="dot" style="background:var(--accent)"></span>净资产</div><div><span class="dot" style="background:var(--asset)"></span>总资产</div><div><span class="dot" style="background:var(--debt)"></span>总负债</div>
+    </div>
+    <div class="muted" style="font-size:12.5px;margin-top:10px">自 ${first.s.date} 起净资产 <span class="money num ${growth >= 0 ? 'up' : 'down'}">${signed(growth)}</span>${days >= 28 ? `，平均每月 <span class="money num">${signed(growth / (days / 30.44))}</span>` : ''}。</div>`;
+}
+
+function renderChanges(t, pt, prev){
+  const el = $('#changes');
+  if (!pt){ el.innerHTML = '<div class="empty-tip">暂无上期数据。<br>点击「复制为新一期」可基于本期快速创建下一期。</div>'; return; }
+  const rows = [];
+  for (const type of ['asset', 'liability']) for (const c of CATS[type]){
+    const a = t.byCat[type][c.id] || 0, b = pt.byCat[type][c.id] || 0;
+    if (a || b) rows.push({type, name:c.name, d:a - b});
+  }
+  const moved = rows.filter(r => r.d !== 0).sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+  el.innerHTML = `<div class="muted" style="font-size:12.5px;margin-bottom:8px">对比：${esc(prev.name)}（${prev.date}）</div>
+    ${moved.length ? `<div class="change-list">${moved.map(r => {
+      const good = r.type === 'asset' ? r.d > 0 : r.d < 0;
+      return `<div><span><span class="dot" style="background:${r.type === 'asset' ? 'var(--asset)' : 'var(--debt)'};margin-right:8px"></span>${r.name}</span><span class="money num ${good ? 'up' : 'down'}">${signed(r.d)}</span></div>`;
+    }).join('')}</div>` : '<div class="empty-tip">各类别金额与上期相同</div>'}`;
+}
+
+// ---------- actions ----------
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2000); }
+
+function defaultName(date){ const [y, m] = date.split('-'); return `${y}年${+m}月`; }
+
+function openNew(copyFrom){
+  const dlg = $('#newDlg'), f = dlg.querySelector('form');
+  const base = copyFrom || sorted().at(-1);
+  f.date.value = today(); f.name.value = defaultName(today());
+  $('#copyWrap').style.display = base ? '' : 'none';
+  f.copy.checked = true;
+  f.date.oninput = () => { if (/^\d{4}年\d{1,2}月$/.test(f.name.value)) f.name.value = defaultName(f.date.value); };
+  dlg.onclose = () => {
+    if (dlg.returnValue !== 'ok') return;
+    const sh = {id:uid(), name:f.name.value.trim() || defaultName(f.date.value), date:f.date.value || today(), note:'', items:[]};
+    if (base && f.copy.checked) sh.items = base.items.map(i => ({...i, id:uid()}));
+    state.sheets.push(sh); state.currentId = sh.id; save(); render();
+    toast(base && f.copy.checked ? '已创建，已复制上期条目，更新金额即可' : '已创建');
+  };
+  dlg.returnValue = ''; dlg.showModal();
+}
+
+function openSettings(){
+  const dlg = $('#setDlg'), f = dlg.querySelector('form'), S = state.settings;
+  f.currency.value = S.currency; f.monthly.value = S.monthly || ''; f.goal.value = S.goal || ''; f.theme.value = S.theme;
+  dlg.onclose = () => {
+    if (dlg.returnValue !== 'ok') return;
+    Object.assign(S, {currency:f.currency.value || '¥', monthly:+f.monthly.value || 0, goal:+f.goal.value || 0, theme:f.theme.value});
+    save(); render(); toast('设置已保存');
+  };
+  dlg.returnValue = ''; dlg.showModal();
+}
+
+function download(name, content, type){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], {type}));
+  a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function exportCSV(){
+  const sh = current(), t = totals(sh);
+  const q = s => `"${String(s).replace(/"/g, '""')}"`;
+  const lines = [['类型', '类别', '名称', '金额'].join(',')];
+  for (const type of ['asset', 'liability']) for (const c of CATS[type])
+    for (const i of sh.items.filter(i => i.type === type && catOf(type, i.cat).id === c.id))
+      lines.push([type === 'asset' ? '资产' : '负债', c.name, q(i.name), (+i.amount || 0).toFixed(2)].join(','));
+  lines.push('', ['合计', '', '总资产', t.asset.toFixed(2)].join(','), ['合计', '', '总负债', t.liability.toFixed(2)].join(','), ['合计', '', '净资产', t.net.toFixed(2)].join(','));
+  download(`${sh.name}_${sh.date}.csv`, '﻿' + lines.join('\n'), 'text/csv;charset=utf-8');
+}
+
+function loadDemo(){
+  const mk = (date, f) => ({id:uid(), name:defaultName(date), date, note:'', items:[
+    ['asset','cash','工资卡活期',38000*f],['asset','cash','余额宝',52000*f],['asset','invest','指数基金',86000*f*f],['asset','invest','股票账户',45000*f],
+    ['asset','fund','住房公积金',62000*f],['asset','property','自住房（估值）',2350000],['asset','vehicle','家用车（估值）',Math.round(128000/f)],
+    ['liability','mortgage','商业房贷',Math.round(1180000/f)],['liability','carloan','车贷',Math.round(42000/f/f)],['liability','credit','信用卡账单',8600],
+  ].map(([type, cat, name, amount]) => ({id:uid(), type, cat, name, amount:Math.round(amount)}))});
+  const now = new Date();
+  for (let k = 5; k >= 0; k--){
+    const d = new Date(now.getFullYear(), now.getMonth() - k * 2, 1);
+    state.sheets.push(mk(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`, 1 + (5 - k) * .045));
+  }
+  state.settings.monthly ||= 12000; state.settings.goal ||= 2000000;
+  state.currentId = null; save(); render(); toast('已加载示例数据，可随时删除');
+}
+
+document.addEventListener('click', e => {
+  const sideItem = e.target.closest('[data-id]');
+  if (sideItem){ state.currentId = sideItem.dataset.id; save(); render(); $('#side').classList.remove('open'); window.scrollTo(0, 0); return; }
+  const del = e.target.closest('[data-del]');
+  if (del){
+    const sh = current(); const it = sh.items.find(i => i.id === del.dataset.del);
+    sh.items = sh.items.filter(i => i !== it); save(); renderItems(it.type); renderSummary(); return;
+  }
+  const act = e.target.closest('[data-act]')?.dataset.act;
+  if (!act) return;
+  const sh = current();
+  switch (act){
+    case 'new': openNew(); break;
+    case 'duplicate': openNew(sh); break;
+    case 'settings': openSettings(); break;
+    case 'demo': loadDemo(); break;
+    case 'hide': state.settings.hide = !state.settings.hide; save(); render(); break;
+    case 'print': window.print(); break;
+    case 'csv': exportCSV(); break;
+    case 'export': download(`资产负债表备份_${today()}.json`, JSON.stringify(state, null, 2), 'application/json'); toast('备份已下载'); break;
+    case 'import': $('#importFile').click(); break;
+    case 'delete':
+      if (confirm(`确定删除「${sh.name}」吗？此操作无法撤销。`)){ state.sheets = state.sheets.filter(s => s !== sh); state.currentId = null; save(); render(); toast('已删除'); }
+      break;
+  }
+});
+
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (el.dataset.add !== undefined && el.value){
+    const type = el.dataset.add, sh = current();
+    const it = {id:uid(), type, cat:el.value, name:'', amount:0};
+    sh.items.push(it); save(); renderItems(type); renderSummary();
+    document.querySelector(`[data-item="${it.id}"] [data-f="name"]`)?.focus();
+    return;
+  }
+  if (el.dataset.f === 'cat'){
+    const sh = current(), it = sh.items.find(i => i.id === el.closest('[data-item]').dataset.item);
+    it.cat = el.value; save(); renderItems(it.type); renderSummary();
+  }
+  if (el.id === 'sheetDate' && el.value){ current().date = el.value; save(); renderSummary(); renderTrend(); }
+});
+
+document.addEventListener('input', e => {
+  const el = e.target, sh = current();
+  if (!sh) return;
+  const row = el.closest('[data-item]');
+  if (row){
+    const it = sh.items.find(i => i.id === row.dataset.item);
+    if (el.dataset.f === 'name') it.name = el.value;
+    if (el.dataset.f === 'amount'){ it.amount = parseFloat(el.value) || 0; renderSummary(); }
+    save(); return;
+  }
+  if (el.id === 'sheetName'){ sh.name = el.value; save(); renderSide(); }
+  if (el.id === 'sheetNote'){ sh.note = el.value; save(); }
+});
+
+// Enter in an amount field jumps to the next amount — fast monthly updates
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || !e.target.matches('.amt, [data-f="name"]')) return;
+  e.preventDefault();
+  const all = [...document.querySelectorAll('.amt')];
+  const row = e.target.closest('[data-item]');
+  if (e.target.dataset.f === 'name') return row.querySelector('.amt').focus();
+  const next = all[all.indexOf(e.target) + 1];
+  next ? (next.focus(), next.select()) : e.target.blur();
+});
+
+$('#importFile').addEventListener('change', async e => {
+  const file = e.target.files[0]; if (!file) return;
+  try{
+    const data = JSON.parse(await file.text());
+    if (!Array.isArray(data.sheets)) throw 0;
+    if (state.sheets.length && !confirm(`将用备份中的 ${data.sheets.length} 期数据替换当前数据，继续吗？`)) return;
+    state = normalize(data); save(); render(); toast('数据已恢复');
+  }catch(err){ toast('文件格式不正确'); }
+  e.target.value = '';
+});
+$('#toggleSide').addEventListener('click', () => $('#side').classList.toggle('open'));
+
+render();
+})();
+</script>
+</body>
+</html>
