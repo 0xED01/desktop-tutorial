@@ -44,6 +44,7 @@ public class ScreenshotTest {
             c.createdAt = System.currentTimeMillis() - i * 86400000L;
             db.upsert(c);
         }
+        a.getSharedPreferences("settings", 0).edit().putString("last_activity", act.name).commit();
         a.recreate();
         a = Robolectric.buildActivity(MainActivity.class).setup().get();
         ScrollView sv = (ScrollView) ((ViewGroup) a.findViewById(android.R.id.content)).getChildAt(0);

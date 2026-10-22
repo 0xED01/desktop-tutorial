@@ -91,8 +91,8 @@ public class CustomerDb extends SQLiteOpenHelper {
             v.remove("note");
             v.remove("created_at");
             v.remove("gift_given");
-            if (c.activity.isEmpty()) {
-                v.remove("activity");
+            if (c.activity.isEmpty()) v.remove("activity");
+            if (c.gift.isEmpty()) {
                 v.remove("gift");
                 v.remove("gift_cost");
             }

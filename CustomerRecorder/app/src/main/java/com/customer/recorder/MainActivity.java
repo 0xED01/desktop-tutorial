@@ -82,7 +82,8 @@ public class MainActivity extends Activity {
     private FlowLayout mobileChips;
     private FlowLayout creditChips;
     private FlowLayout entryActivityChips;
-    private TextView entryGiftInfo;
+    private AutoCompleteTextView entryGift;
+    private EditText entryCost;
     private List<Customer> pending = new ArrayList<>();
     /** 上次识别的文本；文本没变时不重新识别，避免覆盖用户手动点选的开通状态 */
     private String parsedText = null;
@@ -221,9 +222,39 @@ public class MainActivity extends Activity {
         preview.addView(Ui.label(this, "扫码活动"));
         entryActivityChips = new FlowLayout(this);
         preview.addView(entryActivityChips);
-        entryGiftInfo = Ui.text(this, "", 13, Ui.ORANGE, false);
-        entryGiftInfo.setPadding(0, dp(6), 0, 0);
-        preview.addView(entryGiftInfo);
+        LinearLayout giftRow = new LinearLayout(this);
+        LinearLayout giftCol = new LinearLayout(this);
+        giftCol.setOrientation(LinearLayout.VERTICAL);
+        giftCol.addView(Ui.label(this, "礼品"));
+        entryGift = new AutoCompleteTextView(this);
+        entryGift.setBackground(Ui.round(this, Ui.GRAY_BG, 10));
+        entryGift.setPadding(dp(12), dp(10), dp(12), dp(10));
+        entryGift.setTextSize(15);
+        entryGift.setSingleLine(true);
+        entryGift.setThreshold(1);
+        entryGift.setHint("无礼品可不填");
+        entryGift.setOnItemClickListener((p, v, pos, id) -> {
+            // 选了用过的礼品，自动带出对应活动里设的成本
+            String g = entryGift.getText().toString();
+            for (CustomerDb.Act a : db.activities()) {
+                if (a.gift.equals(g) && a.cost > 0) {
+                    entryCost.setText(plain(a.cost));
+                    break;
+                }
+            }
+        });
+        giftCol.addView(entryGift, new LinearLayout.LayoutParams(-1, -2));
+        giftRow.addView(giftCol, new LinearLayout.LayoutParams(0, -2, 1.6f));
+        LinearLayout costCol = new LinearLayout(this);
+        costCol.setOrientation(LinearLayout.VERTICAL);
+        costCol.addView(Ui.label(this, "礼品成本（元）"));
+        entryCost = Ui.input(this, "0");
+        entryCost.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        costCol.addView(entryCost, new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout.LayoutParams costLp = new LinearLayout.LayoutParams(0, -2, 1f);
+        costLp.leftMargin = dp(10);
+        giftRow.addView(costCol, costLp);
+        preview.addView(giftRow);
 
         Button save = Ui.button(this, "保存记录", true);
         save.setOnClickListener(v -> saveEntry());
@@ -365,14 +396,13 @@ public class MainActivity extends Activity {
         bindChoices(creditChips, OPEN_STATES, entryCredit, null);
     }
 
+    /** 按所选活动预填礼品和成本，用户可再修改。 */
     private void updateEntryGiftInfo() {
         CustomerDb.Act a = db.findActivity(entryActivity[0]);
-        if (a == null || a.gift.isEmpty()) {
-            entryGiftInfo.setVisibility(View.GONE);
-        } else {
-            entryGiftInfo.setVisibility(View.VISIBLE);
-            entryGiftInfo.setText("礼品：" + a.gift + " · 成本 " + money.format(a.cost) + " 元");
-        }
+        entryGift.setAdapter(new ArrayAdapter<>(this,
+                android.R.layout.simple_dropdown_item_1line, db.distinct("gift")));
+        entryGift.setText(a == null ? "" : a.gift, false);
+        entryCost.setText(a == null || a.cost == 0 ? "" : plain(a.cost));
     }
 
     // ================= 录入 =================
@@ -432,15 +462,15 @@ public class MainActivity extends Activity {
             return;
         }
         CustomerDb.Act act = db.findActivity(entryActivity[0]);
+        String gift = entryGift.getText().toString().trim();
+        double giftCost = gift.isEmpty() ? 0 : parseMoney(entryCost.getText().toString());
         String phone = phoneInput.getText().toString().trim();
         int updated = 0;
         StringBuilder names = new StringBuilder();
         for (Customer c : pending) {
-            if (act != null) {
-                c.activity = act.name;
-                c.gift = act.gift;
-                c.giftCost = act.gift.isEmpty() ? 0 : act.cost;
-            }
+            if (act != null) c.activity = act.name;
+            c.gift = gift;
+            c.giftCost = giftCost;
             if (pending.size() == 1) {
                 if (!phone.isEmpty()) c.phone = phone;
                 c.debitCard = entryDebit[0];
@@ -466,6 +496,7 @@ public class MainActivity extends Activity {
         entryMobile[0] = MessageParser.UNKNOWN;
         entryCredit[0] = MessageParser.UNKNOWN;
         renderStateChips();
+        updateEntryGiftInfo();
         pending.clear();
         parsedText = null;
         preview.setVisibility(View.GONE);

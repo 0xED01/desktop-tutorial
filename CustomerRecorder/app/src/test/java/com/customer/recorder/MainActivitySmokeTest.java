@@ -59,6 +59,32 @@ public class MainActivitySmokeTest {
         assertEquals(MessageParser.NOT_OPENED, c.debitCard);
     }
 
+    @Test
+    public void giftAndCostFromActivityAreEditable() {
+        android.content.Context ctx = ApplicationProvider.getApplicationContext();
+        CustomerDb.Act act = new CustomerDb.Act();
+        act.name = "扫码送油";
+        act.gift = "食用油";
+        act.cost = 45;
+        new CustomerDb(ctx).saveActivity(act, null);
+        MainActivity a = Robolectric.buildActivity(MainActivity.class).setup().get();
+        View root = a.findViewById(android.R.id.content);
+        find(root, EditText.class, "长按这里粘贴").setText(SAMPLE);
+        ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS);
+        find(rowAfterLabel(root, "扫码活动"), TextView.class, "扫码送油").performClick();
+        EditText gift = find(root, EditText.class, "无礼品可不填");
+        assertEquals("食用油", gift.getText().toString());
+        EditText cost = (EditText) ((ViewGroup) ((ViewGroup) gift.getParent().getParent()).getChildAt(1)).getChildAt(1);
+        assertEquals("45", cost.getText().toString());
+        cost.setText("50");
+        find(root, Button.class, "保存记录").performClick();
+        Customer c = new CustomerDb(a).query("", 0, 0, Long.MAX_VALUE, "").get(0);
+        assertEquals("扫码送油", c.activity);
+        assertEquals("食用油", c.gift);
+        assertEquals(50, c.giftCost, 0.001);
+        assertEquals("食用油", gift.getText().toString());
+    }
+
     private static ViewGroup rowAfterLabel(View v, String label) {
         if (v instanceof ViewGroup) {
             ViewGroup g = (ViewGroup) v;
