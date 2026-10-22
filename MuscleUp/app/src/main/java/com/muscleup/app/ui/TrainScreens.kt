@@ -267,7 +267,9 @@ fun SessionScreen() {
         return
     }
 
+    var askOverlay by remember { mutableStateOf(false) }
     SubPage(Session.title, Nav::back, actions = {
+        IconButton({ startFloatTimer(ctx, Session.title) { askOverlay = true } }) { Icon(Icons.Filled.AvTimer, "悬浮计时") }
         IconButton({ showDiscard = true }) { Icon(Icons.Filled.Delete, "放弃") }
     }) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
@@ -332,6 +334,7 @@ fun SessionScreen() {
             dismissButton = { TextButton({ showFinish = false }) { Text("继续练") } },
         )
     }
+    if (askOverlay) OverlayPermissionDialog { askOverlay = false }
     if (showDiscard) {
         AlertDialog(
             onDismissRequest = { showDiscard = false },

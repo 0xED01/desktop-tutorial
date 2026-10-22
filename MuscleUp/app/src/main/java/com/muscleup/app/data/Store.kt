@@ -34,6 +34,13 @@ object Store {
         private set
     var reminders by mutableStateOf(defaultReminders())
         private set
+    var timerLogs by mutableStateOf(listOf<TimerLog>())
+        private set
+
+    /** 后台服务中使用：仅在尚未加载时读取数据，避免覆盖界面中的状态 */
+    fun ensureInit(ctx: Context) {
+        if (!::file.isInitialized) init(ctx)
+    }
 
     fun init(ctx: Context) {
         file = File(ctx.filesDir, "muscleup.json")
@@ -62,6 +69,7 @@ object Store {
         water = w?.keys()?.asSequence()?.associate { it.toLong() to w.getInt(it) } ?: emptyMap()
         activePlanId = o.optString("activePlan", activePlanId)
         planCursor = o.optInt("planCursor", 0)
+        timerLogs = o.optJSONArray("timerLogs").objs().map { TimerLog.from(it) }
         val saved = o.optJSONArray("reminders").objs().map { Reminder.from(it) }.associateBy { it.key }
         reminders = defaultReminders().map { saved[it.key] ?: it }
     }
@@ -78,6 +86,7 @@ object Store {
         o.put("water", JSONObject().apply { water.forEach { (k, v) -> put(k.toString(), v) } })
         o.put("activePlan", activePlanId)
         o.put("planCursor", planCursor)
+        o.put("timerLogs", JSONArray(timerLogs.map { it.toJson() }))
         o.put("reminders", JSONArray(reminders.map { it.toJson() }))
         val tmp = File(file.parentFile, file.name + ".tmp")
         tmp.writeText(o.toString())
@@ -93,7 +102,7 @@ object Store {
     fun resetAll() {
         profile = Profile(); workouts = emptyList(); foods = emptyList(); weights = emptyList()
         measures = emptyList(); sleeps = emptyList(); water = emptyMap(); customFoods = emptyList()
-        activePlanId = "beginner_fullbody"; planCursor = 0; reminders = defaultReminders()
+        activePlanId = "beginner_fullbody"; planCursor = 0; reminders = defaultReminders(); timerLogs = emptyList()
         save()
     }
 
@@ -195,6 +204,16 @@ object Store {
 
     fun deleteSleep(date: Long) {
         sleeps = sleeps.filterNot { it.date == date }
+        save()
+    }
+
+    fun addTimerLog(t: TimerLog) {
+        timerLogs = (timerLogs + t).sortedByDescending { it.startMs }
+        save()
+    }
+
+    fun deleteTimerLog(id: Long) {
+        timerLogs = timerLogs.filterNot { it.id == id }
         save()
     }
 

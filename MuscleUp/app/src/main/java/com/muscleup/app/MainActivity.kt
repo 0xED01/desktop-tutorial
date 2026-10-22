@@ -26,6 +26,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Store.init(applicationContext)
+        FloatTimer.restore(applicationContext)
+        // 进程被回收后重新打开：恢复悬浮计时服务
+        if (FloatTimer.running && !FloatTimerService.alive) runCatching { FloatTimer.launch(this) }
         enableEdgeToEdge()
         setContent { AppTheme { App() } }
     }

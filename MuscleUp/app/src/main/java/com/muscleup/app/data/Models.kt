@@ -156,6 +156,21 @@ data class SleepLog(val date: Long, val hours: Double, val quality: Int) {
     companion object { fun from(o: JSONObject) = SleepLog(o.getLong("date"), o.optDouble("h"), o.optInt("q", 3)) }
 }
 
+/** 悬浮计时器记录的一段训练时长 */
+data class TimerLog(val id: Long, val date: Long, val startMs: Long, val seconds: Int, val label: String) {
+    fun toJson() = JSONObject().put("id", id).put("date", date).put("start", startMs).put("sec", seconds).put("label", label)
+    companion object {
+        fun from(o: JSONObject) = TimerLog(o.getLong("id"), o.getLong("date"), o.optLong("start"), o.optInt("sec"), o.optString("label"))
+    }
+}
+
+fun formatDuration(sec: Long): String {
+    val h = sec / 3600
+    val m = sec % 3600 / 60
+    val s = sec % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
+}
+
 data class Reminder(val key: String, val title: String, val hour: Int, val minute: Int, val enabled: Boolean) {
     fun toJson() = JSONObject().put("key", key).put("title", title).put("h", hour).put("m", minute).put("on", enabled)
     companion object {

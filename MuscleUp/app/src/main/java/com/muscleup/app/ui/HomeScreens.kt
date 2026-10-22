@@ -152,6 +152,23 @@ fun HomeTab(modifier: Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
+        if (com.muscleup.app.FloatTimer.running) {
+            Card(
+                onClick = { Nav.go(Route.FloatTimerR) },
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Timer, null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        "${com.muscleup.app.FloatTimer.label} ${if (com.muscleup.app.FloatTimer.paused) "已暂停" else "计时中"} · 点击查看",
+                        fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+
         // 体重进度
         SectionCard(title = "体重进度") {
             val start = Store.weights.firstOrNull()?.weight ?: w
@@ -247,7 +264,7 @@ fun HomeTab(modifier: Modifier) {
         SectionCard(title = "💡 今日小贴士") { Text(tip) }
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            QuickAction(Modifier.weight(1f), Icons.Filled.Timer, "休息计时") { Nav.go(Route.Timer) }
+            QuickAction(Modifier.weight(1f), Icons.Filled.Timer, "悬浮计时") { Nav.go(Route.FloatTimerR) }
             QuickAction(Modifier.weight(1f), Icons.AutoMirrored.Filled.MenuBook, "增肌知识") { Nav.go(Route.KnowledgeList) }
             QuickAction(Modifier.weight(1f), Icons.Filled.LocalDrink, "增肌食谱") { Nav.go(Route.Recipes) }
             QuickAction(Modifier.weight(1f), Icons.Filled.EmojiEvents, "成就") { Nav.go(Route.Achievements) }

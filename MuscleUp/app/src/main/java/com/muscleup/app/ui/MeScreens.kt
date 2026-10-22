@@ -50,6 +50,7 @@ fun MeTab(modifier: Modifier) {
         }
 
         MenuGroup("训练工具", listOf(
+            Triple(Icons.Filled.AvTimer, "悬浮训练计时器（记录训练时长）", Route.FloatTimerR),
             Triple(Icons.Filled.Timer, "组间休息计时器", Route.Timer),
             Triple(Icons.Filled.Calculate, "1RM 最大力量计算", Route.OneRmCalc),
             Triple(Icons.Filled.FitnessCenter, "杠铃片配重计算", Route.PlateCalc),
@@ -68,7 +69,7 @@ fun MeTab(modifier: Modifier) {
             Triple(Icons.Filled.Notifications, "提醒设置", Route.RemindersR),
             Triple(Icons.Filled.Storage, "数据备份与恢复", Route.DataManage),
         ))
-        Text("增肌助手 v1.0 · 所有数据仅保存在本机\n本应用内容仅供参考，如有伤病请咨询医生或专业教练。",
+        Text("增肌助手 v1.1 · 所有数据仅保存在本机\n本应用内容仅供参考，如有伤病请咨询医生或专业教练。",
             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(8.dp))
     }

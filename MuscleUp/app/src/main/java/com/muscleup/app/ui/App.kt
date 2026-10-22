@@ -37,6 +37,7 @@ sealed interface Route {
     data object ProfileEdit : Route
     data object DataManage : Route
     data object Records : Route
+    data object FloatTimerR : Route
 }
 
 object Nav {
@@ -100,6 +101,7 @@ fun App() {
             Route.ProfileEdit -> ProfileEditScreen()
             Route.DataManage -> DataScreen()
             Route.Records -> RecordsScreen()
+            Route.FloatTimerR -> FloatTimerScreen()
         }
     }
 }
