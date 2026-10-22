@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="AppTheme" parent="android:Theme.Material.Light.DarkActionBar">
-        <item name="android:colorPrimary">#C62828</item>
-        <item name="android:colorPrimaryDark">#9A1B1B</item>
-        <item name="android:colorAccent">#C62828</item>
+        <item name="android:colorPrimary">#1A56B0</item>
+        <item name="android:colorPrimaryDark">#0F3F8C</item>
+        <item name="android:colorAccent">#1A56B0</item>
         <item name="android:windowBackground">@color/page_bg</item>
     </style>
-    <color name="page_bg">#F2F3F5</color>
+    <color name="page_bg">#EEF2F8</color>
 </resources>

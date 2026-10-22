@@ -10,8 +10,8 @@ android {
         applicationId 'com.customer.recorder'
         minSdk 24
         targetSdk 34
-        versionCode 8
-        versionName '2.5'
+        versionCode 9
+        versionName '2.6'
     }
 
     // 固定签名，保证以后的新版本能直接覆盖安装、不丢数据

@@ -193,7 +193,7 @@ public class MainActivity extends Activity {
 
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setBackground(Ui.round(this, Ui.GREEN_BG, 10));
+        box.setBackground(Ui.round(this, Ui.BLUE_BG, 10));
         box.setPadding(dp(12), dp(10), dp(12), dp(10));
         previewInfo = Ui.text(this, "", 15, Ui.TEXT, false);
         previewInfo.setLineSpacing(dp(2), 1f);
@@ -287,7 +287,7 @@ public class MainActivity extends Activity {
         activityFilterChips = new FlowLayout(this);
         card.addView(activityFilterChips);
         stats = Ui.text(this, "", 14, Ui.TEXT, false);
-        stats.setBackground(Ui.round(this, Ui.BLUE_BG, 10));
+        stats.setBackground(Ui.round(this, Ui.YELLOW_BG, 10));
         stats.setPadding(dp(12), dp(10), dp(12), dp(10));
         stats.setLineSpacing(dp(2), 1f);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
@@ -629,8 +629,8 @@ public class MainActivity extends Activity {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(dp(4), dp(10), dp(4), dp(8));
         View bar = new View(this);
-        bar.setBackground(Ui.round(this, Ui.PRIMARY, 2));
-        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(dp(4), dp(16));
+        bar.setBackground(Ui.round(this, Ui.YELLOW, 2));
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(dp(5), dp(18));
         blp.rightMargin = dp(8);
         row.addView(bar, blp);
         row.addView(Ui.text(this, monthLabel(month), 16, Ui.TEXT, true),
@@ -666,7 +666,7 @@ public class MainActivity extends Activity {
         if (!c.product.isEmpty()) {
             LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(-2, -2);
             plp.leftMargin = dp(8);
-            top.addView(Ui.tag(this, c.product, Ui.PRIMARY, Ui.RED_BG), plp);
+            top.addView(Ui.tag(this, c.product, Ui.YELLOW_TEXT, Ui.YELLOW_BG), plp);
         }
         top.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
         top.addView(Ui.text(this, wan(c.amount), 18, Ui.PRIMARY, true));

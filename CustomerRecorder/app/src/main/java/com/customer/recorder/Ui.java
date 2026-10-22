@@ -18,7 +18,13 @@ import android.widget.TextView;
 /** 界面样式工具：卡片、标签、按钮等。 */
 final class Ui {
 
-    static final int PRIMARY = 0xFFC62828;
+    /** 主色：蓝 */
+    static final int PRIMARY = 0xFF1A56B0;
+    static final int PRIMARY_DARK = 0xFF0F2F66;
+    /** 辅色：黄 */
+    static final int YELLOW = 0xFFFFC629;
+    static final int YELLOW_BG = 0xFFFFF6D6;
+    static final int YELLOW_TEXT = 0xFF8A5A00;
     static final int TEXT = 0xFF202124;
     static final int TEXT2 = 0xFF6B7280;
     static final int GREEN = 0xFF2E7D32;
@@ -29,7 +35,7 @@ final class Ui {
     static final int BLUE_BG = 0xFFE3F2FD;
     static final int ORANGE = 0xFFE65100;
     static final int ORANGE_BG = 0xFFFFF3E0;
-    static final int GRAY_BG = 0xFFF1F3F4;
+    static final int GRAY_BG = 0xFFF0F3F8;
 
     private Ui() {
     }
@@ -103,9 +109,9 @@ final class Ui {
     }
 
     static TextView addChip(Context c, String s) {
-        TextView tv = text(c, s, 14, BLUE, true);
-        GradientDrawable d = round(c, BLUE_BG, 18);
-        d.setStroke(dp(c, 1), 0x661565C0);
+        TextView tv = text(c, s, 14, YELLOW_TEXT, true);
+        GradientDrawable d = round(c, YELLOW_BG, 18);
+        d.setStroke(dp(c, 1), YELLOW);
         tv.setBackground(new RippleDrawable(ColorStateList.valueOf(0x22000000), d, null));
         tv.setPadding(dp(c, 14), dp(c, 7), dp(c, 14), dp(c, 7));
         return tv;
@@ -123,8 +129,9 @@ final class Ui {
         b.setText(s);
         b.setAllCaps(false);
         b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        b.setTextColor(primary ? Color.WHITE : PRIMARY);
-        b.setBackground(ripple(c, primary ? PRIMARY : RED_BG, 10, 0x33FFFFFF));
+        b.setTextColor(primary ? PRIMARY_DARK : PRIMARY);
+        b.setTypeface(Typeface.DEFAULT_BOLD);
+        b.setBackground(ripple(c, primary ? YELLOW : BLUE_BG, 10, 0x33000000));
         b.setStateListAnimator(null);
         b.setPadding(dp(c, 16), dp(c, 12), dp(c, 16), dp(c, 12));
         return b;
