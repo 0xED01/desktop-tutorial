@@ -9,18 +9,26 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
 import kotlin.concurrent.thread
 import kotlin.math.min
 import kotlin.random.Random
 
-/** 前台服务：锁屏/后台也持续监控。 */
-class MonitorService : Service() {
+/** 前台服务：锁屏/后台也持续监控；同时可以运行网页控制服务器。两者都关掉时服务才退出。 */
+class MonitorService : Service(), WebControl {
     companion object {
         const val ACTION_START = "start"
         const val ACTION_STOP = "stop"
         const val ACTION_STOP_ALARM = "stop_alarm"
+        const val ACTION_WEB_ON = "web_on"
+        const val ACTION_WEB_OFF = "web_off"
+        const val WEB_PORT = 8765
+
+        /** 网页控制是否正在运行（给界面显示用）。 */
+        @Volatile var webRunning = false
         private const val CH_RUN = "monitor"
         private const val CH_ALERT = "alert"
         private const val ID_RUN = 1
@@ -33,6 +41,13 @@ class MonitorService : Service() {
         fun stop(ctx: Context) {
             ctx.startService(Intent(ctx, MonitorService::class.java).setAction(ACTION_STOP))
         }
+
+        fun setWeb(ctx: Context, on: Boolean) {
+            val i = Intent(ctx, MonitorService::class.java).setAction(if (on) ACTION_WEB_ON else ACTION_WEB_OFF)
+            if (on) ctx.startForegroundService(i) else ctx.startService(i)
+        }
+
+        fun webAddress(): String = "http://${WebServer.lanAddress() ?: "手机IP"}:$WEB_PORT"
 
         fun createChannels(ctx: Context) {
             val nm = ctx.getSystemService(NotificationManager::class.java)
@@ -88,6 +103,8 @@ class MonitorService : Service() {
 
     @Volatile private var worker: Thread? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var web: WebServer? = null
+    private val main = Handler(Looper.getMainLooper())
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -97,24 +114,135 @@ class MonitorService : Service() {
         when (intent?.action) {
             ACTION_STOP_ALARM -> {
                 AlarmPlayer.stop()
-                if (worker == null) stopSelf()
+                if (worker == null && web == null) stopSelf()
             }
             ACTION_STOP -> {
                 prefs.running = false
                 stopMonitor()
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
+                stopIfIdle()
+            }
+            ACTION_WEB_ON -> {
+                prefs.webEnabled = true
+                ensureForeground()
+                startWeb(prefs)
+            }
+            ACTION_WEB_OFF -> {
+                prefs.webEnabled = false
+                stopWeb()
+                stopIfIdle()
             }
             else -> {
-                // ACTION_START，或被系统杀掉后重启（intent == null）
-                if (intent == null && !prefs.running) {
+                // ACTION_START，或被系统杀掉后重启（intent == null）：恢复之前开着的功能
+                if (intent == null && !prefs.running && !prefs.webEnabled) {
                     stopSelf()
                     return START_NOT_STICKY
                 }
-                startMonitor(prefs)
+                ensureForeground()
+                if (prefs.webEnabled) startWeb(prefs)
+                if (intent != null || prefs.running) startMonitor(prefs)
             }
         }
         return START_STICKY
+    }
+
+    private fun currentText(): String {
+        val webText = if (web != null) "网页控制：${webAddress()}" else ""
+        return when {
+            worker != null && webText.isNotEmpty() -> "${State.status}  |  $webText"
+            worker != null -> State.status
+            else -> "未在监控  |  $webText"
+        }
+    }
+
+    private fun ensureForeground() {
+        val n = runningNotification(currentText())
+        if (Build.VERSION.SDK_INT >= 34) {
+            startForeground(ID_RUN, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(ID_RUN, n)
+        }
+    }
+
+    /** 监控和网页控制都关了才退出服务，否则只更新通知。 */
+    private fun stopIfIdle() {
+        if (worker == null && web == null) {
+            releaseWake()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+        } else {
+            updateNotification(currentText())
+        }
+    }
+
+    private fun acquireWake() {
+        if (wakeLock == null) {
+            wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager)
+                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AppleStock::monitor")
+                .apply { setReferenceCounted(false); acquire() }
+        }
+    }
+
+    private fun releaseWake() {
+        if (worker != null || web != null) return
+        wakeLock?.let { if (it.isHeld) it.release() }
+        wakeLock = null
+    }
+
+    private fun startWeb(prefs: Prefs) {
+        if (web != null) return
+        val api = WebApi(prefs, this) { assets.open("web/index.html").use { it.readBytes() } }
+        val server = WebServer(WEB_PORT, api::handle)
+        try {
+            server.start()
+        } catch (e: Exception) {
+            State.log("网页控制启动失败：${e.javaClass.simpleName}（端口 $WEB_PORT 可能被占用）")
+            prefs.webEnabled = false
+            stopIfIdle()
+            return
+        }
+        web = server
+        webRunning = true
+        acquireWake()
+        State.log("网页控制已开启：同一 Wi-Fi 下用浏览器打开 ${webAddress()} ，访问码 ${prefs.webKey}")
+        updateNotification(currentText())
+        State.changed()
+    }
+
+    private fun stopWeb() {
+        web?.stop()
+        if (web != null) State.log("网页控制已关闭")
+        web = null
+        webRunning = false
+        releaseWake()
+        State.changed()
+    }
+
+    // ---------- 网页控制的操作（来自网页服务器线程，切回主线程执行） ----------
+    override fun startMonitoring() {
+        main.post {
+            stopMonitor()
+            ensureForeground()
+            startMonitor(Prefs(this))
+        }
+    }
+
+    override fun stopMonitoring() {
+        main.post {
+            Prefs(this).running = false
+            stopMonitor()
+            stopIfIdle()
+        }
+    }
+
+    override fun testAlert() {
+        main.post {
+            fireAlert(this, AlertInfo("TEST", "测试提醒", "",
+                listOf(StoreStatus("R000", "测试门店", "", true, "今天可取货", "")), false))
+        }
+    }
+
+    override fun stopAlarm() {
+        AlarmPlayer.stop()
     }
 
     private fun runningNotification(text: String): Notification {
@@ -125,7 +253,7 @@ class MonitorService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         return Notification.Builder(this, CH_RUN)
             .setSmallIcon(R.drawable.ic_stat)
-            .setContentTitle("苹果库存监控中")
+            .setContentTitle(if (worker != null) "苹果库存监控中" else "苹果库存监控：网页控制已开启")
             .setContentText(text)
             .setContentIntent(open)
             .setOngoing(true)
@@ -134,30 +262,21 @@ class MonitorService : Service() {
     }
 
     private fun updateNotification(text: String) {
-        if (worker == null) return
+        if (worker == null && web == null) return
         getSystemService(NotificationManager::class.java).notify(ID_RUN, runningNotification(text))
     }
 
     private fun startMonitor(prefs: Prefs) {
-        val n = runningNotification("准备中…")
-        if (Build.VERSION.SDK_INT >= 34) {
-            startForeground(ID_RUN, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-        } else {
-            startForeground(ID_RUN, n)
-        }
         if (worker != null) return
         val parts = Apple.parseParts(prefs.parts)
         if (parts.isEmpty() || prefs.location.isBlank()) {
             State.log("没有可监控的型号或地区为空")
             prefs.running = false
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
+            stopIfIdle()
             return
         }
         prefs.running = true
-        wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager)
-            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AppleStock::monitor")
-            .apply { setReferenceCounted(false); acquire() }
+        acquireWake()
 
         val interval = prefs.interval.coerceAtLeast(15)
         val monitor = Monitor(parts, prefs.location, prefs.storeFilter, prefs.repeatMinutes, object : MonitorEvents {
@@ -176,7 +295,7 @@ class MonitorService : Service() {
                     val ok = monitor.checkRound()
                     rounds++
                     State.status = "监控中… 已检查 $rounds 轮，最近 ${timeNow()}"
-                    updateNotification(State.status)
+                    updateNotification(currentText())
                     State.changed()
                     val wait = if (ok) {
                         errors = 0
@@ -197,8 +316,7 @@ class MonitorService : Service() {
     private fun stopMonitor() {
         worker?.interrupt()
         worker = null
-        wakeLock?.let { if (it.isHeld) it.release() }
-        wakeLock = null
+        releaseWake()
         if (State.running) State.log("监控已停止")
         State.running = false
         State.status = "已停止"
@@ -207,6 +325,7 @@ class MonitorService : Service() {
 
     override fun onDestroy() {
         stopMonitor()
+        stopWeb()
         super.onDestroy()
     }
 }

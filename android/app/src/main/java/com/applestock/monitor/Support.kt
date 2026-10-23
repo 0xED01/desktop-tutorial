@@ -31,6 +31,13 @@ class Prefs(context: Context) {
     var barkUrl by Str("bark_url", "")
     /** 监控是否应在运行（被系统杀掉后自动恢复用）。 */
     var running by BoolPref("running", false)
+    /** 网页控制是否开启，以及访问码（6 位数字）。 */
+    var webEnabled by BoolPref("web_enabled", false)
+    var webKeyRaw by Str("web_key", "")
+    val webKey: String
+        get() = webKeyRaw.ifEmpty { newWebKey() }
+
+    fun newWebKey(): String = (100000..999999).random().toString().also { webKeyRaw = it }
 
     private inner class Str(val key: String, val def: String) {
         operator fun getValue(t: Any, p: Any): String = sp.getString(key, def) ?: def

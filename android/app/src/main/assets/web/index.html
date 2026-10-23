@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>苹果库存监控</title>
+<style>
+  :root { --bg:#f5f5f7; --card:#fff; --text:#1d1d1f; --muted:#6e6e73; --line:#e5e5ea;
+          --ok:#0a7d00; --okbg:#e3f7e1; --warn:#b36b00; --err:#c00000; --accent:#0071e3; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#000; --card:#1c1c1e; --text:#f5f5f7; --muted:#98989d; --line:#38383a;
+            --ok:#4cd964; --okbg:#0f3312; --warn:#ffb340; --err:#ff6961; --accent:#0a84ff; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font:15px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; }
+  main { max-width:720px; margin:0 auto; padding:16px; }
+  h1 { font-size:22px; margin:4px 0 12px; }
+  .card { background:var(--card); border-radius:14px; padding:14px 16px; margin-bottom:12px; }
+  .card h2 { font-size:15px; margin:0 0 8px; color:var(--muted); font-weight:600; }
+  #status { font-weight:600; }
+  #status.on { color:var(--ok); } #status.off { color:var(--muted); }
+  .btns { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  button { font:inherit; border:0; border-radius:10px; padding:10px 14px; cursor:pointer;
+           background:var(--line); color:var(--text); }
+  button.primary { background:var(--accent); color:#fff; }
+  button.go { background:var(--ok); color:#fff; }
+  button:disabled { opacity:.5; }
+  .row { padding:8px 0; border-top:1px solid var(--line); }
+  .row:first-child { border-top:0; }
+  .row.yes { background:var(--okbg); border-radius:10px; padding:8px 10px; margin:4px -10px; border:0; }
+  .row .t { font-weight:600; }
+  .row .s { color:var(--muted); font-size:13px; }
+  .row.yes .s { color:var(--ok); }
+  .row a { color:var(--accent); }
+  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+  input, textarea { width:100%; font:inherit; color:var(--text); background:var(--bg);
+                    border:1px solid var(--line); border-radius:10px; padding:9px 10px; }
+  textarea { min-height:110px; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px; }
+  .two { display:flex; gap:10px; } .two > div { flex:1; }
+  #logs { font:12px/1.6 ui-monospace,Menlo,Consolas,monospace; color:var(--muted);
+          max-height:260px; overflow:auto; white-space:pre-wrap; word-break:break-all; }
+  #msg { min-height:20px; font-size:13px; margin-top:6px; }
+  #msg.err { color:var(--err); } #msg.ok { color:var(--ok); }
+  #alarm { display:none; background:var(--err); color:#fff; font-weight:600; }
+  .hint { color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>苹果库存监控</h1>
+
+  <div class="card" id="login" hidden>
+    <h2>输入访问码</h2>
+    <p class="hint">访问码显示在安卓手机「苹果库存监控」App 的「网页控制」一栏。</p>
+    <input id="key" inputmode="numeric" maxlength="6" placeholder="6 位数字">
+    <div class="btns"><button class="primary" id="enter">进入</button></div>
+    <div id="loginMsg" class="hint"></div>
+  </div>
+
+  <div id="app" hidden>
+    <div class="card">
+      <div id="status" class="off">连接中…</div>
+      <div class="btns">
+        <button class="go" id="start">▶ 开始监控</button>
+        <button id="stop">■ 停止监控</button>
+        <button id="test">测试提醒</button>
+        <button id="alarm">🔕 停止响铃</button>
+      </div>
+      <div id="msg"></div>
+    </div>
+
+    <div class="card">
+      <h2>库存</h2>
+      <div id="rows" class="hint">还没有结果，开始监控后会显示在这里。</div>
+    </div>
+
+    <div class="card">
+      <h2>设置</h2>
+      <label for="parts">监控型号（每行一个，后面可写备注）</label>
+      <textarea id="parts" placeholder="MK2N4CH/A  256GB 夜空色"></textarea>
+      <label for="location">取货地区（省 市 区，或门店编号如 R705）</label>
+      <input id="location" placeholder="上海 上海 黄浦区">
+      <label for="storeFilter">只看门店（店名关键字，逗号分隔，留空=全部）</label>
+      <input id="storeFilter" placeholder="南京东路,浦东">
+      <div class="two">
+        <div><label for="interval">检查间隔（秒）</label><input id="interval" type="number" min="15"></div>
+        <div><label for="repeat">仍有货时每 N 分钟再提醒</label><input id="repeat" type="number" min="0"></div>
+      </div>
+      <label for="bark">Bark 地址（iPhone 提醒）</label>
+      <input id="bark" placeholder="https://api.day.app/xxxx">
+      <div class="btns"><button class="primary" id="save">保存设置</button></div>
+      <p class="hint">修改型号或地区后，需要「停止」再「开始」监控才会生效。</p>
+    </div>
+
+    <div class="card">
+      <h2>日志</h2>
+      <div id="logs"></div>
+    </div>
+  </div>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var key = "";
+  try { key = localStorage.getItem("asm_key") || ""; } catch (e) {}
+  var formLoaded = false, timer = null;
+
+  function api(method, path, body) {
+    return fetch(path, {
+      method: method,
+      headers: { "X-Key": key, "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+      cache: "no-store"
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (d) {
+        if (r.status === 401) { showLogin("访问码不正确，请重新输入"); throw new Error("401"); }
+        if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
+        return d;
+      });
+    });
+  }
+
+  function msg(text, ok) {
+    var m = $("msg"); m.textContent = text || ""; m.className = ok ? "ok" : "err";
+    if (text) setTimeout(function () { if (m.textContent === text) m.textContent = ""; }, 4000);
+  }
+
+  function showLogin(text) {
+    if (timer) { clearInterval(timer); timer = null; }
+    $("app").hidden = true; $("login").hidden = false;
+    $("loginMsg").textContent = text || "";
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function render(d) {
+    var st = $("status");
+    st.textContent = d.status; st.className = d.running ? "on" : "off";
+    $("start").disabled = false;
+    $("alarm").style.display = d.alarm ? "inline-block" : "none";
+    if (d.rows.length) {
+      $("rows").className = "";
+      $("rows").innerHTML = d.rows.map(function (r) {
+        var yes = r.inStock.length > 0;
+        var s = yes
+          ? "有货：" + r.inStock.map(function (x) { return esc(x.name) + "（" + esc(x.quote) + "）"; }).join("、") +
+            " · <a href=\"" + esc(r.url) + "\" target=\"_blank\" rel=\"noopener\">去抢购</a>"
+          : "无货（" + r.total + " 家门店）";
+        return "<div class=\"row" + (yes ? " yes" : "") + "\"><div class=\"t\">" + (yes ? "✅ " : "") +
+          esc(r.label) + "</div><div class=\"s\">" + s + " · " + esc(r.time) + "</div></div>";
+      }).join("");
+    }
+    $("logs").textContent = d.logs.join("\n");
+    if (!formLoaded) {
+      var c = d.config;
+      $("parts").value = c.parts; $("location").value = c.location; $("storeFilter").value = c.storeFilter;
+      $("interval").value = c.interval; $("repeat").value = c.repeatMinutes; $("bark").value = c.bark;
+      formLoaded = true;
+    }
+  }
+
+  function refresh() {
+    return api("GET", "/api/status").then(function (d) {
+      $("login").hidden = true; $("app").hidden = false; render(d);
+    }).catch(function (e) {
+      if (e.message !== "401") { $("login").hidden = true; $("app").hidden = false; $("status").textContent = "连不上手机：请确认和安卓手机在同一个 Wi-Fi，且 App 的网页控制已开启"; $("status").className = "off"; }
+    });
+  }
+
+  function enter() {
+    key = $("key").value.trim();
+    try { localStorage.setItem("asm_key", key); } catch (e) {}
+    formLoaded = false;
+    if (timer) clearInterval(timer);
+    timer = setInterval(refresh, 3000);
+    refresh();
+  }
+
+  function action(path, okText) {
+    return function () {
+      api("POST", path).then(function () { msg(okText, true); refresh(); }).catch(function (e) {
+        if (e.message !== "401") msg(e.message);
+      });
+    };
+  }
+
+  $("enter").onclick = enter;
+  $("key").onkeydown = function (e) { if (e.key === "Enter") enter(); };
+  $("start").onclick = action("/api/start", "已开始监控");
+  $("stop").onclick = action("/api/stop", "已停止监控");
+  $("test").onclick = action("/api/test", "已发送测试提醒（手机响铃 + Bark）");
+  $("alarm").onclick = action("/api/stopalarm", "已停止响铃");
+  $("save").onclick = function () {
+    api("POST", "/api/config", {
+      parts: $("parts").value, location: $("location").value, storeFilter: $("storeFilter").value,
+      interval: parseInt($("interval").value, 10) || 30, repeatMinutes: parseInt($("repeat").value, 10) || 0,
+      bark: $("bark").value
+    }).then(function () { msg("设置已保存", true); formLoaded = false; refresh(); })
+      .catch(function (e) { if (e.message !== "401") msg(e.message); });
+  };
+
+  if (key) { $("key").value = key; enter(); } else { showLogin(""); }
+})();
+</script>
+</body>
+</html>

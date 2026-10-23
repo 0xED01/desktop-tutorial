@@ -154,6 +154,37 @@
                 android:text="后台设置" />
         </LinearLayout>
 
+        <TextView style="@style/Label" android:text="网页控制（同一 Wi-Fi 下用电脑/iPhone 浏览器查看和操作）" />
+
+        <TextView
+            android:id="@+id/webInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="6dp"
+            android:background="#EEF5FF"
+            android:textIsSelectable="true"
+            android:textSize="13sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/webToggle"
+                style="@style/Btn"
+                android:layout_width="0dp"
+                android:layout_weight="2"
+                android:text="开启网页控制" />
+
+            <Button
+                android:id="@+id/webKey"
+                style="@style/Btn"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:text="换访问码" />
+        </LinearLayout>
+
         <TextView
             android:id="@+id/status"
             android:layout_width="match_parent"

@@ -34,6 +34,8 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var rows: LinearLayout
     private lateinit var log: TextView
+    private lateinit var webInfo: TextView
+    private lateinit var webToggle: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,15 +56,6 @@ class MainActivity : Activity() {
         rows = findViewById(R.id.rows)
         log = findViewById(R.id.log)
 
-        parts.setText(prefs.parts)
-        location.setText(prefs.location)
-        storeFilter.setText(prefs.storeFilter)
-        interval.setText(prefs.interval.toString())
-        repeat.setText(prefs.repeatMinutes.toString())
-        maxVolume.isChecked = prefs.maxVolume
-        serverchan.setText(prefs.serverchanKey)
-        pushplus.setText(prefs.pushplusToken)
-        bark.setText(prefs.barkUrl)
 
         findViewById<Button>(R.id.start).setOnClickListener { start() }
         findViewById<Button>(R.id.stop).setOnClickListener { MonitorService.stop(this) }
@@ -73,6 +66,18 @@ class MainActivity : Activity() {
         }
         findViewById<Button>(R.id.stopAlarm).setOnClickListener { AlarmPlayer.stop() }
         findViewById<Button>(R.id.background).setOnClickListener { backgroundSettings() }
+        webInfo = findViewById(R.id.webInfo)
+        webToggle = findViewById(R.id.webToggle)
+        webToggle.setOnClickListener {
+            save()
+            MonitorService.setWeb(this, !MonitorService.webRunning)
+            webToggle.postDelayed({ render() }, 800)
+        }
+        findViewById<Button>(R.id.webKey).setOnClickListener {
+            prefs.newWebKey()
+            toast("访问码已更换，网页上需要重新输入")
+            render()
+        }
         findViewById<Button>(R.id.lookup).setOnClickListener { lookupDialog() }
 
         if (State.logs().isEmpty()) {
@@ -81,8 +86,22 @@ class MainActivity : Activity() {
         requestPermissions()
     }
 
+    /** 从保存的设置读取到输入框（网页上可能改过设置，所以每次回到前台都重新读）。 */
+    private fun loadFields() {
+        parts.setText(prefs.parts)
+        location.setText(prefs.location)
+        storeFilter.setText(prefs.storeFilter)
+        interval.setText(prefs.interval.toString())
+        repeat.setText(prefs.repeatMinutes.toString())
+        maxVolume.isChecked = prefs.maxVolume
+        serverchan.setText(prefs.serverchanKey)
+        pushplus.setText(prefs.pushplusToken)
+        bark.setText(prefs.barkUrl)
+    }
+
     override fun onResume() {
         super.onResume()
+        loadFields()
         State.listener = { render() }
         render()
     }
@@ -120,6 +139,13 @@ class MainActivity : Activity() {
     }
 
     private fun render() {
+        if (MonitorService.webRunning) {
+            webInfo.text = "✅ 已开启。在同一 Wi-Fi 的电脑或 iPhone 浏览器打开：\n${MonitorService.webAddress()}\n访问码：${prefs.webKey}"
+            webToggle.text = "关闭网页控制"
+        } else {
+            webInfo.text = "未开启。开启后，同一 Wi-Fi 下的电脑、iPhone 可以用浏览器查看状态、修改设置、开始/停止监控。"
+            webToggle.text = "开启网页控制"
+        }
         status.text = if (State.running) State.status.takeIf { it.startsWith("监控中") } ?: "监控中…"
         else "未在监控"
         status.setTextColor(if (State.running) Color.parseColor("#0A7D00") else Color.GRAY)
