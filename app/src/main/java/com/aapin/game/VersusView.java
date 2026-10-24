@@ -73,6 +73,7 @@ public final class VersusView extends View {
     @Override
     protected void onSizeChanged(int w, int h, int ow, int oh) {
         pt.layout(w, h, 0.5f, 0.92f);
+        pt.safeTop = Painter.safeTop(this);
     }
 
     public void leave() {
@@ -240,7 +241,7 @@ public final class VersusView extends View {
 
     /** 在屏幕下方（或上方倒转）绘制一名玩家的信息栏。 */
     private void drawPlayerBar(Canvas c, int owner, boolean top, boolean rotate) {
-        float y = top ? pt.h * 0.05f : pt.h * 0.95f;
+        float y = top ? Math.max(pt.h * 0.05f, pt.safeTop + pt.h * 0.015f) : pt.h * 0.95f;
         if (rotate) {
             c.save();
             c.rotate(180, pt.cx, y);

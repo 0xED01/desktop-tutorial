@@ -13,6 +13,8 @@ import com.aapin.game.core.Board;
 public final class Painter {
     public Theme th;
     public float w, h, cx, cy, u, discR, L, headR, gap;
+    /** 刘海/挖孔屏顶部安全区高度。 */
+    public float safeTop;
 
     public final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     public final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -42,6 +44,18 @@ public final class Painter {
         headR = (float) (L * Math.sin(Math.toRadians(Board.MIN_SEP / 2f)));
         gap = u * 0.2f;
         line.setStrokeWidth(Math.max(2f, u * 0.0055f));
+    }
+
+    public float hudTop() {
+        return Math.max(h * 0.035f, safeTop + h * 0.01f);
+    }
+
+    public static float safeTop(android.view.View v) {
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            android.view.WindowInsets in = v.getRootWindowInsets();
+            if (in != null && in.getDisplayCutout() != null) return in.getDisplayCutout().getSafeInsetTop();
+        }
+        return 0;
     }
 
     public void background(Canvas c) {

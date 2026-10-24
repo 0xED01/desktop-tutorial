@@ -33,7 +33,8 @@ public final class SoloView extends View {
     private boolean paused, newRecord;
     private int unflushedPins;
     private final ArrayList<Btn> buttons = new ArrayList<>();
-    private Btn pressed;
+    /** 按下的按钮标签。按钮每帧重建，所以按标签而不是对象匹配。 */
+    private String pressed;
     private final RectF pauseRect = new RectF();
     private final RectF tmp = new RectF();
 
@@ -53,8 +54,10 @@ public final class SoloView extends View {
     @Override
     protected void onSizeChanged(int w, int h, int ow, int oh) {
         pt.layout(w, h, 0.38f, 1f);
+        pt.safeTop = Painter.safeTop(this);
         float s = pt.u * 0.11f;
-        pauseRect.set(w - s * 1.4f, h * 0.035f, w - s * 0.4f, h * 0.035f + s);
+        float top = pt.hudTop();
+        pauseRect.set(w - s * 1.4f, top, w - s * 0.4f, top + s);
     }
 
     public void pause() {
@@ -203,7 +206,7 @@ public final class SoloView extends View {
 
     private void drawHud(Canvas c) {
         float m = pt.u * 0.06f;
-        float top = pt.h * 0.035f;
+        float top = pt.hudTop();
         float big = pt.u * 0.075f, small = pt.u * 0.042f;
         int sub = Painter.blend(th.text, th.bgTop, 0.4f);
         String mech = g.level.rot.name() + (g.level.ghost ? " · 幽灵" : "");
@@ -316,7 +319,7 @@ public final class SoloView extends View {
         y += pt.u * 0.04f;
         for (Btn b : buttons) {
             b.r.set(left + pw * 0.12f, y, left + pw * 0.88f, y + bh);
-            pt.button(c, b.r, b.label, b.color, b == pressed);
+            pt.button(c, b.r, b.label, b.color, b.label.equals(pressed));
             y += bh + gapB;
         }
     }
@@ -330,7 +333,7 @@ public final class SoloView extends View {
         if (a == MotionEvent.ACTION_DOWN || a == MotionEvent.ACTION_POINTER_DOWN) {
             float x = e.getX(e.getActionIndex()), y = e.getY(e.getActionIndex());
             if (!buttons.isEmpty()) {
-                for (Btn b : buttons) if (b.r.contains(x, y)) pressed = b;
+                for (Btn b : buttons) if (b.r.contains(x, y)) pressed = b.label;
                 return true;
             }
             if (pauseRect.contains(x, y) || (x > pauseRect.left - pt.u * 0.05f && y < pauseRect.bottom + pt.u * 0.05f)) {
@@ -342,11 +345,15 @@ public final class SoloView extends View {
             }
             g.shoot();
         } else if (a == MotionEvent.ACTION_UP) {
-            Btn p = pressed;
+            String label = pressed;
             pressed = null;
-            if (p != null && p.r.contains(e.getX(), e.getY()) && buttons.contains(p)) {
-                Sfx.play(Sfx.CLICK);
-                p.action.run();
+            if (label == null) return true;
+            for (Btn b : buttons) {
+                if (b.label.equals(label) && b.r.contains(e.getX(), e.getY())) {
+                    Sfx.play(Sfx.CLICK);
+                    b.action.run();
+                    break;
+                }
             }
         } else if (a == MotionEvent.ACTION_CANCEL) {
             pressed = null;

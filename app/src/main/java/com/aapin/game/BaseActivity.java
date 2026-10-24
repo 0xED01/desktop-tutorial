@@ -16,9 +16,29 @@ public abstract class BaseActivity extends Activity {
         super.onCreate(b);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            // 让内容延伸到刘海/挖孔区域，避免顶部出现黑条
+            WindowManager.LayoutParams lp = getWindow().getAttributes();
+            lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            getWindow().setAttributes(lp);
+        }
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         th = Theme.current(this);
         Sfx.init(this);
+    }
+
+    /** 菜单页面（ScrollView）在顶部留出刘海安全区；游戏画面自己处理。 */
+    @Override
+    public void setContentView(View v) {
+        if (v instanceof android.widget.ScrollView && android.os.Build.VERSION.SDK_INT >= 28) {
+            final int baseTop = v.getPaddingTop();
+            v.setOnApplyWindowInsetsListener((view, in) -> {
+                int cut = in.getDisplayCutout() != null ? in.getDisplayCutout().getSafeInsetTop() : 0;
+                view.setPadding(view.getPaddingLeft(), baseTop + cut, view.getPaddingRight(), view.getPaddingBottom());
+                return in;
+            });
+        }
+        super.setContentView(v);
     }
 
     @Override
