@@ -1,0 +1,27 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- outer frame -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.2"
+        android:fillColor="#00000000"
+        android:pathData="M39,30 L69,30 A9,9 0 0 1 78,39 L78,69 A9,9 0 0 1 69,78 L39,78 A9,9 0 0 1 30,69 L30,39 A9,9 0 0 1 39,30 Z" />
+    <!-- inner lines -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.7"
+        android:strokeWidth="2"
+        android:pathData="M46,30 L46,78 M62,30 L62,78 M30,46 L78,46 M30,62 L78,62" />
+    <!-- highlighted centre cell -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,49.5 L58,49.5 A1.5,1.5 0 0 1 59.5,51 L59.5,57 A1.5,1.5 0 0 1 58,58.5 L50,58.5 A1.5,1.5 0 0 1 48.5,57 L48.5,51 A1.5,1.5 0 0 1 50,49.5 Z" />
+    <!-- corner dots as given digits -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.85"
+        android:pathData="M38,35.5 a2.5,2.5 0 1 0 0.01,0 Z M70,67.5 a2.5,2.5 0 1 0 0.01,0 Z M70,35.5 a2.5,2.5 0 1 0 0.01,0 Z" />
+</vector>
