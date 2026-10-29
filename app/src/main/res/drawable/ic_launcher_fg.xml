@@ -1,9 +1,5 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <!-- 账本 -->
-    <path android:fillColor="#FFFFFF" android:pathData="M37,30h30a4,4 0,0 1,4 4v38a4,4 0,0 1,-4 4H37a4,4 0,0 1,-4 -4V34a4,4 0,0 1,4 -4z"/>
-    <path android:fillColor="#2F6FEB" android:fillAlpha="0.25" android:pathData="M39,30h4v46h-4z"/>
-    <path android:fillColor="#2F6FEB" android:pathData="M48,39h17v4H48zM48,48h17v4H48zM48,57h9v4H48z"/>
     <!-- 放大镜 -->
-    <path android:fillColor="#FFC53D" android:pathData="M66,56a9,9 0,1 1,0 18a9,9 0,1 1,0 -18zM66,60a5,5 0,1 0,0 10a5,5 0,1 0,0 -10z"/>
-    <path android:fillColor="#FFC53D" android:pathData="M71.2,71.6l2.4,-2.4l5.6,5.6l-2.4,2.4z"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M49,32a17,17 0,1 1,0 34a17,17 0,1 1,0 -34zM49,38.5a10.5,10.5 0,1 0,0 21a10.5,10.5 0,1 0,0 -21z"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M60.5,65.1l4.6,-4.6l11.6,11.6a3.25,3.25 0,0 1,-4.6 4.6z"/>
 </vector>
