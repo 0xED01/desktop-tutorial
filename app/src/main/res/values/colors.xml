@@ -1,0 +1,12 @@
+<resources>
+    <color name="bg">#F4F6FA</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="text">#1C2430</color>
+    <color name="text2">#5E6A7D</color>
+    <color name="text3">#98A2B3</color>
+    <color name="line">#E6EAF0</color>
+    <color name="field">#EDF0F5</color>
+    <color name="primary">#2F6FEB</color>
+    <color name="star">#F5A524</color>
+    <color name="launcher_bg">#2F6FEB</color>
+</resources>

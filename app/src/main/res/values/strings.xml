@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">会计科目速查</string>
+    <string name="search_hint">搜索名称 / 编号 / 拼音首字母，如 yszk</string>
+</resources>
