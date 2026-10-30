@@ -97,6 +97,8 @@ public class MainActivitySmokeTest {
             c.name = r[0];
             c.approveDate = r[1];
             c.createdAt = t--;  // 录入顺序与审批顺序相反
+            c.gift = "大米";
+            c.giftCost = 30;
             db.upsert(c);
         }
         List<Customer> all = db.query("", 0, null, null, "");
@@ -115,6 +117,8 @@ public class MainActivitySmokeTest {
         assertTrue(textExists(root, "2026年9月"));
         assertTrue(textExists(root, "审批 10月20日"));
         assertTrue(textExists(root, "审批日期未填"));
+        // 每个月份标题显示当月礼品成本合计（10月、9月、未填各 1 人 × 30 元）
+        assertTrue(textExists(root, "礼品成本 30 元"));
     }
 
     private static ViewGroup rowAfterLabel(View v, String label) {

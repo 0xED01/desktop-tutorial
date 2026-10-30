@@ -584,11 +584,12 @@ public class MainActivity extends Activity {
             String month = monthOf(c);
             double[] d = months.get(month);
             if (d == null) {
-                d = new double[2];
+                d = new double[3];  // 人数, 额度, 礼品成本
                 months.put(month, d);
             }
             d[0]++;
             d[1] += c.amount;
+            d[2] += c.giftCost;
         }
         stats.setText("共 " + data.size() + " 位客户 · 总额度 " + wan(total)
                 + "\n礼品成本 " + money.format(cost) + " 元 · 礼品未送 " + giftPending + " 人"
@@ -611,7 +612,7 @@ public class MainActivity extends Activity {
             if (!month.equals(prevMonth)) {
                 prevMonth = month;
                 double[] d = months.get(month);
-                listContainer.addView(monthHeader(month, (int) d[0], d[1]));
+                listContainer.addView(monthHeader(month, (int) d[0], d[1], d[2]));
             }
             listContainer.addView(itemView(c), Ui.cardParams(this));
         }
@@ -624,7 +625,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    private View monthHeader(String month, int count, double amount) {
+    private View monthHeader(String month, int count, double amount, double cost) {
         LinearLayout row = new LinearLayout(this);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(dp(4), dp(10), dp(4), dp(8));
@@ -635,7 +636,21 @@ public class MainActivity extends Activity {
         row.addView(bar, blp);
         row.addView(Ui.text(this, monthLabel(month), 16, Ui.TEXT, true),
                 new LinearLayout.LayoutParams(0, -2, 1f));
-        row.addView(Ui.text(this, count + " 人 · " + wan(amount), 13, Ui.TEXT2, false));
+        LinearLayout right = new LinearLayout(this);
+        right.setOrientation(LinearLayout.VERTICAL);
+        right.setGravity(Gravity.END);
+        TextView summary = Ui.text(this, count + " 人 · " + wan(amount), 13, Ui.TEXT2, false);
+        summary.setPadding(0, 0, dp(8), 0);  // 与下方标签的文字右对齐
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(-2, -2);
+        slp.gravity = Gravity.END;
+        right.addView(summary, slp);
+        TextView costTag = Ui.tag(this, "礼品成本 " + money.format(cost) + " 元",
+                Ui.YELLOW_TEXT, Ui.YELLOW_BG);
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-2, -2);
+        clp.topMargin = dp(4);
+        clp.gravity = Gravity.END;
+        right.addView(costTag, clp);
+        row.addView(right);
         return row;
     }
 

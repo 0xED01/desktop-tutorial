@@ -6,7 +6,7 @@ Write your name on line 6, save it, and then head back to GitHub Desktop.
 
 ## 客户信息记录 Android App
 
-- 安装包：[`客户信息记录-v2.6.apk`](客户信息记录-v2.6.apk)（Android 7.0 及以上）
+- 安装包：[`客户信息记录-v2.7.apk`](客户信息记录-v2.7.apk)（Android 7.0 及以上）
 - 源码：`CustomerRecorder/`，构建命令：`cd CustomerRecorder && ./gradlew assembleRelease`
 
 使用：复制银行审批提示 → 打开 App 点“一键粘贴保存”（或长按输入框粘贴，会自动识别保存）。
@@ -41,3 +41,6 @@ Write your name on line 6, save it, and then head back to GitHub Desktop.
 
 ### v2.6 更新
 - 界面换成蓝黄色系
+
+### v2.7 更新
+- 每个月份标题显示当月礼品成本合计
