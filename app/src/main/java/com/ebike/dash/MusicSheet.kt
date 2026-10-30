@@ -22,6 +22,7 @@ class MusicSheet(
     private val dlg = BottomSheetDialog(act)
     private val ui = Handler(Looper.getMainLooper())
     private var dragging = false
+    private var first = true
 
     val isShowing get() = dlg.isShowing
 
@@ -40,6 +41,7 @@ class MusicSheet(
         }
         dlg.setOnDismissListener { ui.removeCallbacks(ticker) }
 
+        Motion.pressable(b.btnPlay, b.btnPrev, b.btnNext, b.btnOpenApp)
         b.btnPlay.setOnClickListener { music.playPause() }
         b.btnPrev.setOnClickListener { music.previous() }
         b.btnNext.setOnClickListener { music.next() }
@@ -64,10 +66,20 @@ class MusicSheet(
     }
 
     fun update(np: NowPlaying?) {
-        b.tvTitle.text = np?.title?.ifBlank { null } ?: if (np == null) "未在播放" else "未知歌曲"
-        b.tvArtist.text = np?.artist?.ifBlank { null } ?: "Apple Music"
+        Motion.setText(b.tvTitle, np?.title?.ifBlank { null } ?: if (np == null) "未在播放" else "未知歌曲")
+        Motion.setText(b.tvArtist, np?.artist?.ifBlank { null } ?: "Apple Music")
         setArt(np)
-        b.btnPlay.setImageResource(if (np?.playing == true) R.drawable.ic_pause else R.drawable.ic_play)
+        val playing = np?.playing == true
+        Motion.swapIcon(b.btnPlay, if (playing) R.drawable.ic_pause else R.drawable.ic_play)
+        // 封面随播放“呼吸”：播放时舒展，暂停时微微收起
+        val artScale = if (playing) 1f else 0.88f
+        if (first) {
+            b.ivArt.scaleX = artScale; b.ivArt.scaleY = artScale
+        } else if (b.ivArt.scaleX != artScale) {
+            b.ivArt.animate().scaleX(artScale).scaleY(artScale)
+                .setDuration(Motion.STANDARD).setInterpolator(Motion.EASE).start()
+        }
+        first = false
 
         val hint = when {
             !music.hasAccess() -> "点这里开启「通知使用权」，即可显示歌名、封面和进度"
@@ -87,13 +99,14 @@ class MusicSheet(
         val art = np?.art
         if (art != null) {
             b.ivArt.setPadding(0, 0, 0, 0)
+            b.ivArt.background = null
             b.ivArt.imageTintList = null
             b.ivArt.setImageBitmap(art)
         } else {
             // 没有封面时：浅灰底 + 音符
             val pad = (act.resources.displayMetrics.density * 96).toInt()
             b.ivArt.setPadding(pad, pad, pad, pad)
-            b.ivArt.setBackgroundResource(R.drawable.bg_pill)
+            b.ivArt.setBackgroundResource(R.drawable.bg_art_large)
             b.ivArt.setImageResource(R.drawable.ic_music)
             b.ivArt.imageTintList = act.getColorStateList(R.color.fg_dim)
         }

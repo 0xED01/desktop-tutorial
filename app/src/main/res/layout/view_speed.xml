@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 数字速度：数字和单位上下居中排列，卡片宽度固定，个位数和两位数都不跳动 -->
+<!-- 数字速度 + 能量条：与音乐卡片同宽 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     style="@style/Card"
-    android:layout_width="168dp"
+    android:layout_width="316dp"
     android:layout_height="wrap_content"
     android:gravity="center_horizontal"
     android:orientation="vertical"
+    android:paddingHorizontal="22dp"
     android:paddingTop="10dp"
-    android:paddingBottom="14dp">
+    android:paddingBottom="18dp">
 
     <TextView
         android:id="@+id/tvSpeed"
@@ -18,7 +19,7 @@
         android:includeFontPadding="false"
         android:letterSpacing="-0.02"
         android:text="0"
-        android:textSize="68sp" />
+        android:textSize="64sp" />
 
     <TextView
         android:id="@+id/tvUnit"
@@ -30,4 +31,10 @@
         android:tag="label"
         android:text="km/h"
         android:textSize="13sp" />
+
+    <com.ebike.dash.EnergyBarView
+        android:id="@+id/energy"
+        android:layout_width="match_parent"
+        android:layout_height="6dp"
+        android:layout_marginTop="14dp" />
 </LinearLayout>

@@ -1,0 +1,6 @@
+<resources>
+    <!-- Motion 动画使用的 View tag -->
+    <item name="motion_hiding" type="id" />
+    <item name="motion_tint" type="id" />
+    <item name="motion_icon" type="id" />
+</resources>

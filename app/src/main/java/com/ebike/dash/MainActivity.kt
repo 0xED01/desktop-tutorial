@@ -143,11 +143,19 @@ class MainActivity : AppCompatActivity(), LocationSink {
 
         b.infoPanel.isVisible = prefs.showInfo
         b.music.root.isVisible = prefs.showMusic
+        // 所有可点的按钮和卡片使用统一的按压动效
+        Motion.pressable(b.btnRecenter, b.btnInfo, b.btnMusic, b.btnSettings, b.music.btnPrev, b.music.btnPlay, b.music.btnNext)
+        Motion.pressable(b.music.root, scale = 0.98f)
         applyPalette(if (isNight()) Palette.DARK else Palette.LIGHT)
         applyPrefs()
         b.bottomArea.post { updateTrackingPadding() }
         updateDashboard()
         updateStatus()
+        // 启动时状态栏、按钮、底部卡片依次浮现
+        Motion.enter(
+            listOf(b.statusRow, b.btnRecenter, b.btnInfo, b.btnMusic, b.btnSettings) +
+                listOf(b.infoPanel, b.music.root, b.speed.root).filter { it.isVisible }
+        )
 
         if (gps.hasPermission()) startGps() else permLauncher.launch(
             arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -460,11 +468,12 @@ class MainActivity : AppCompatActivity(), LocationSink {
         }
         b.music.btnPlay.backgroundTintList = ColorStateList.valueOf(p.onSurface)
         b.music.btnPlay.imageTintList = surface
+        b.speed.energy.setColors(p.onSurface, p.chip)
         tintTexts(b.overlay, p)
         onMusicChanged(if (::music.isInitialized) music.now else null)
         map?.uiSettings?.setCompassImage(compassDrawable())
-        updateInfoButton()
-        updateMusicButton()
+        updateInfoButton(b.infoPanel.isVisible, animate = false)
+        updateMusicButton(b.music.root.isVisible, animate = false)
         b.topScrim.background = GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
             intArrayOf(ColorUtils.setAlphaComponent(p.surface, 200), ColorUtils.setAlphaComponent(p.surface, 0)),
@@ -551,24 +560,26 @@ class MainActivity : AppCompatActivity(), LocationSink {
             addUpdateListener {
                 shownSpeed = it.animatedValue as Float
                 b.speed.tvSpeed.text = shownSpeed.roundToInt().toString()
+                b.speed.energy.level = shownSpeed / energyFullScale()
             }
             start()
         }
     }
 
 
+    /** 能量条满格对应的速度：40 km/h（约 25 mph） */
+    private fun energyFullScale(): Float = if (units.imperial) 25f else 40f
+
     /** 骑行数据面板，默认隐藏 */
     private fun setInfoVisible(show: Boolean) {
         prefs.showInfo = show
-        b.infoPanel.isVisible = show
-        updateInfoButton()
+        Motion.setVisible(b.infoPanel, show)
+        updateInfoButton(show)
     }
 
     /** 面板打开时按钮反色，表示“已开启” */
-    private fun updateInfoButton() {
-        val on = b.infoPanel.isVisible
-        b.btnInfo.backgroundTintList = ColorStateList.valueOf(if (on) pal.onSurface else pal.surface)
-        b.btnInfo.imageTintList = ColorStateList.valueOf(if (on) pal.surface else pal.onSurface)
+    private fun updateInfoButton(on: Boolean, animate: Boolean = true) {
+        Motion.tint(b.btnInfo, if (on) pal.onSurface else pal.surface, if (on) pal.surface else pal.onSurface, animate)
     }
 
     private fun updateGpsIndicator(loc: Location) {
@@ -613,8 +624,8 @@ class MainActivity : AppCompatActivity(), LocationSink {
 
     private fun setMusicVisible(show: Boolean) {
         prefs.showMusic = show
-        b.music.root.isVisible = show
-        updateMusicButton()
+        Motion.setVisible(b.music.root, show)
+        updateMusicButton(show)
         // 第一次打开时，引导开启“通知使用权”以显示歌名和封面
         if (show && !music.hasAccess() && !prefs.askedMusicAccess) {
             prefs.askedMusicAccess = true
@@ -622,10 +633,8 @@ class MainActivity : AppCompatActivity(), LocationSink {
         }
     }
 
-    private fun updateMusicButton() {
-        val on = b.music.root.isVisible
-        b.btnMusic.backgroundTintList = ColorStateList.valueOf(if (on) pal.onSurface else pal.surface)
-        b.btnMusic.imageTintList = ColorStateList.valueOf(if (on) pal.surface else pal.onSurface)
+    private fun updateMusicButton(on: Boolean, animate: Boolean = true) {
+        Motion.tint(b.btnMusic, if (on) pal.onSurface else pal.surface, if (on) pal.surface else pal.onSurface, animate)
     }
 
     private fun openMusicSheet() {
@@ -635,17 +644,17 @@ class MainActivity : AppCompatActivity(), LocationSink {
     private fun onMusicChanged(np: NowPlaying?) {
         val m = b.music
         val access = music.hasAccess()
-        m.tvTitle.text = when {
+        Motion.setText(m.tvTitle, when {
             np != null -> np.title.ifBlank { "未知歌曲" }
             !access -> "Apple Music"
             else -> "未在播放"
-        }
-        m.tvArtist.text = when {
+        })
+        Motion.setText(m.tvArtist, when {
             np != null -> np.artist.ifBlank { "Apple Music" }
             !access -> "点击开启歌曲信息显示"
             else -> "点 ▶ 继续播放"
-        }
-        m.btnPlay.setImageResource(if (np?.playing == true) R.drawable.ic_pause else R.drawable.ic_play)
+        })
+        Motion.swapIcon(m.btnPlay, if (np?.playing == true) R.drawable.ic_pause else R.drawable.ic_play)
         val art = np?.art
         if (art != null) {
             m.ivArt.setPadding(0, 0, 0, 0)
@@ -655,7 +664,8 @@ class MainActivity : AppCompatActivity(), LocationSink {
         } else {
             val pad = (12 * resources.displayMetrics.density).toInt()
             m.ivArt.setPadding(pad, pad, pad, pad)
-            m.ivArt.setBackgroundColor(pal.chip)
+            m.ivArt.setBackgroundResource(R.drawable.bg_art_small)
+            m.ivArt.backgroundTintList = ColorStateList.valueOf(pal.chip)
             m.ivArt.setImageResource(R.drawable.ic_music)
             m.ivArt.imageTintList = ColorStateList.valueOf(pal.dim)
         }
