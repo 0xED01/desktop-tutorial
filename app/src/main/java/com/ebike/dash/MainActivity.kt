@@ -5,7 +5,6 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.ColorStateList
-import android.content.res.Configuration
 import android.graphics.Color
 import android.location.Location
 import android.os.BatteryManager
@@ -19,7 +18,6 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
@@ -32,7 +30,6 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
-import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.lifecycleScope
 import com.ebike.dash.databinding.ActivityMainBinding
 import com.ebike.dash.databinding.DialogSettingsBinding
@@ -139,7 +136,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         }
 
         applyPrefs()
-        applyOrientation(resources.configuration.orientation)
+        b.bottomArea.post { updateTrackingPadding() }
         updateDashboard()
         updateStatus()
 
@@ -175,11 +172,6 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         super.onDestroy()
     }
 
-    override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig)
-        applyOrientation(newConfig.orientation)
-    }
-
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) setupImmersive()
@@ -213,38 +205,11 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
 
     // ---------------------------------------------------------------- 布局
 
-    private fun applyOrientation(orientation: Int) {
-        val land = orientation == Configuration.ORIENTATION_LANDSCAPE
-        val d = resources.displayMetrics.density
-        b.bottomArea.updateLayoutParams<FrameLayout.LayoutParams> {
-            gravity = if (land) Gravity.BOTTOM or Gravity.START else Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            marginStart = if (land) (16 * d).toInt() else 0
-        }
-        val gaugeSize = ((if (land) 230 else 272) * d).toInt()
-        b.gauge.updateLayoutParams<ViewGroup.LayoutParams> { width = gaugeSize; height = gaugeSize }
-        b.topArea.updateLayoutParams<FrameLayout.LayoutParams> {
-            width = if (land) (420 * d).toInt() else ViewGroup.LayoutParams.MATCH_PARENT
-            gravity = if (land) Gravity.TOP or Gravity.END else Gravity.TOP
-        }
-        b.fabColumn.updateLayoutParams<FrameLayout.LayoutParams> {
-            gravity = if (land) Gravity.END or Gravity.BOTTOM else Gravity.END or Gravity.TOP
-            topMargin = if (land) 0 else (150 * d).toInt()
-            bottomMargin = if (land) (14 * d).toInt() else 0
-        }
-        b.bottomArea.post { updateTrackingPadding() }
-    }
-
     /** 让定位箭头落在码表上方的空白区域 */
     private fun updateTrackingPadding() {
         val lc = map?.locationComponent ?: return
         if (!lc.isLocationComponentActivated) return
-        val land = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-        val pad = if (land) {
-            doubleArrayOf(b.bottomArea.width * 0.9, b.root.height * 0.25, 0.0, 0.0)
-        } else {
-            doubleArrayOf(0.0, b.root.height * 0.12, 0.0, b.bottomArea.height * 0.85)
-        }
-        lc.paddingWhileTracking(pad)
+        lc.paddingWhileTracking(doubleArrayOf(0.0, b.root.height * 0.12, 0.0, b.bottomArea.height * 0.85))
     }
 
     // ---------------------------------------------------------------- 地图
