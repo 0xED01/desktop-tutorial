@@ -1,0 +1,13 @@
+<!-- 定位箭头：尖端朝上（正北 / 前进方向），地图会按方向旋转它 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp" android:height="40dp"
+    android:viewportWidth="48" android:viewportHeight="48">
+    <!-- 柔和投影 -->
+    <path android:fillColor="#33000000" android:pathData="M24,6.5 L37.5,40.5 L24,33 L10.5,40.5 Z" />
+    <path
+        android:fillColor="#ECECEC"
+        android:strokeColor="#212121"
+        android:strokeWidth="3.5"
+        android:strokeLineJoin="round"
+        android:pathData="M24,5 L37,38.5 L24,31.5 L11,38.5 Z" />
+</vector>

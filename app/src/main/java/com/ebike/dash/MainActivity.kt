@@ -92,6 +92,8 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     private var demo: DemoSource? = null
     private var lastLoc: Location? = null
     private var lastBearing = 0f
+    private lateinit var heading: HeadingSensor
+    private var lastHeadingPush = 0L
     private var speedKmh = 0.0
     private var following = true
     private var trackingListenerAdded = false
@@ -120,6 +122,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         prefs = Prefs(this)
         voice = Voice(this)
         gps = GpsSource(this, this)
+        heading = HeadingSensor(this) { onHeading(it) }
         nav = NavigationEngine(lifecycleScope, this, units)
         tracker.restore(prefs)
 
@@ -153,12 +156,14 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         super.onResume()
         b.mapView.onResume()
         ui.post(statusTicker)
+        heading.start()
         if (demo == null) startGps()
     }
     override fun onPause() {
         super.onPause()
         b.mapView.onPause()
         ui.removeCallbacks(statusTicker)
+        heading.stop()
         tracker.save(prefs)
     }
     override fun onStop() { super.onStop(); b.mapView.onStop() }
@@ -343,12 +348,13 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     @SuppressLint("MissingPermission")
     private fun enableLocationComponent(s: Style) {
         val m = map ?: return
+        // 简约箭头，尖端指向手机前方 / 行进方向
         val opts = LocationComponentOptions.builder(this)
-            .foregroundTintColor(pal.onSurface)
-            .bearingTintColor(pal.onSurface)
-            .backgroundTintColor(pal.surface)
+            .gpsDrawable(if (pal === Palette.DARK) R.drawable.ic_puck_dark else R.drawable.ic_puck_light)
+            .elevation(0f)
+            .enableStaleState(false)
             .accuracyColor(pal.dim)
-            .accuracyAlpha(0.1f)
+            .accuracyAlpha(0.08f)
             .trackingGesturesManagement(true)
             .build()
         val lc = m.locationComponent
@@ -444,7 +450,10 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
 
         // 慢速时 GPS 方向不可靠，保持上一个方向
         val fixed = Location(loc)
-        if (speedKmh > 4 && loc.hasBearing()) lastBearing = loc.bearing else fixed.bearing = lastBearing
+        // 骑行时用 GPS 行进方向；停车或慢速时用指南针（手机朝向）
+        lastBearing = if (speedKmh > 4 && loc.hasBearing()) loc.bearing else heading.heading ?: lastBearing
+        fixed.bearing = lastBearing
+        if (prev == null) heading.updateDeclination(loc.latitude, loc.longitude, loc.altitude)
         lastLoc = fixed
 
         tracker.update(fixed, speedKmh)
@@ -459,6 +468,24 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             lastSavedPos = System.currentTimeMillis()
             prefs.lastLat = fixed.latitude
             prefs.lastLon = fixed.longitude
+        }
+    }
+
+    /** 指南针更新：慢速时转动箭头（和跟随模式下的地图） */
+    private fun onHeading(h: Float) {
+        val loc = lastLoc ?: return
+        if (speedKmh > 4) return
+        val now = android.os.SystemClock.uptimeMillis()
+        val diff = Math.abs(((h - lastBearing + 540) % 360) - 180)
+        if (diff < 2f || now - lastHeadingPush < 120) return
+        lastHeadingPush = now
+        lastBearing = h
+        val l = Location(loc).apply { bearing = h }
+        lastLoc = l
+        map?.locationComponent?.let { if (it.isLocationComponentActivated) it.forceLocationUpdate(l) }
+        b.gauge.caption = buildString {
+            append(Geo.compass(h))
+            if (l.hasAltitude()) append(" · 海拔 ${l.altitude.toInt()}m")
         }
     }
 
