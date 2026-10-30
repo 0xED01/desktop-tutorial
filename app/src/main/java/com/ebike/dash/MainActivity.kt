@@ -10,12 +10,9 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.location.Location
 import android.os.BatteryManager
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.VibrationEffect
-import android.os.Vibrator
 import android.provider.Settings
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -23,14 +20,13 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.view.WindowManager
-import android.view.inputmethod.EditorInfo
-import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -103,8 +99,6 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     private var speedKmh = 0.0
     private var following = true
     private var trackingListenerAdded = false
-    private var lastOverAlert = 0L
-    private var wasOver = false
     private var lastSavedPos = 0L
     private var destPoint: DoubleArray? = null
 
@@ -232,7 +226,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         if (!lc.isLocationComponentActivated) return
         // 只按速度卡片的高度留白，展开数据面板时地图不会跳动
         val d = resources.displayMetrics.density
-        lc.paddingWhileTracking(doubleArrayOf(0.0, b.root.height * 0.12, 0.0, b.speedCard.height + 60.0 * d))
+        lc.paddingWhileTracking(doubleArrayOf(0.0, b.root.height * 0.12, 0.0, b.speed.root.height + 60.0 * d))
     }
 
     // ---------------------------------------------------------------- 地图
@@ -241,9 +235,11 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         val d = resources.displayMetrics.density
         m.uiSettings.apply {
             isLogoEnabled = false
+            // 指南针放在右侧按钮列的最上方，与圆形按钮同尺寸、同配色
             isCompassEnabled = true
-            compassGravity = Gravity.TOP or Gravity.START
-            setCompassMargins((16 * d).toInt(), (44 * d).toInt(), 0, 0)
+            compassGravity = Gravity.TOP or Gravity.END
+            setCompassMargins(0, (108 * d).toInt(), (18 * d).toInt(), 0)
+            setCompassImage(compassDrawable())
             // 地图版权信息放在菜单底部，不在地图上显示 (i) 按钮
             isAttributionEnabled = false
         }
@@ -252,11 +248,15 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             .zoom(15.5)
             .build()
         m.addOnMapLongClickListener { p ->
-            askNavigate(p.latitude, p.longitude, "地图选点")
+            onMapLongPress(p.latitude, p.longitude)
             true
         }
         loadStyle(force = true)
     }
+
+    private fun compassDrawable() = ContextCompat.getDrawable(
+        this, if (pal === Palette.DARK) R.drawable.ic_compass_dark else R.drawable.ic_compass_light,
+    )!!
 
     private fun isNight(): Boolean = when (prefs.theme) {
         1 -> false
@@ -422,7 +422,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         val surface = ColorStateList.valueOf(p.surface)
         b.infoPanel.backgroundTintList = surface
         // 不透明：半透明卡片会透出自身阴影，看起来深浅不均
-        b.speedCard.backgroundTintList = surface
+        b.speed.root.backgroundTintList = surface
         b.navDivider.setBackgroundColor(p.chip)
         for (btn in listOf(b.btnSearch, b.btnRecenter, b.btnInfo, b.btnSettings)) {
             btn.backgroundTintList = surface
@@ -432,7 +432,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         b.btnStopNav.backgroundTintList = ColorStateList.valueOf(p.onSurface)
         b.btnStopNav.imageTintList = surface
         tintTexts(b.overlay, p)
-        updateSpeedColor()
+        map?.uiSettings?.setCompassImage(compassDrawable())
         updateInfoButton()
         b.topScrim.background = GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
@@ -475,7 +475,6 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         tracker.update(fixed, speedKmh)
         map?.locationComponent?.let { if (it.isLocationComponentActivated) it.forceLocationUpdate(fixed) }
         nav.onLocation(fixed)
-        checkOverSpeed()
         updateDashboard()
         updateGpsIndicator(fixed)
 
@@ -520,17 +519,12 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             interpolator = DecelerateInterpolator()
             addUpdateListener {
                 shownSpeed = it.animatedValue as Float
-                b.tvSpeed.text = shownSpeed.roundToInt().toString()
+                b.speed.tvSpeed.text = shownSpeed.roundToInt().toString()
             }
             start()
         }
-        updateSpeedColor()
     }
 
-    /** 超速时数字变红，其余时间只用前景色 */
-    private fun updateSpeedColor() {
-        b.tvSpeed.setTextColor(if (speedKmh > prefs.speedLimit + 0.5) pal.danger else pal.onSurface)
-    }
 
     /** 数据面板（骑行数据 + 导航剩余信息），默认隐藏 */
     private fun setInfoVisible(show: Boolean) {
@@ -560,27 +554,6 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         b.tvGps.text = if (demoMode) "演示" else "GPS"
     }
 
-    private fun checkOverSpeed() {
-        val over = speedKmh > prefs.speedLimit + 0.5
-        val now = System.currentTimeMillis()
-        if (over && (!wasOver || now - lastOverAlert > 20_000)) {
-            lastOverAlert = now
-            voice.speak("您已超速，请减速慢行")
-            if (prefs.vibrate) vibrate()
-        }
-        wasOver = over
-    }
-
-    @Suppress("DEPRECATION")
-    private fun vibrate() {
-        val v = getSystemService(VIBRATOR_SERVICE) as? Vibrator ?: return
-        if (Build.VERSION.SDK_INT >= 26) {
-            v.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 120, 80, 120), -1))
-        } else {
-            v.vibrate(longArrayOf(0, 120, 80, 120), -1)
-        }
-    }
-
     private val statusTicker = object : Runnable {
         override fun run() {
             updateStatus()
@@ -604,12 +577,43 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
 
     private fun currentPos(): DoubleArray? = lastLoc?.let { doubleArrayOf(it.latitude, it.longitude) }
 
-    private fun askNavigate(lat: Double, lon: Double, name: String) {
+    /** 长按地图：先查出这个位置的地址，再确认是否导航 */
+    private fun onMapLongPress(lat: Double, lon: Double) {
+        destPoint = doubleArrayOf(lat, lon)
+        drawDest(lat, lon)
+        lifecycleScope.launch {
+            val place = try {
+                withContext(Dispatchers.IO) { Net.reverse(lat, lon) }
+            } catch (_: Exception) {
+                null
+            }
+            val p = Place(place?.name ?: "地图上的位置", place?.address ?: "", lat, lon)
+            val dist = currentPos()?.let { units.navDist(Geo.distance(it[0], it[1], lat, lon)) }
+            MaterialAlertDialogBuilder(this@MainActivity)
+                .setTitle(p.name)
+                .setMessage(listOfNotNull(p.address.ifBlank { null }, dist?.let { "距离你 $it" }).joinToString("\n"))
+                .setPositiveButton("去这里") { _, _ -> prefs.addHistory(p); startNavigation(p.lat, p.lon, p.name) }
+                .setNegativeButton("取消", null)
+                .setNeutralButton("收藏") { _, _ -> saveAsShortcut(p) }
+                .setOnCancelListener { clearPendingDest() }
+                .setOnDismissListener { if (!nav.active) clearPendingDest() }
+                .show()
+        }
+    }
+
+    private fun clearPendingDest() {
+        if (nav.active) return
+        destPoint = null
+        drawDest(null, null)
+    }
+
+    private fun saveAsShortcut(p: Place) {
         MaterialAlertDialogBuilder(this)
-            .setTitle("导航到这里？")
-            .setMessage(name)
-            .setPositiveButton("开始导航") { _, _ -> startNavigation(lat, lon, name) }
-            .setNegativeButton("取消", null)
+            .setTitle("收藏为")
+            .setItems(arrayOf("家", "公司")) { _, i ->
+                prefs.putPlace(if (i == 0) Prefs.HOME else Prefs.WORK, p)
+                toast(if (i == 0) "已设为家" else "已设为公司")
+            }
             .show()
     }
 
@@ -675,63 +679,14 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     }
 
     private fun showSearch() {
-        val input = EditText(this).apply {
-            hint = "搜索地点，如：万达广场"
-            setSingleLine()
-            imeOptions = EditorInfo.IME_ACTION_SEARCH
-        }
-        val box = FrameLayout(this).apply {
-            val p = (20 * resources.displayMetrics.density).toInt()
-            setPadding(p, p / 2, p, 0)
-            addView(input)
-        }
-        val dlg = MaterialAlertDialogBuilder(this)
-            .setTitle("去哪儿？")
-            .setView(box)
-            .setPositiveButton("搜索", null)
-            .setNegativeButton("取消", null)
-            .setNeutralButton(if (nav.active) "结束导航" else "长按地图选点") { _, _ ->
-                if (nav.active) stopNavigation(true)
-            }
-            .create()
-        val go = {
-            val q = input.text.toString().trim()
-            if (q.isNotEmpty()) {
-                dlg.dismiss()
-                search(q)
-            }
-        }
-        input.setOnEditorActionListener { _, _, _ -> go(); true }
-        dlg.setOnShowListener { dlg.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener { go() } }
-        dlg.show()
-        input.requestFocus()
-    }
-
-    private fun search(q: String) {
         val center = currentPos() ?: map?.cameraPosition?.target?.let { doubleArrayOf(it.latitude, it.longitude) }
             ?: doubleArrayOf(prefs.lastLat, prefs.lastLon)
-        toast("搜索中…")
-        lifecycleScope.launch {
-            val res = try {
-                withContext(Dispatchers.IO) { Net.search(q, center[0], center[1]) }
-            } catch (e: Exception) {
-                toast("搜索失败：${e.message}")
-                return@launch
-            }
-            if (res.isEmpty()) {
-                toast("没有找到“$q”")
-                return@launch
-            }
-            val labels = res.map { p ->
-                val km = Geo.distance(center[0], center[1], p.lat, p.lon) / 1000
-                "${p.name}  ·  ${String.format(Locale.US, "%.1f", km)} km\n${p.detail}"
-            }.toTypedArray()
-            MaterialAlertDialogBuilder(this@MainActivity)
-                .setTitle("选择目的地")
-                .setItems(labels) { _, i -> startNavigation(res[i].lat, res[i].lon, res[i].name) }
-                .setNegativeButton("取消", null)
-                .show()
-        }
+        SearchSheet(
+            this, prefs, units, center,
+            navDestName = if (nav.active) nav.destName else null,
+            onPick = { startNavigation(it.lat, it.lon, it.name) },
+            onEndNav = { stopNavigation(true) },
+        ).show()
     }
 
     // ---------------------------------------------------------------- 演示模式
@@ -761,7 +716,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     private fun applyPrefs() {
         units.imperial = prefs.imperial
         voice.enabled = prefs.voice
-        b.tvUnit.text = units.speedUnit
+        b.speed.tvUnit.text = units.speedUnit
         updateDashboard()
     }
 
@@ -769,15 +724,6 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         val sb = DialogSettingsBinding.inflate(LayoutInflater.from(this))
         val dlg = BottomSheetDialog(this)
         dlg.setContentView(sb.root)
-
-        fun limitText(v: Int) = "超速提醒  $v km/h" + if (v == 25) "（国标）" else ""
-        sb.sliderLimit.value = prefs.speedLimit.toFloat().coerceIn(10f, 80f)
-        sb.tvLimit.text = limitText(prefs.speedLimit)
-        sb.sliderLimit.addOnChangeListener { _, v, _ ->
-            prefs.speedLimit = v.toInt()
-            sb.tvLimit.text = limitText(v.toInt())
-            applyPrefs()
-        }
 
         sb.swLabels.isChecked = prefs.showLabels
         sb.swLabels.setOnCheckedChangeListener { _, c ->
@@ -795,8 +741,6 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
 
         sb.swVoice.isChecked = prefs.voice
         sb.swVoice.setOnCheckedChangeListener { _, c -> prefs.voice = c; applyPrefs() }
-        sb.swVibrate.isChecked = prefs.vibrate
-        sb.swVibrate.setOnCheckedChangeListener { _, c -> prefs.vibrate = c }
         sb.swImperial.isChecked = prefs.imperial
         sb.swImperial.setOnCheckedChangeListener { _, c -> prefs.imperial = c; applyPrefs() }
 

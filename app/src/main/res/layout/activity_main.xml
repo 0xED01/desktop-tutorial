@@ -179,40 +179,9 @@
             </LinearLayout>
 
             <!-- 数字速度 -->
-            <LinearLayout
-                android:id="@+id/speedCard"
-                style="@style/Card"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:baselineAligned="true"
-                android:gravity="center"
-                android:minWidth="200dp"
-                android:orientation="horizontal"
-                android:paddingHorizontal="32dp"
-                android:paddingTop="2dp"
-                android:paddingBottom="8dp">
-
-                <TextView
-                    android:id="@+id/tvSpeed"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
-                    android:fontFeatureSettings="tnum"
-                    android:includeFontPadding="false"
-                    android:letterSpacing="-0.03"
-                    android:text="0"
-                    android:textSize="92sp" />
-
-                <TextView
-                    android:id="@+id/tvUnit"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:fontFamily="sans-serif-medium"
-                    android:tag="label"
-                    android:text="km/h"
-                    android:textSize="17sp" />
-            </LinearLayout>
+            <include
+                android:id="@+id/speed"
+                layout="@layout/view_speed" />
         </LinearLayout>
     </FrameLayout>
 </FrameLayout>

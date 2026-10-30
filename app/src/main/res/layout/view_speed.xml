@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 数字速度：数字和单位上下居中排列，卡片宽度固定，个位数和两位数都不跳动 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/Card"
+    android:layout_width="168dp"
+    android:layout_height="wrap_content"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:paddingTop="10dp"
+    android:paddingBottom="14dp">
+
+    <TextView
+        android:id="@+id/tvSpeed"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-medium"
+        android:fontFeatureSettings="tnum"
+        android:includeFontPadding="false"
+        android:letterSpacing="-0.02"
+        android:text="0"
+        android:textSize="68sp" />
+
+    <TextView
+        android:id="@+id/tvUnit"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="0.06"
+        android:tag="label"
+        android:text="km/h"
+        android:textSize="13sp" />
+</LinearLayout>

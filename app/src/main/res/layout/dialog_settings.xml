@@ -43,38 +43,10 @@
             <Button android:id="@+id/tNight" style="@style/Menu.Toggle" android:text="深色" />
         </com.google.android.material.button.MaterialButtonToggleGroup>
 
-        <!-- 码表 -->
+        <!-- 导航 -->
         <TextView
             style="@style/Menu.Section"
-            android:text="速度" />
-
-        <TextView
-            android:id="@+id/tvLimit"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textColor="@color/fg"
-            android:textSize="15sp" />
-
-        <com.google.android.material.slider.Slider
-            android:id="@+id/sliderLimit"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:stepSize="1"
-            android:valueFrom="10"
-            android:valueTo="80"
-            app:labelBehavior="gone" />
-
-        <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/swImperial"
-            style="@style/Menu.Switch"
-            android:layout_marginTop="8dp"
-            android:text="英制单位（mph）" />
-
-        <!-- 提醒 -->
-        <TextView
-            style="@style/Menu.Section"
-            android:text="提醒" />
+            android:text="导航" />
 
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/swVoice"
@@ -82,9 +54,9 @@
             android:text="语音播报" />
 
         <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/swVibrate"
+            android:id="@+id/swImperial"
             style="@style/Menu.Switch"
-            android:text="超速震动" />
+            android:text="英制单位（mph）" />
 
         <!-- 其它 -->
         <TextView
