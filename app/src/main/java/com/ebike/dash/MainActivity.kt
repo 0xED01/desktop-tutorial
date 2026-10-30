@@ -37,6 +37,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.lifecycleScope
 import com.ebike.dash.databinding.ActivityMainBinding
 import com.ebike.dash.databinding.DialogSettingsBinding
@@ -200,7 +201,12 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         }
         ViewCompat.setOnApplyWindowInsetsListener(b.overlay) { v, insets ->
             val c = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
-            v.setPadding(c.left, c.top, c.right, c.bottom)
+            v.setPadding(c.left, 0, c.right, c.bottom)
+            // 状态行放进屏幕最顶端（和前置摄像头同一行），不再往下让出整块刘海区域
+            val d = resources.displayMetrics.density
+            b.topArea.updateLayoutParams<FrameLayout.LayoutParams> {
+                topMargin = if (c.top > 0) ((c.top - 20 * d) / 2).toInt().coerceAtLeast((4 * d).toInt()) else (8 * d).toInt()
+            }
             insets
         }
     }
@@ -237,10 +243,9 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             isLogoEnabled = false
             isCompassEnabled = true
             compassGravity = Gravity.TOP or Gravity.START
-            setCompassMargins((16 * d).toInt(), (64 * d).toInt(), 0, 0)
-            attributionGravity = Gravity.TOP or Gravity.START
-            setAttributionMargins((10 * d).toInt(), (34 * d).toInt(), 0, 0)
-            setAttributionTintColor(Color.argb(110, 128, 128, 128))
+            setCompassMargins((16 * d).toInt(), (44 * d).toInt(), 0, 0)
+            // 地图版权信息放在菜单底部，不在地图上显示 (i) 按钮
+            isAttributionEnabled = false
         }
         m.cameraPosition = CameraPosition.Builder()
             .target(LatLng(prefs.lastLat, prefs.lastLon))
@@ -416,7 +421,8 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             if (p === Palette.DARK) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
         val surface = ColorStateList.valueOf(p.surface)
         b.infoPanel.backgroundTintList = surface
-        b.speedCard.backgroundTintList = ColorStateList.valueOf(ColorUtils.setAlphaComponent(p.surface, 225))
+        // 不透明：半透明卡片会透出自身阴影，看起来深浅不均
+        b.speedCard.backgroundTintList = surface
         b.navDivider.setBackgroundColor(p.chip)
         for (btn in listOf(b.btnSearch, b.btnRecenter, b.btnInfo, b.btnSettings)) {
             btn.backgroundTintList = surface
@@ -432,9 +438,8 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             GradientDrawable.Orientation.TOP_BOTTOM,
             intArrayOf(ColorUtils.setAlphaComponent(p.surface, 200), ColorUtils.setAlphaComponent(p.surface, 0)),
         )
-        lastLoc?.let { updateGpsIndicator(it) } ?: run {
-            b.gpsDot.backgroundTintList = ColorStateList.valueOf(p.dim)
-        }
+        b.gpsDots.setColors(p.onSurface, ColorUtils.setAlphaComponent(p.onSurface, 50))
+        lastLoc?.let { updateGpsIndicator(it) }
         WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = p === Palette.LIGHT
     }
 
@@ -547,13 +552,12 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     }
 
     private fun updateGpsIndicator(loc: Location) {
-        val weak = loc.provider != "demo" && loc.accuracy > 30
-        b.gpsDot.backgroundTintList = ColorStateList.valueOf(if (weak) pal.danger else pal.onSurface)
-        b.tvGps.text = when {
-            loc.provider == "demo" -> "演示"
-            weak -> "GPS 信号弱"
-            else -> "GPS ±${loc.accuracy.toInt()}m"
-        }
+        val demoMode = loc.provider == "demo"
+        val level = if (demoMode) SignalDotsView.COUNT else SignalDotsView.levelFor(loc.accuracy)
+        b.gpsDots.level = level
+        // 只剩 1 格时亮点变红提醒
+        b.gpsDots.setColors(if (level <= 1) pal.danger else pal.onSurface, ColorUtils.setAlphaComponent(pal.onSurface, 50))
+        b.tvGps.text = if (demoMode) "演示" else "GPS"
     }
 
     private fun checkOverSpeed() {
@@ -797,7 +801,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         sb.swImperial.setOnCheckedChangeListener { _, c -> prefs.imperial = c; applyPrefs() }
 
         sb.tvOdo.text = String.format(
-            Locale.US, "总里程 %.1f %s  ·  版本 %s",
+            Locale.US, "总里程 %.1f %s  ·  版本 %s\n地图数据 © OpenStreetMap 贡献者 · OpenFreeMap",
             units.bigDist(tracker.odoMeters), units.distUnit, BuildConfigCompat.versionName(this),
         )
         sb.btnDemo.text = if (demo == null) "演示模式" else "关闭演示模式"

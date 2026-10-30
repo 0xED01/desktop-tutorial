@@ -15,7 +15,7 @@
 - 超速时数字变红，**语音 + 震动提醒**（默认 25 km/h，国标电动自行车限速）
 - 骑行数据（本次里程、时间、均速、最高速）默认隐藏，点右侧"数据"按钮展开；导航时面板里还会显示剩余距离、用时、到达时间和结束导航按钮
 - 长按数据面板可清零本次骑行；总里程 ODO 在菜单里
-- 顶部状态：GPS 信号、手机电量、时间；支持 km/h 和 mph
+- 顶部状态：GPS 信号（5 个点表示强弱）、手机电量、时间；支持 km/h 和 mph
 
 **地图**
 - MapLibre 矢量地图（OpenFreeMap 灰阶样式），倾斜视角，地名优先显示中文
@@ -65,6 +65,7 @@ adb install -r app/build/outputs/apk/release/app-release.apk
 | `Net.kt` | 路线规划 (OSRM) 与地点搜索 (Nominatim) |
 | `LocationSources.kt` | 系统 GPS 定位 + 演示模式模拟器 |
 | `HeadingSensor.kt` | 指南针，停车时让箭头指向手机前方 |
+| `SignalDotsView.kt` | GPS 信号 5 点指示 |
 | `RideTracker.kt` | 里程 / 时间 / 均速 / 最高速统计 |
 | `Prefs.kt` / `Units.kt` | 设置存储、单位换算 |
 

@@ -25,7 +25,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="top"
-            android:layout_margin="14dp"
+            android:layout_marginHorizontal="14dp"
+            android:layout_marginTop="8dp"
             android:clipToPadding="false"
             android:orientation="vertical">
 
@@ -37,20 +38,19 @@
                 android:orientation="horizontal"
                 android:paddingHorizontal="6dp">
 
-                <View
-                    android:id="@+id/gpsDot"
-                    android:layout_width="7dp"
-                    android:layout_height="7dp"
-                    android:background="@drawable/dot" />
-
                 <TextView
                     android:id="@+id/tvGps"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="7dp"
                     android:fontFamily="sans-serif-medium"
-                    android:text="正在定位"
+                    android:text="GPS"
                     android:textSize="13sp" />
+
+                <com.ebike.dash.SignalDotsView
+                    android:id="@+id/gpsDots"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="7dp" />
 
                 <Space
                     android:layout_width="0dp"
