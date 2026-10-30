@@ -9,7 +9,7 @@ import com.ebike.dash.databinding.SheetMusicBinding
 import com.google.android.material.slider.Slider
 import java.util.Locale
 
-/** 悬浮播放器：大封面、歌名、可拖动的进度条和播放控制 */
+/** 悬浮播放器：跳动音乐柱、歌名、可拖动的进度条和播放控制 */
 class MusicSheet(
     private val act: AppCompatActivity,
     private val music: MusicController,
@@ -68,21 +68,15 @@ class MusicSheet(
     fun update(np: NowPlaying?) {
         Motion.setText(b.tvTitle, np?.title?.ifBlank { null } ?: if (np == null) "未在播放" else "未知歌曲")
         Motion.setText(b.tvArtist, np?.artist?.ifBlank { null } ?: "Apple Music")
-        setArt(np)
         val playing = np?.playing == true
         Motion.swapIcon(b.btnPlay, if (playing) R.drawable.ic_pause else R.drawable.ic_play)
-        // 封面随播放“呼吸”：播放时舒展，暂停时微微收起
-        val artScale = if (playing) 1f else 0.88f
-        if (first) {
-            b.ivArt.scaleX = artScale; b.ivArt.scaleY = artScale
-        } else if (b.ivArt.scaleX != artScale) {
-            b.ivArt.animate().scaleX(artScale).scaleY(artScale)
-                .setDuration(Motion.STANDARD).setInterpolator(Motion.EASE).start()
-        }
+        // 音乐柱：播放时跳动，暂停时落回成圆点；刚打开时直接显示当前状态
+        b.eq.setColor(b.root.context.getColor(R.color.fg))
+        b.eq.setPlaying(playing, animate = !first)
         first = false
 
         val hint = when {
-            !music.hasAccess() -> "点这里开启「通知使用权」，即可显示歌名、封面和进度"
+            !music.hasAccess() -> "点这里开启「通知使用权」，即可显示歌名和进度"
             np == null -> "还没有正在播放的音乐，点 ▶ 继续播放，或打开 Apple Music"
             else -> null
         }
@@ -93,23 +87,6 @@ class MusicSheet(
         b.slider.isEnabled = hasTimeline
         b.timeRow.alpha = if (hasTimeline) 1f else 0f
         updateProgress()
-    }
-
-    private fun setArt(np: NowPlaying?) {
-        val art = np?.art
-        if (art != null) {
-            b.ivArt.setPadding(0, 0, 0, 0)
-            b.ivArt.background = null
-            b.ivArt.imageTintList = null
-            b.ivArt.setImageBitmap(art)
-        } else {
-            // 没有封面时：浅灰底 + 音符
-            val pad = (act.resources.displayMetrics.density * 96).toInt()
-            b.ivArt.setPadding(pad, pad, pad, pad)
-            b.ivArt.setBackgroundResource(R.drawable.bg_art_large)
-            b.ivArt.setImageResource(R.drawable.ic_music)
-            b.ivArt.imageTintList = b.root.context.getColorStateList(R.color.fg_dim)
-        }
     }
 
     private fun updateProgress() {

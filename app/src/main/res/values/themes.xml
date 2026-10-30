@@ -94,16 +94,6 @@
     </style>
 
 
-    <!-- 封面圆角 -->
-    <style name="ArtSmall" parent="">
-        <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">10dp</item>
-    </style>
-
-    <style name="ArtLarge" parent="">
-        <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">22dp</item>
-    </style>
 
     <!-- 悬浮面板里的胶囊按钮 -->
     <style name="PillButton" parent="">

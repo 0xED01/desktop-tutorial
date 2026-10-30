@@ -74,7 +74,7 @@
         <Button
             android:id="@+id/btnMusicAccess"
             style="@style/Menu.Action"
-            android:text="显示歌名和封面" />
+            android:text="开启歌名显示" />
 
         <!-- 其它 -->
         <TextView

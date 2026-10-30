@@ -490,6 +490,8 @@ class MainActivity : AppCompatActivity(), LocationSink {
         }
         b.music.btnPlay.backgroundTintList = ColorStateList.valueOf(p.onSurface)
         b.music.btnPlay.imageTintList = surface
+        b.music.eq.backgroundTintList = ColorStateList.valueOf(p.chip)
+        b.music.eq.setColor(p.onSurface)
         b.speed.energy.setColors(p.onSurface, p.chip)
         tintTexts(b.overlay, p)
         onMusicChanged(if (::music.isInitialized) music.now else null)
@@ -648,7 +650,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
         prefs.showMusic = show
         Motion.setVisible(b.music.root, show)
         updateMusicButton(show)
-        // 第一次打开时，引导开启“通知使用权”以显示歌名和封面
+        // 第一次打开时，引导开启“通知使用权”以显示歌名
         if (show && !music.hasAccess() && !prefs.askedMusicAccess) {
             prefs.askedMusicAccess = true
             askMusicAccess()
@@ -677,20 +679,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
             else -> "点 ▶ 继续播放"
         })
         Motion.swapIcon(m.btnPlay, if (np?.playing == true) R.drawable.ic_pause else R.drawable.ic_play)
-        val art = np?.art
-        if (art != null) {
-            m.ivArt.setPadding(0, 0, 0, 0)
-            m.ivArt.imageTintList = null
-            m.ivArt.setImageBitmap(art)
-            m.ivArt.background = null
-        } else {
-            val pad = (12 * resources.displayMetrics.density).toInt()
-            m.ivArt.setPadding(pad, pad, pad, pad)
-            m.ivArt.setBackgroundResource(R.drawable.bg_art_small)
-            m.ivArt.backgroundTintList = ColorStateList.valueOf(pal.chip)
-            m.ivArt.setImageResource(R.drawable.ic_music)
-            m.ivArt.imageTintList = ColorStateList.valueOf(pal.dim)
-        }
+        m.eq.setPlaying(np?.playing == true)
         musicSheet?.takeIf { it.isShowing }?.update(np)
     }
 
@@ -698,7 +687,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
         FloatingPanel.confirm(
             this,
             "显示正在播放的歌曲",
-            "开启「通知使用权」后，Driver 才能读取 Apple Music 正在播放的歌名、封面和进度。\n\n" +
+            "开启「通知使用权」后，Driver 才能读取 Apple Music 正在播放的歌名和进度。\n\n" +
                 "Driver 不会读取或保存你的任何通知内容。不开启也可以用播放、暂停和切歌。",
             positive = "去开启",
             negative = "暂不",
@@ -778,7 +767,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
             dlg.dismiss()
             confirmClearTrack()
         }
-        sb.btnMusicAccess.text = if (music.hasAccess()) "歌名和封面显示：已开启" else "开启歌名和封面显示"
+        sb.btnMusicAccess.text = if (music.hasAccess()) "歌名显示：已开启" else "开启歌名显示"
         sb.btnMusicAccess.setOnClickListener {
             dlg.dismiss()
             if (music.hasAccess()) {

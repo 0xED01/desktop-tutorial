@@ -3,14 +3,11 @@ package com.ebike.dash
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.media.AudioManager
 import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
-import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -21,7 +18,6 @@ import androidx.core.app.NotificationManagerCompat
 data class NowPlaying(
     val title: String,
     val artist: String,
-    val art: Bitmap?,
     val playing: Boolean,
     val durationMs: Long,
     val positionMs: Long,
@@ -39,7 +35,7 @@ data class NowPlaying(
 
 /**
  * 读取并控制系统里正在播放的音乐（优先 Apple Music）。
- * 有“通知使用权”时可拿到歌名、封面、进度并精确控制；
+ * 有“通知使用权”时可拿到歌名、进度并精确控制；
  * 没有时也能用系统媒体按键实现播放 / 暂停 / 切歌。
  */
 class MusicController(private val ctx: Context, private val onChange: (NowPlaying?) -> Unit) {
@@ -48,8 +44,6 @@ class MusicController(private val ctx: Context, private val onChange: (NowPlayin
     private val listener = ComponentName(ctx, MusicListenerService::class.java)
     private var controller: MediaController? = null
     private var listening = false
-    private var artFor: String? = null
-    private var art: Bitmap? = null
 
     var now: NowPlaying? = null; private set
 
@@ -127,7 +121,6 @@ class MusicController(private val ctx: Context, private val onChange: (NowPlayin
             NowPlaying(
                 title = title,
                 artist = artist,
-                art = artOf(md, "$title|$artist"),
                 playing = st?.state == PlaybackState.STATE_PLAYING || st?.state == PlaybackState.STATE_BUFFERING,
                 durationMs = md.getLong(MediaMetadata.METADATA_KEY_DURATION),
                 positionMs = st?.position ?: 0,
@@ -137,32 +130,6 @@ class MusicController(private val ctx: Context, private val onChange: (NowPlayin
             )
         }
         onChange(now)
-    }
-
-    /** 封面：优先直接给的图片，其次本地 content:// 地址；同一首歌只解码一次 */
-    private fun artOf(md: MediaMetadata, key: String): Bitmap? {
-        if (key == artFor && art != null) return art
-        val bmp = md.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
-            ?: md.getBitmap(MediaMetadata.METADATA_KEY_ART)
-            ?: md.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
-            ?: listOf(
-                MediaMetadata.METADATA_KEY_ALBUM_ART_URI,
-                MediaMetadata.METADATA_KEY_ART_URI,
-                MediaMetadata.METADATA_KEY_DISPLAY_ICON_URI,
-            ).firstNotNullOfOrNull { k -> md.getString(k)?.let { loadUri(it) } }
-        artFor = key
-        art = bmp
-        return bmp
-    }
-
-    private fun loadUri(s: String): Bitmap? {
-        val uri = Uri.parse(s)
-        if (uri.scheme != "content" && uri.scheme != "file" && uri.scheme != "android.resource") return null
-        return try {
-            ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
-        } catch (_: Exception) {
-            null
-        }
     }
 
     // ---------------------------------------------------------------- 控制
