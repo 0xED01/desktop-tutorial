@@ -49,6 +49,11 @@
             android:text="足迹" />
 
         <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/swBackground"
+            style="@style/Menu.Switch"
+            android:text="锁屏后继续记录" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/swTrack"
             style="@style/Menu.Switch"
             android:text="在地图上显示足迹" />

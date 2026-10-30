@@ -32,6 +32,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("askedMusic", false)
         set(v) = sp.edit().putBoolean("askedMusic", v).apply()
 
+    /** 锁屏 / 切到其它 App 时是否继续记录 */
+    var backgroundRecord: Boolean
+        get() = sp.getBoolean("bgRecord", true)
+        set(v) = sp.edit().putBoolean("bgRecord", v).apply()
+
     /** 地图上是否显示足迹 */
     var showTrack: Boolean
         get() = sp.getBoolean("showTrack", true)

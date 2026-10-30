@@ -10,6 +10,7 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.location.Location
 import android.os.BatteryManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -99,6 +100,8 @@ class MainActivity : AppCompatActivity(), LocationSink {
     private var demoTrack: TrackStore? = null
     private var lastLiveDraw = 0L
     private var lastPuckPush = 0L
+    private var lastNotice = 0L
+    private var resumed = false
 
     private val clockFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
 
@@ -155,15 +158,21 @@ class MainActivity : AppCompatActivity(), LocationSink {
                 listOf(b.infoPanel, b.music.root, b.speed.root).filter { it.isVisible }
         )
 
-        if (gps.hasPermission()) startGps() else permLauncher.launch(
-            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-        )
+        val perms = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+        // Android 13+ 需要通知权限，才能显示“正在记录足迹”的通知
+        if (Build.VERSION.SDK_INT >= 33) perms += Manifest.permission.POST_NOTIFICATIONS
+        if (gps.hasPermission()) startGps() else permLauncher.launch(perms.toTypedArray())
     }
 
     override fun onStart() { super.onStart(); b.mapView.onStart() }
     override fun onResume() {
         super.onResume()
+        resumed = true
         b.mapView.onResume()
+        // 回到前台：把后台期间的速度、数据和足迹一次补画出来
+        updateDashboard()
+        drawTrackHistory()
+        drawTrackLive(force = true)
         ui.post(statusTicker)
         ui.post(puckKeeper)
         heading.start()
@@ -172,6 +181,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
     }
     override fun onPause() {
         super.onPause()
+        resumed = false
         b.mapView.onPause()
         ui.removeCallbacks(statusTicker)
         ui.removeCallbacks(puckKeeper)
@@ -189,6 +199,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
     override fun onDestroy() {
         demo?.stop()
         gps.stop()
+        RecordingService.stop(this)
         track.endSegment()
         track.close()
         b.mapView.onDestroy()
@@ -221,6 +232,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
     private fun startGps() {
         if (demo != null || !gps.hasPermission()) return
         gps.start()
+        updateRecordingService()
         if (!gps.gpsEnabled()) {
             FloatingPanel.confirm(
                 this, "GPS 未开启", "Driver 需要 GPS 来测速和记录足迹，请在系统设置中打开位置信息。", "去设置",
@@ -538,16 +550,42 @@ class MainActivity : AppCompatActivity(), LocationSink {
 
         tracker.update(fixed, speedKmh)
         recordTrack(fixed)
+        updateRecordingNotice()
+        if (System.currentTimeMillis() - lastSavedPos > 30_000) {
+            lastSavedPos = System.currentTimeMillis()
+            prefs.lastLat = fixed.latitude
+            prefs.lastLon = fixed.longitude
+            tracker.save(prefs)
+        }
+        // 在后台时只记录，不刷新界面（省电）；回到前台时一次补上
+        if (!resumed) return
         pushPuck(fixed)
         updateDashboard()
         updateGpsIndicator(fixed)
 
         if (prev == null && following) follow()
-        if (System.currentTimeMillis() - lastSavedPos > 30_000) {
-            lastSavedPos = System.currentTimeMillis()
-            prefs.lastLat = fixed.latitude
-            prefs.lastLon = fixed.longitude
+    }
+
+    // ---------------------------------------------------------------- 后台记录
+
+    /** 有定位权限、开启了“锁屏后继续记录”、不在演示模式时，常驻通知保持记录 */
+    private fun updateRecordingService() {
+        if (prefs.backgroundRecord && demo == null && gps.hasPermission()) {
+            RecordingService.start(this, recordingText())
+        } else {
+            RecordingService.stop(this)
         }
+    }
+
+    private fun recordingText() =
+        String.format(Locale.US, "本次 %.1f %s · 点击返回 Driver", units.bigDist(tracker.tripMeters), units.distUnit)
+
+    /** 通知上的里程，最多每 10 秒更新一次 */
+    private fun updateRecordingNotice() {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastNotice < 10_000) return
+        lastNotice = now
+        RecordingService.update(this, recordingText())
     }
 
     /** 指南针更新：慢速时转动箭头（和跟随模式下的地图） */
@@ -719,6 +757,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
         val start = currentPos() ?: map?.cameraPosition?.target?.let { doubleArrayOf(it.latitude, it.longitude) }
             ?: doubleArrayOf(prefs.lastLat, prefs.lastLon)
         gps.stop()
+        RecordingService.stop(this)
         // 演示轨迹只画在屏幕上，不写进真实足迹
         demoTrack = TrackStore(null)
         demo = DemoSource(start[0], start[1], this).also { it.start() }
@@ -757,6 +796,11 @@ class MainActivity : AppCompatActivity(), LocationSink {
             loadStyle()
         }
 
+        sb.swBackground.isChecked = prefs.backgroundRecord
+        sb.swBackground.setOnCheckedChangeListener { _, c ->
+            prefs.backgroundRecord = c
+            updateRecordingService()
+        }
         sb.swTrack.isChecked = prefs.showTrack
         sb.swTrack.setOnCheckedChangeListener { _, c -> setTrackVisible(c) }
         sb.tvTrack.text = String.format(
