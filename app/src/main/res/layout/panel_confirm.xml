@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 确认提示：与菜单、播放器同一种悬浮卡片 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-medium"
+        android:textColor="@color/fg"
+        android:textSize="19sp" />
+
+    <TextView
+        android:id="@+id/tvMessage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:lineSpacingExtra="3dp"
+        android:textColor="@color/fg_dim"
+        android:textSize="15sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/btnNegative"
+            style="@style/PillButton"
+            android:layout_marginEnd="10dp"
+            android:backgroundTint="@color/chip"
+            android:textColor="@color/fg" />
+
+        <TextView
+            android:id="@+id/btnPositive"
+            style="@style/PillButton"
+            android:backgroundTint="@color/fg"
+            android:textColor="@color/bg" />
+    </LinearLayout>
+</LinearLayout>

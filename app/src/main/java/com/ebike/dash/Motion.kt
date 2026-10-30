@@ -96,6 +96,37 @@ object Motion {
         }
     }
 
+    // ---------------------------------------------------------------- 悬浮面板
+
+    private const val PANEL_SCALE = 0.94f
+    private const val PANEL_OFFSET_DP = 24f
+
+    /** 悬浮面板打开：背景渐暗，面板从略下方浮起、放大、淡入 */
+    fun panelIn(scrim: View, card: View) {
+        scrim.alpha = 0f
+        card.alpha = 0f
+        card.scaleX = PANEL_SCALE
+        card.scaleY = PANEL_SCALE
+        card.translationY = dp(card, PANEL_OFFSET_DP)
+        card.doOnPreDraw {
+            card.pivotX = card.width / 2f
+            card.pivotY = card.height / 2f
+            scrim.animate().alpha(1f).setDuration(STANDARD).setInterpolator(EASE).start()
+            card.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f)
+                .setDuration(STANDARD).setInterpolator(EASE).withLayer().start()
+        }
+    }
+
+    /** 悬浮面板关闭：与打开相反，略快 */
+    fun panelOut(scrim: View, card: View, end: () -> Unit) {
+        scrim.animate().cancel()
+        card.animate().cancel()
+        scrim.animate().alpha(0f).setDuration(SHORT + 60).setInterpolator(EASE).start()
+        card.animate().alpha(0f).scaleX(PANEL_SCALE).scaleY(PANEL_SCALE).translationY(dp(card, PANEL_OFFSET_DP / 2))
+            .setDuration(SHORT + 60).setInterpolator(EASE).withLayer()
+            .withEndAction(end).start()
+    }
+
     /** 启动时依次浮现 */
     fun enter(views: List<View>, stagger: Long = 40) {
         views.forEachIndexed { i, v ->

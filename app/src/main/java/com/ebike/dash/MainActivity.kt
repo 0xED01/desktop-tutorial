@@ -36,8 +36,6 @@ import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import com.ebike.dash.databinding.ActivityMainBinding
 import com.ebike.dash.databinding.DialogSettingsBinding
-import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
@@ -222,12 +220,9 @@ class MainActivity : AppCompatActivity(), LocationSink {
         if (demo != null || !gps.hasPermission()) return
         gps.start()
         if (!gps.gpsEnabled()) {
-            MaterialAlertDialogBuilder(this)
-                .setTitle("GPS 未开启")
-                .setMessage("Driver 需要 GPS 来测速和记录足迹，请在系统设置中打开位置信息。")
-                .setPositiveButton("去设置") { _, _ -> startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }
-                .setNegativeButton("取消", null)
-                .show()
+            FloatingPanel.confirm(
+                this, "GPS 未开启", "Driver 需要 GPS 来测速和记录足迹，请在系统设置中打开位置信息。", "去设置",
+            ) { startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }
         }
     }
 
@@ -673,21 +668,20 @@ class MainActivity : AppCompatActivity(), LocationSink {
     }
 
     private fun askMusicAccess() {
-        MaterialAlertDialogBuilder(this)
-            .setTitle("显示正在播放的歌曲")
-            .setMessage(
-                "开启「通知使用权」后，Driver 才能读取 Apple Music 正在播放的歌名、封面和进度。\n\n" +
-                    "Driver 不会读取或保存你的任何通知内容。不开启也可以用播放、暂停和切歌。"
-            )
-            .setPositiveButton("去开启") { _, _ ->
-                try {
-                    startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                } catch (_: Exception) {
-                    toast("请在系统设置中搜索“通知使用权”")
-                }
+        FloatingPanel.confirm(
+            this,
+            "显示正在播放的歌曲",
+            "开启「通知使用权」后，Driver 才能读取 Apple Music 正在播放的歌名、封面和进度。\n\n" +
+                "Driver 不会读取或保存你的任何通知内容。不开启也可以用播放、暂停和切歌。",
+            positive = "去开启",
+            negative = "暂不",
+        ) {
+            try {
+                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            } catch (_: Exception) {
+                toast("请在系统设置中搜索“通知使用权”")
             }
-            .setNegativeButton("暂不", null)
-            .show()
+        }
     }
 
     // ---------------------------------------------------------------- 演示模式
@@ -726,8 +720,8 @@ class MainActivity : AppCompatActivity(), LocationSink {
 
     private fun showSettings() {
         val sb = DialogSettingsBinding.inflate(LayoutInflater.from(this))
-        val dlg = BottomSheetDialog(this)
-        dlg.setContentView(sb.root)
+        val dlg = FloatingPanel(this, sb.root)
+        Motion.pressable(sb.btnClearTrack, sb.btnMusicAccess, sb.btnDemo, sb.btnResetTrip)
 
         sb.swLabels.isChecked = prefs.showLabels
         sb.swLabels.setOnCheckedChangeListener { _, c ->
@@ -782,29 +776,19 @@ class MainActivity : AppCompatActivity(), LocationSink {
     }
 
     private fun confirmClearTrack() {
-        MaterialAlertDialogBuilder(this)
-            .setTitle("清除所有足迹？")
-            .setMessage("地图上记录的所有骑行路线都会被删除，无法恢复。")
-            .setPositiveButton("清除") { _, _ ->
-                track.clear()
-                drawTrackHistory()
-                drawTrackLive(force = true)
-            }
-            .setNegativeButton("取消", null)
-            .show()
+        FloatingPanel.confirm(this, "清除所有足迹？", "地图上记录的所有骑行路线都会被删除，无法恢复。", "清除") {
+            track.clear()
+            drawTrackHistory()
+            drawTrackLive(force = true)
+        }
     }
 
     private fun confirmResetTrip() {
-        MaterialAlertDialogBuilder(this)
-            .setTitle("清零本次骑行？")
-            .setMessage("里程、骑行时间、均速、最高速将归零（总里程保留）。")
-            .setPositiveButton("清零") { _, _ ->
-                tracker.resetTrip()
-                tracker.save(prefs)
-                updateDashboard()
-            }
-            .setNegativeButton("取消", null)
-            .show()
+        FloatingPanel.confirm(this, "清零本次骑行？", "里程、骑行时间、均速、最高速将归零（总里程保留）。", "清零") {
+            tracker.resetTrip()
+            tracker.save(prefs)
+            updateDashboard()
+        }
     }
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()

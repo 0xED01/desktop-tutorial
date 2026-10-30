@@ -62,7 +62,11 @@
         <item name="android:textSize">13sp</item>
     </style>
 
+    <!-- 开关只用黑白灰 -->
     <style name="Menu.Switch" parent="">
+        <item name="thumbTint">@color/switch_thumb</item>
+        <item name="trackTint">@color/switch_track</item>
+        <item name="trackDecorationTint">@android:color/transparent</item>
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">48dp</item>
         <item name="android:textColor">@color/fg</item>
@@ -99,5 +103,16 @@
     <style name="ArtLarge" parent="">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">22dp</item>
+    </style>
+
+    <!-- 悬浮面板里的胶囊按钮 -->
+    <style name="PillButton" parent="">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">46dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:background">@drawable/bg_pill</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textSize">15sp</item>
     </style>
 </resources>

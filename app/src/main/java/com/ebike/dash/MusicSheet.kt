@@ -7,24 +7,22 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import com.ebike.dash.databinding.SheetMusicBinding
-import com.google.android.material.bottomsheet.BottomSheetBehavior
-import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.slider.Slider
 import java.util.Locale
 
-/** 全屏播放器：大封面、歌名、可拖动的进度条和播放控制 */
+/** 悬浮播放器：大封面、歌名、可拖动的进度条和播放控制 */
 class MusicSheet(
     private val act: AppCompatActivity,
     private val music: MusicController,
     private val onRequestAccess: () -> Unit,
 ) {
     private val b = SheetMusicBinding.inflate(LayoutInflater.from(act))
-    private val dlg = BottomSheetDialog(act)
+    private val panel = FloatingPanel(act, b.root)
     private val ui = Handler(Looper.getMainLooper())
     private var dragging = false
     private var first = true
 
-    val isShowing get() = dlg.isShowing
+    val isShowing get() = panel.isShowing
 
     private val ticker = object : Runnable {
         override fun run() {
@@ -34,12 +32,7 @@ class MusicSheet(
     }
 
     fun show() {
-        dlg.setContentView(b.root)
-        dlg.setOnShowListener {
-            dlg.behavior.state = BottomSheetBehavior.STATE_EXPANDED
-            dlg.behavior.skipCollapsed = true
-        }
-        dlg.setOnDismissListener { ui.removeCallbacks(ticker) }
+        panel.onDismiss = { ui.removeCallbacks(ticker) }
 
         Motion.pressable(b.btnPlay, b.btnPrev, b.btnNext, b.btnOpenApp)
         b.btnPlay.setOnClickListener { music.playPause() }
@@ -61,7 +54,7 @@ class MusicSheet(
         b.slider.addOnChangeListener { _, v, fromUser -> if (fromUser) b.tvPos.text = fmt((v * 1000).toLong()) }
 
         update(music.now)
-        dlg.show()
+        panel.show()
         ui.post(ticker)
     }
 
