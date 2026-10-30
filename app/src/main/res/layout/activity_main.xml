@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/ink">
+    android:layout_height="match_parent">
 
     <org.maplibre.android.maps.MapView
         android:id="@+id/mapView"
@@ -11,9 +9,9 @@
         android:layout_height="match_parent" />
 
     <View
+        android:id="@+id/topScrim"
         android:layout_width="match_parent"
-        android:layout_height="130dp"
-        android:background="@drawable/scrim_top" />
+        android:layout_height="110dp" />
 
     <FrameLayout
         android:id="@+id/overlay"
@@ -21,13 +19,14 @@
         android:layout_height="match_parent"
         android:clipToPadding="false">
 
-        <!-- 顶部：状态栏 + 导航转向提示 -->
+        <!-- 顶部：状态 + 导航提示 -->
         <LinearLayout
             android:id="@+id/topArea"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="top"
-            android:layout_margin="12dp"
+            android:layout_margin="14dp"
+            android:clipToPadding="false"
             android:orientation="vertical">
 
             <LinearLayout
@@ -40,18 +39,17 @@
 
                 <View
                     android:id="@+id/gpsDot"
-                    android:layout_width="8dp"
-                    android:layout_height="8dp"
-                    android:background="@drawable/dot"
-                    android:backgroundTint="#FF3D57" />
+                    android:layout_width="7dp"
+                    android:layout_height="7dp"
+                    android:background="@drawable/dot" />
 
                 <TextView
                     android:id="@+id/tvGps"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:text="GPS 搜索中"
-                    android:textColor="#FFFFFF"
+                    android:layout_marginStart="7dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="正在定位"
                     android:textSize="13sp" />
 
                 <Space
@@ -64,41 +62,40 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="12dp"
+                    android:fontFamily="sans-serif-medium"
                     android:fontFeatureSettings="tnum"
-                    android:textColor="#FFFFFF"
                     android:textSize="13sp" />
 
                 <TextView
                     android:id="@+id/tvClock"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-condensed"
+                    android:fontFamily="sans-serif-medium"
                     android:fontFeatureSettings="tnum"
-                    android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:textSize="15sp" />
             </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/navBanner"
+                style="@style/Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:background="@drawable/bg_glass"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="14dp"
+                android:paddingHorizontal="18dp"
+                android:paddingVertical="14dp"
                 android:visibility="gone">
 
                 <com.ebike.dash.TurnArrowView
                     android:id="@+id/turnArrow"
-                    android:layout_width="58dp"
-                    android:layout_height="58dp" />
+                    android:layout_width="48dp"
+                    android:layout_height="48dp" />
 
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="14dp"
+                    android:layout_marginStart="16dp"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -106,60 +103,62 @@
                         android:id="@+id/tvTurnDist"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-condensed"
+                        android:fontFamily="sans-serif-medium"
                         android:fontFeatureSettings="tnum"
-                        android:textColor="@color/accent"
-                        android:textSize="30sp"
-                        android:textStyle="bold" />
+                        android:textSize="26sp" />
 
                     <TextView
                         android:id="@+id/tvTurnText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="1dp"
                         android:ellipsize="end"
                         android:maxLines="2"
-                        android:textColor="#FFFFFF"
-                        android:textSize="17sp" />
+                        android:tag="label"
+                        android:textSize="15sp" />
                 </LinearLayout>
             </LinearLayout>
         </LinearLayout>
 
-        <!-- 右侧功能按钮 -->
+        <!-- 右侧按钮 -->
         <LinearLayout
             android:id="@+id/fabColumn"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="top|end"
             android:layout_marginTop="150dp"
-            android:layout_marginEnd="12dp"
-            android:orientation="vertical">
+            android:layout_marginEnd="14dp"
+            android:clipToPadding="false"
+            android:orientation="vertical"
+            android:padding="4dp">
 
-            <ImageButton android:id="@+id/btnSearch" style="@style/GlassButton" android:src="@drawable/ic_search" android:contentDescription="搜索目的地" />
-            <ImageButton android:id="@+id/btnRecenter" style="@style/GlassButton" android:src="@drawable/ic_my_location" android:contentDescription="回到当前位置" />
-            <ImageButton android:id="@+id/btnTheme" style="@style/GlassButton" android:src="@drawable/ic_moon" android:contentDescription="日夜模式" />
-            <ImageButton android:id="@+id/btnSettings" style="@style/GlassButton" android:src="@drawable/ic_settings" android:contentDescription="设置" />
+            <ImageButton android:id="@+id/btnSearch" style="@style/RoundButton" android:src="@drawable/ic_search" android:contentDescription="搜索目的地" />
+            <ImageButton android:id="@+id/btnRecenter" style="@style/RoundButton" android:src="@drawable/ic_my_location" android:contentDescription="回到当前位置" />
+            <ImageButton android:id="@+id/btnSettings" style="@style/RoundButton" android:src="@drawable/ic_settings" android:contentDescription="菜单" />
         </LinearLayout>
 
-        <!-- 底部：导航信息 + 透明码表 + 骑行数据 -->
+        <!-- 底部：导航信息 + 码表 + 骑行数据 -->
         <LinearLayout
             android:id="@+id/bottomArea"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom|center_horizontal"
             android:layout_marginBottom="14dp"
+            android:clipToPadding="false"
             android:gravity="center_horizontal"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:padding="6dp">
 
             <LinearLayout
                 android:id="@+id/navInfo"
-                android:layout_width="320dp"
+                style="@style/Card"
+                android:layout_width="316dp"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="6dp"
-                android:background="@drawable/bg_glass"
+                android:layout_marginBottom="10dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingVertical="8dp"
-                android:paddingStart="18dp"
+                android:paddingStart="20dp"
                 android:paddingEnd="8dp"
                 android:visibility="gone">
 
@@ -178,29 +177,29 @@
 
                 <ImageButton
                     android:id="@+id/btnStopNav"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
-                    android:background="@drawable/bg_danger_circle"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@drawable/bg_circle"
                     android:contentDescription="结束导航"
                     android:padding="11dp"
                     android:scaleType="fitCenter"
-                    android:src="@drawable/ic_close"
-                    app:tint="#FFFFFF" />
+                    android:src="@drawable/ic_close" />
             </LinearLayout>
 
             <com.ebike.dash.SpeedometerView
                 android:id="@+id/gauge"
-                android:layout_width="272dp"
-                android:layout_height="272dp" />
+                android:layout_width="250dp"
+                android:layout_height="250dp"
+                android:elevation="3dp" />
 
             <LinearLayout
                 android:id="@+id/statsRow"
-                android:layout_width="320dp"
+                style="@style/Card"
+                android:layout_width="316dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="-14dp"
-                android:background="@drawable/bg_glass"
+                android:layout_marginTop="10dp"
                 android:orientation="horizontal"
-                android:paddingVertical="10dp">
+                android:paddingVertical="12dp">
 
                 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
                     <TextView android:id="@+id/tvTrip" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
@@ -208,7 +207,7 @@
                 </LinearLayout>
                 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
                     <TextView android:id="@+id/tvTime" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-                    <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="骑行时间" />
+                    <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="时间" />
                 </LinearLayout>
                 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
                     <TextView android:id="@+id/tvAvg" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />

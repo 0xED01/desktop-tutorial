@@ -13,6 +13,7 @@ import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowLooper
 import java.io.File
 import java.io.FileOutputStream
+import java.util.concurrent.TimeUnit
 
 /** 把码表和转向箭头渲染成 PNG，便于检查视觉效果（输出到 app/build/gauge-preview） */
 @RunWith(RobolectricTestRunner::class)
@@ -34,19 +35,21 @@ class GaugeRenderTest {
 
     @Test
     fun renderGauges() {
-        for ((name, speed) in listOf("gauge_18" to 18f, "gauge_32_over" to 32f)) {
-            val g = SpeedometerView(ctx)
-            g.caption = "东北 · 海拔 52m"
-            g.setSpeed(speed)
-            ShadowLooper.idleMainLooper(1, java.util.concurrent.TimeUnit.SECONDS)
-            render(g, 720, name, Color.parseColor("#6A8CAF"))
-            render(g, 720, name + "_alpha", Color.TRANSPARENT)
+        for ((pName, p) in listOf("light" to Palette.LIGHT, "dark" to Palette.DARK)) {
+            for (speed in listOf(18f, 32f)) {
+                val g = SpeedometerView(ctx)
+                g.setPalette(p)
+                g.caption = "东北 · 海拔 52m"
+                g.setSpeed(speed)
+                ShadowLooper.idleMainLooper(1, TimeUnit.SECONDS)
+                render(g, 720, "gauge_${pName}_${speed.toInt()}", Color.TRANSPARENT)
+            }
         }
         for (m in listOf("left", "slight right", "uturn", "straight")) {
             val t = TurnArrowView(ctx)
             t.set("turn", m)
-            render(t, 160, "turn_" + m.replace(" ", "_"), Color.TRANSPARENT)
+            render(t, 160, "turn_" + m.replace(" ", "_"), Color.WHITE)
         }
-        TurnArrowView(ctx).also { it.set("arrive", null); render(it, 160, "turn_arrive", Color.TRANSPARENT) }
+        TurnArrowView(ctx).also { it.set("arrive", null); render(it, 160, "turn_arrive", Color.WHITE) }
     }
 }

@@ -23,6 +23,10 @@ class Prefs(ctx: Context) {
         get() = sp.getInt("theme", 0)
         set(v) = sp.edit().putInt("theme", v).apply()
 
+    var showLabels: Boolean
+        get() = sp.getBoolean("labels", true)
+        set(v) = sp.edit().putBoolean("labels", v).apply()
+
     var voice: Boolean
         get() = sp.getBoolean("voice", true)
         set(v) = sp.edit().putBoolean("voice", v).apply()

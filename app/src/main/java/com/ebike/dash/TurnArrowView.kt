@@ -24,10 +24,17 @@ class TurnArrowView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
-        color = Color.WHITE
+        color = Color.BLACK
     }
-    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
-    private val accent = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#00E5FF") }
+    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
+    private val hole = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+
+    fun setColors(fg: Int, bg: Int) {
+        stroke.color = fg
+        fill.color = fg
+        hole.color = bg
+        invalidate()
+    }
     private val path = Path()
 
     fun set(type: String, modifier: String?) {
@@ -41,17 +48,17 @@ class TurnArrowView @JvmOverloads constructor(
         val w = width.toFloat()
         val h = height.toFloat()
         val cx = w / 2
-        stroke.strokeWidth = w * 0.11f
+        stroke.strokeWidth = w * 0.1f
 
         if (type == "arrive") {
-            canvas.drawCircle(cx, h * 0.42f, w * 0.26f, accent)
-            canvas.drawCircle(cx, h * 0.42f, w * 0.1f, fill)
+            canvas.drawCircle(cx, h * 0.42f, w * 0.26f, fill)
+            canvas.drawCircle(cx, h * 0.42f, w * 0.1f, hole)
             path.reset()
             path.moveTo(cx - w * 0.2f, h * 0.58f)
             path.lineTo(cx, h * 0.92f)
             path.lineTo(cx + w * 0.2f, h * 0.58f)
             path.close()
-            canvas.drawPath(path, accent)
+            canvas.drawPath(path, fill)
             return
         }
 

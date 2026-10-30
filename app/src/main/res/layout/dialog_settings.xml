@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content">
 
@@ -7,22 +8,52 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:paddingHorizontal="24dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="24dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="设置"
-            android:textColor="#FFFFFF"
-            android:textSize="22sp"
-            android:textStyle="bold" />
+            android:fontFamily="sans-serif-medium"
+            android:text="菜单"
+            android:textColor="@color/fg"
+            android:textSize="20sp" />
+
+        <!-- 地图 -->
+        <TextView
+            style="@style/Menu.Section"
+            android:text="地图" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/swLabels"
+            style="@style/Menu.Switch"
+            android:text="显示地名" />
+
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/groupTheme"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            app:selectionRequired="true"
+            app:singleSelection="true">
+
+            <Button android:id="@+id/tAuto" style="@style/Menu.Toggle" android:text="自动" />
+            <Button android:id="@+id/tDay" style="@style/Menu.Toggle" android:text="浅色" />
+            <Button android:id="@+id/tNight" style="@style/Menu.Toggle" android:text="深色" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        <!-- 码表 -->
+        <TextView
+            style="@style/Menu.Section"
+            android:text="码表" />
 
         <TextView
             android:id="@+id/tvLimit"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:textColor="#FFFFFF"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/fg"
             android:textSize="15sp" />
 
         <com.google.android.material.slider.Slider
@@ -31,14 +62,14 @@
             android:layout_height="wrap_content"
             android:stepSize="1"
             android:valueFrom="10"
-            android:valueTo="80" />
+            android:valueTo="80"
+            app:labelBehavior="gone" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
             android:text="表盘量程"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/fg"
             android:textSize="15sp" />
 
         <com.google.android.material.button.MaterialButtonToggleGroup
@@ -47,80 +78,56 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             app:selectionRequired="true"
-            app:singleSelection="true"
-            xmlns:app="http://schemas.android.com/apk/res-auto">
+            app:singleSelection="true">
 
-            <Button android:id="@+id/g40" style="?attr/materialButtonOutlinedStyle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="40" />
-            <Button android:id="@+id/g60" style="?attr/materialButtonOutlinedStyle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="60" />
-            <Button android:id="@+id/g80" style="?attr/materialButtonOutlinedStyle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="80" />
-            <Button android:id="@+id/g120" style="?attr/materialButtonOutlinedStyle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="120" />
+            <Button android:id="@+id/g40" style="@style/Menu.Toggle" android:text="40" />
+            <Button android:id="@+id/g60" style="@style/Menu.Toggle" android:text="60" />
+            <Button android:id="@+id/g80" style="@style/Menu.Toggle" android:text="80" />
+            <Button android:id="@+id/g120" style="@style/Menu.Toggle" android:text="120" />
         </com.google.android.material.button.MaterialButtonToggleGroup>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="地图主题"
-            android:textColor="#FFFFFF"
-            android:textSize="15sp" />
-
-        <com.google.android.material.button.MaterialButtonToggleGroup
-            android:id="@+id/groupTheme"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            app:selectionRequired="true"
-            app:singleSelection="true"
-            xmlns:app="http://schemas.android.com/apk/res-auto">
-
-            <Button android:id="@+id/tAuto" style="?attr/materialButtonOutlinedStyle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="自动" />
-            <Button android:id="@+id/tDay" style="?attr/materialButtonOutlinedStyle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="日间" />
-            <Button android:id="@+id/tNight" style="?attr/materialButtonOutlinedStyle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="夜间" />
-        </com.google.android.material.button.MaterialButtonToggleGroup>
-
-        <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/swVoice"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="语音播报（导航 / 超速）"
-            android:textColor="#FFFFFF" />
-
-        <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/swVibrate"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="超速震动提醒"
-            android:textColor="#FFFFFF" />
 
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/swImperial"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="使用英制单位（mph / mi）"
-            android:textColor="#FFFFFF" />
+            style="@style/Menu.Switch"
+            android:layout_marginTop="8dp"
+            android:text="英制单位（mph）" />
+
+        <!-- 提醒 -->
+        <TextView
+            style="@style/Menu.Section"
+            android:text="提醒" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/swVoice"
+            style="@style/Menu.Switch"
+            android:text="语音播报" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/swVibrate"
+            style="@style/Menu.Switch"
+            android:text="超速震动" />
+
+        <!-- 其它 -->
+        <TextView
+            style="@style/Menu.Section"
+            android:text="其它" />
+
+        <Button
+            android:id="@+id/btnDemo"
+            style="@style/Menu.Action"
+            android:text="演示模式" />
+
+        <Button
+            android:id="@+id/btnResetTrip"
+            style="@style/Menu.Action"
+            android:text="清零本次骑行" />
 
         <TextView
             android:id="@+id/tvOdo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:textColor="@color/text_dim"
-            android:textSize="14sp" />
-
-        <Button
-            android:id="@+id/btnDemo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="开启演示模式（模拟骑行）" />
-
-        <Button
-            android:id="@+id/btnResetTrip"
-            style="?attr/materialButtonOutlinedStyle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="清零本次骑行数据" />
+            android:layout_marginTop="14dp"
+            android:textColor="@color/fg_dim"
+            android:textSize="13sp" />
     </LinearLayout>
 </ScrollView>

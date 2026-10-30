@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.location.Location
 import android.os.BatteryManager
 import android.os.Build
@@ -18,13 +19,17 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -67,9 +72,6 @@ import java.util.Locale
 class MainActivity : AppCompatActivity(), LocationSink, NavListener {
 
     companion object {
-        // OpenFreeMap：免费、无需 Key 的矢量地图
-        private const val STYLE_DAY = "https://tiles.openfreemap.org/styles/liberty"
-        private const val STYLE_NIGHT = "https://tiles.openfreemap.org/styles/fiord"
         private const val SRC_ROUTE = "rd-route"
         private const val SRC_DEST = "rd-dest"
     }
@@ -86,6 +88,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     private var map: MapLibreMap? = null
     private var style: Style? = null
     private var nightApplied: Boolean? = null
+    private var pal = Palette.LIGHT
     private var demo: DemoSource? = null
     private var lastLoc: Location? = null
     private var lastBearing = 0f
@@ -128,13 +131,13 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
 
         b.btnRecenter.setOnClickListener { recenter() }
         b.btnSearch.setOnClickListener { showSearch() }
-        b.btnTheme.setOnClickListener { cycleTheme() }
         b.btnSettings.setOnClickListener { showSettings() }
         b.btnStopNav.setOnClickListener { stopNavigation(true) }
         b.statsRow.setOnLongClickListener {
             confirmResetTrip(); true
         }
 
+        applyPalette(if (isNight()) Palette.DARK else Palette.LIGHT)
         applyPrefs()
         b.bottomArea.post { updateTrackingPadding() }
         updateDashboard()
@@ -223,7 +226,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             setCompassMargins((16 * d).toInt(), (64 * d).toInt(), 0, 0)
             attributionGravity = Gravity.TOP or Gravity.START
             setAttributionMargins((10 * d).toInt(), (34 * d).toInt(), 0, 0)
-            setAttributionTintColor(Color.argb(140, 255, 255, 255))
+            setAttributionTintColor(Color.argb(110, 128, 128, 128))
         }
         m.cameraPosition = CameraPosition.Builder()
             .target(LatLng(prefs.lastLat, prefs.lastLon))
@@ -245,14 +248,15 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     private fun loadStyle(force: Boolean = false) {
         val m = map ?: return
         val night = isNight()
-        b.btnTheme.setImageResource(if (night) R.drawable.ic_sun else R.drawable.ic_moon)
         if (!force && night == nightApplied) return
         nightApplied = night
+        applyPalette(if (night) Palette.DARK else Palette.LIGHT)
         style = null
-        m.setStyle(Style.Builder().fromUri(if (night) STYLE_NIGHT else STYLE_DAY)) { s ->
+        m.setStyle(Style.Builder().fromUri(pal.mapStyle)) { s ->
             style = s
             localizeLabels(s)
-            addRouteLayers(s, night)
+            applyLabelVisibility(s)
+            addRouteLayers(s)
             enableLocationComponent(s)
             nav.route?.let { drawRoute(it.coords) }
             destPoint?.let { drawDest(it[0], it[1]) }
@@ -274,7 +278,13 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         }
     }
 
-    private fun addRouteLayers(s: Style, night: Boolean) {
+    /** 菜单里的“显示地名”：隐藏或显示所有文字和图标标注 */
+    private fun applyLabelVisibility(s: Style) {
+        val v = if (prefs.showLabels) Property.VISIBLE else Property.NONE
+        for (layer in s.layers) if (layer is SymbolLayer) layer.setProperties(PropertyFactory.visibility(v))
+    }
+
+    private fun addRouteLayers(s: Style) {
         s.addSource(GeoJsonSource(SRC_ROUTE))
         s.addSource(GeoJsonSource(SRC_DEST))
         val width = Expression.interpolate(
@@ -286,28 +296,28 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             Expression.stop(10, 5f), Expression.stop(14, 9f), Expression.stop(18, 22f),
         )
         val casing = LineLayer("rd-route-casing", SRC_ROUTE).withProperties(
-            PropertyFactory.lineColor(if (night) "#062a3a" else "#1149A8"),
+            PropertyFactory.lineColor(pal.routeCasing),
             PropertyFactory.lineWidth(casingWidth),
             PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
             PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
         )
         val line = LineLayer("rd-route-line", SRC_ROUTE).withProperties(
-            PropertyFactory.lineColor(if (night) "#00E5FF" else "#2F86FF"),
+            PropertyFactory.lineColor(pal.routeLine),
             PropertyFactory.lineWidth(width),
             PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
             PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
         )
         val dest = CircleLayer("rd-dest", SRC_DEST).withProperties(
-            PropertyFactory.circleRadius(9f),
-            PropertyFactory.circleColor("#FF3D57"),
-            PropertyFactory.circleStrokeColor("#FFFFFF"),
-            PropertyFactory.circleStrokeWidth(3f),
+            PropertyFactory.circleRadius(8f),
+            PropertyFactory.circleColor(pal.routeLine),
+            PropertyFactory.circleStrokeColor(pal.routeCasing),
+            PropertyFactory.circleStrokeWidth(4f),
         )
-        // 路线画在文字标注下方
-        val firstLabel = s.layers.firstOrNull { it is SymbolLayer }?.id
-        if (firstLabel != null) {
-            s.addLayerBelow(casing, firstLabel)
-            s.addLayerBelow(line, firstLabel)
+        // 路线画在所有道路之上、文字标注之下
+        val lastShape = s.layers.lastOrNull { it !is SymbolLayer }?.id
+        if (lastShape != null) {
+            s.addLayerAbove(casing, lastShape)
+            s.addLayerAbove(line, casing.id)
         } else {
             s.addLayer(casing)
             s.addLayer(line)
@@ -333,14 +343,12 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     @SuppressLint("MissingPermission")
     private fun enableLocationComponent(s: Style) {
         val m = map ?: return
-        val cyan = Color.parseColor("#00E5FF")
         val opts = LocationComponentOptions.builder(this)
-            .foregroundTintColor(cyan)
-            .bearingTintColor(cyan)
-            .accuracyColor(cyan)
-            .accuracyAlpha(0.12f)
-            .pulseEnabled(true)
-            .pulseColor(cyan)
+            .foregroundTintColor(pal.onSurface)
+            .bearingTintColor(pal.onSurface)
+            .backgroundTintColor(pal.surface)
+            .accuracyColor(pal.dim)
+            .accuracyAlpha(0.1f)
             .trackingGesturesManagement(true)
             .build()
         val lc = m.locationComponent
@@ -357,7 +365,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             lc.addOnCameraTrackingChangedListener(object : OnCameraTrackingChangedListener {
                 override fun onCameraTrackingDismissed() {
                     following = false
-                    b.btnRecenter.imageTintList = ColorStateList.valueOf(Color.parseColor("#00E5FF"))
+                    b.btnRecenter.alpha = 0.55f
                 }
                 override fun onCameraTrackingChanged(currentMode: Int) {}
             })
@@ -371,7 +379,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         val lc = map?.locationComponent ?: return
         if (!lc.isLocationComponentActivated) return
         following = true
-        b.btnRecenter.imageTintList = ColorStateList.valueOf(Color.WHITE)
+        b.btnRecenter.alpha = 1f
         lc.cameraMode = CameraMode.TRACKING_GPS
         lc.zoomWhileTracking(if (nav.active) 17.3 else 16.5, 900)
         lc.tiltWhileTracking(if (nav.active) 55.0 else 40.0, 900)
@@ -386,10 +394,36 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         follow()
     }
 
-    private fun cycleTheme() {
-        // 手动切换：日间 ↔ 夜间（在设置里可改回“自动”）
-        prefs.theme = if (isNight()) 1 else 2
-        loadStyle()
+    /** 把浅色/深色配色应用到所有浮层控件，并让菜单、对话框跟随 */
+    private fun applyPalette(p: Palette) {
+        pal = p
+        delegate.localNightMode =
+            if (p === Palette.DARK) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+        val surface = ColorStateList.valueOf(p.surface)
+        for (card in listOf(b.navBanner, b.navInfo, b.statsRow)) card.backgroundTintList = surface
+        for (btn in listOf(b.btnSearch, b.btnRecenter, b.btnSettings)) {
+            btn.backgroundTintList = surface
+            btn.imageTintList = ColorStateList.valueOf(p.onSurface)
+        }
+        // 结束导航按钮：反色实心圆
+        b.btnStopNav.backgroundTintList = ColorStateList.valueOf(p.onSurface)
+        b.btnStopNav.imageTintList = surface
+        tintTexts(b.overlay, p)
+        b.turnArrow.setColors(p.onSurface, p.surface)
+        b.gauge.setPalette(p)
+        b.topScrim.background = GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(ColorUtils.setAlphaComponent(p.surface, 200), ColorUtils.setAlphaComponent(p.surface, 0)),
+        )
+        lastLoc?.let { updateGpsIndicator(it) } ?: run {
+            b.gpsDot.backgroundTintList = ColorStateList.valueOf(p.dim)
+        }
+        WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = p === Palette.LIGHT
+    }
+
+    private fun tintTexts(v: View, p: Palette) {
+        if (v is TextView) v.setTextColor(if (v.tag == "label") p.dim else p.onSurface)
+        if (v is ViewGroup) for (i in 0 until v.childCount) tintTexts(v.getChildAt(i), p)
     }
 
     // ---------------------------------------------------------------- 定位与码表
@@ -445,14 +479,13 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     }
 
     private fun updateGpsIndicator(loc: Location) {
-        val (color, text) = when {
-            loc.provider == "demo" -> "#00E5FF" to "演示模式"
-            loc.accuracy <= 10 -> "#00E676" to "GPS 良好 ±${loc.accuracy.toInt()}m"
-            loc.accuracy <= 30 -> "#FFEA00" to "GPS 一般 ±${loc.accuracy.toInt()}m"
-            else -> "#FF3D57" to "GPS 较弱 ±${loc.accuracy.toInt()}m"
+        val weak = loc.provider != "demo" && loc.accuracy > 30
+        b.gpsDot.backgroundTintList = ColorStateList.valueOf(if (weak) pal.danger else pal.onSurface)
+        b.tvGps.text = when {
+            loc.provider == "demo" -> "演示"
+            weak -> "GPS 信号弱"
+            else -> "GPS ±${loc.accuracy.toInt()}m"
         }
-        b.gpsDot.backgroundTintList = ColorStateList.valueOf(Color.parseColor(color))
-        b.tvGps.text = text
     }
 
     private fun checkOverSpeed() {
@@ -491,7 +524,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             val level = bat.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             val scale = bat.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
             val charging = bat.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0
-            if (level >= 0) b.tvBattery.text = "${if (charging) "⚡" else "🔋"}${level * 100 / scale}%"
+            if (level >= 0) b.tvBattery.text = "${if (charging) "充电 " else ""}${level * 100 / scale}%"
         }
     }
 
@@ -679,7 +712,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         val dlg = BottomSheetDialog(this)
         dlg.setContentView(sb.root)
 
-        fun limitText(v: Int) = "超速提醒：$v km/h" + if (v == 25) "（国标电动自行车限速）" else ""
+        fun limitText(v: Int) = "超速提醒  $v km/h" + if (v == 25) "（国标）" else ""
         sb.sliderLimit.value = prefs.speedLimit.toFloat().coerceIn(10f, 80f)
         sb.tvLimit.text = limitText(prefs.speedLimit)
         sb.sliderLimit.addOnChangeListener { _, v, _ ->
@@ -694,6 +727,12 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             if (!checked) return@addOnButtonCheckedListener
             prefs.gaugeMax = gaugeIds.entries.first { it.value == id }.key
             applyPrefs()
+        }
+
+        sb.swLabels.isChecked = prefs.showLabels
+        sb.swLabels.setOnCheckedChangeListener { _, c ->
+            prefs.showLabels = c
+            style?.let { applyLabelVisibility(it) }
         }
 
         val themeIds = listOf(sb.tAuto.id, sb.tDay.id, sb.tNight.id)
@@ -712,10 +751,10 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         sb.swImperial.setOnCheckedChangeListener { _, c -> prefs.imperial = c; applyPrefs() }
 
         sb.tvOdo.text = String.format(
-            Locale.US, "总里程 ODO：%.1f %s　·　版本 %s",
+            Locale.US, "总里程 %.1f %s  ·  版本 %s",
             units.bigDist(tracker.odoMeters), units.distUnit, BuildConfigCompat.versionName(this),
         )
-        sb.btnDemo.text = if (demo == null) "开启演示模式（模拟骑行）" else "关闭演示模式"
+        sb.btnDemo.text = if (demo == null) "演示模式" else "关闭演示模式"
         sb.btnDemo.setOnClickListener {
             dlg.dismiss()
             toggleDemo()

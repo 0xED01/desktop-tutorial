@@ -1,4 +1,4 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item><shape android:shape="oval"><solid android:color="#0E1624" /></shape></item>
+    <item><shape android:shape="oval"><solid android:color="#0D0D0D" /></shape></item>
     <item android:drawable="@drawable/ic_launcher_fg" />
 </layer-list>

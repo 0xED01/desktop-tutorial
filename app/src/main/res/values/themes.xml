@@ -1,36 +1,83 @@
-<resources>
-    <style name="Theme.RideDash" parent="Theme.Material3.Dark.NoActionBar">
-        <item name="colorPrimary">@color/accent</item>
-        <item name="colorOnPrimary">@color/ink</item>
-        <item name="colorSecondary">@color/accent</item>
-        <item name="android:windowBackground">@color/ink</item>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.RideDash" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/fg</item>
+        <item name="colorOnPrimary">@color/bg</item>
+        <item name="colorSecondary">@color/fg</item>
+        <item name="colorSecondaryContainer">@color/chip</item>
+        <item name="colorOnSecondaryContainer">@color/fg</item>
+        <item name="colorSurface">@color/bg</item>
+        <item name="colorOnSurface">@color/fg</item>
+        <item name="colorSurfaceContainerLow">@color/bg</item>
+        <item name="colorSurfaceContainer">@color/bg</item>
+        <item name="colorSurfaceContainerHigh">@color/bg</item>
+        <item name="colorOutline">@color/chip</item>
+        <item name="android:windowBackground">@color/bg</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="28" xmlns:tools="http://schemas.android.com/tools">shortEdges</item>
+        <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="28">shortEdges</item>
     </style>
 
     <style name="Stat.Value" parent="">
-        <item name="android:textColor">#FFFFFF</item>
-        <item name="android:textSize">19sp</item>
-        <item name="android:textStyle">bold</item>
-        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
         <item name="android:fontFeatureSettings">tnum</item>
         <item name="android:maxLines">1</item>
     </style>
 
     <style name="Stat.Label" parent="">
-        <item name="android:textColor">@color/text_dim</item>
+        <item name="android:tag">label</item>
         <item name="android:textSize">11sp</item>
-        <item name="android:layout_marginTop">1dp</item>
+        <item name="android:layout_marginTop">2dp</item>
     </style>
 
-    <style name="GlassButton" parent="">
-        <item name="android:layout_width">48dp</item>
-        <item name="android:layout_height">48dp</item>
+    <style name="Card" parent="">
+        <item name="android:background">@drawable/bg_card</item>
+        <item name="android:elevation">3dp</item>
+    </style>
+
+    <style name="RoundButton" parent="">
+        <item name="android:layout_width">46dp</item>
+        <item name="android:layout_height">46dp</item>
         <item name="android:layout_marginTop">10dp</item>
-        <item name="android:background">@drawable/bg_glass_circle</item>
+        <item name="android:background">@drawable/bg_circle</item>
+        <item name="android:elevation">3dp</item>
         <item name="android:padding">12dp</item>
         <item name="android:scaleType">fitCenter</item>
-        <item name="tint">#FFFFFF</item>
+    </style>
+
+    <style name="Menu.Section" parent="">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">22dp</item>
+        <item name="android:layout_marginBottom">4dp</item>
+        <item name="android:textColor">@color/fg_dim</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+
+    <style name="Menu.Switch" parent="">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:textColor">@color/fg</item>
+        <item name="android:textSize">15sp</item>
+    </style>
+
+    <style name="Menu.Toggle" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:textColor">@color/fg</item>
+        <item name="strokeColor">@color/chip</item>
+    </style>
+
+    <style name="Menu.Action" parent="Widget.Material3.Button.TonalButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">52dp</item>
+        <item name="android:layout_marginTop">6dp</item>
+        <item name="android:gravity">start|center_vertical</item>
+        <item name="android:paddingStart">20dp</item>
+        <item name="android:textColor">@color/fg</item>
+        <item name="android:textSize">15sp</item>
+        <item name="backgroundTint">@color/chip</item>
+        <item name="cornerRadius">26dp</item>
     </style>
 </resources>
