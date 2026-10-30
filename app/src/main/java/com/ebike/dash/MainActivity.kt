@@ -238,7 +238,8 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             // 指南针放在右侧按钮列的最上方，与圆形按钮同尺寸、同配色
             isCompassEnabled = true
             compassGravity = Gravity.TOP or Gravity.END
-            setCompassMargins(0, (108 * d).toInt(), (18 * d).toInt(), 0)
+            // 图标 50dp（46dp 圆 + 2dp 投影），中心与下方 46dp 按钮对齐
+            setCompassMargins(0, (106 * d).toInt(), (16 * d).toInt(), 0)
             setCompassImage(compassDrawable())
             // 地图版权信息放在菜单底部，不在地图上显示 (i) 按钮
             isAttributionEnabled = false
@@ -274,6 +275,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         m.setStyle(Style.Builder().fromUri(pal.mapStyle)) { s ->
             style = s
             localizeLabels(s)
+            hideBoundaries(s)
             applyLabelVisibility(s)
             addRouteLayers(s)
             enableLocationComponent(s)
@@ -294,6 +296,15 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             val tf = layer.textField
             if (tf.isNull) continue
             if (tf.toString().contains("name")) layer.setProperties(PropertyFactory.textField(zh))
+        }
+    }
+
+    /** 去掉行政区划边界（地图上的虚线） */
+    private fun hideBoundaries(s: Style) {
+        for (layer in s.layers) {
+            if (layer is LineLayer && layer.sourceLayer == "boundary") {
+                layer.setProperties(PropertyFactory.visibility(Property.NONE))
+            }
         }
     }
 

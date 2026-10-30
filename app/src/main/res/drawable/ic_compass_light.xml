@@ -1,10 +1,11 @@
-<!-- 指南针：与按钮一致的圆形底座，北针前景色、南针灰色 -->
+<!-- 指南针：与右侧圆形按钮同为 46dp 圆，外加一圈同心淡投影（随地图旋转也不会偏） -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="46dp" android:height="46dp"
-    android:viewportWidth="46" android:viewportHeight="46">
-    <path android:fillColor="#000000" android:fillAlpha="0.10" android:pathData="M23,24.5m-22,0a22,22 0 1,0 44,0a22,22 0 1,0 -44,0" />
-    <path android:fillColor="#FFFFFF" android:pathData="M23,23m-21.5,0a21.5,21.5 0 1,0 43,0a21.5,21.5 0 1,0 -43,0" />
-    <path android:fillColor="#0D0D0D" android:pathData="M23,9.5 L28,23 L18,23 Z" android:strokeColor="#0D0D0D" android:strokeWidth="1" android:strokeLineJoin="round" />
-    <path android:fillColor="#CFCFCF" android:pathData="M23,36.5 L28,23 L18,23 Z" android:strokeColor="#CFCFCF" android:strokeWidth="1" android:strokeLineJoin="round" />
-    <path android:fillColor="#FFFFFF" android:pathData="M23,23m-1.8,0a1.8,1.8 0 1,0 3.6,0a1.8,1.8 0 1,0 -3.6,0" />
+    android:width="50dp" android:height="50dp"
+    android:viewportWidth="50" android:viewportHeight="50">
+    <path android:fillColor="#000000" android:fillAlpha="0.06" android:pathData="M25,25m-25,0a25,25 0 1,0 50,0a25,25 0 1,0 -50,0" />
+    <path android:fillColor="#000000" android:fillAlpha="0.08" android:pathData="M25,25m-24,0a24,24 0 1,0 48,0a24,24 0 1,0 -48,0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M25,25m-23,0a23,23 0 1,0 46,0a23,23 0 1,0 -46,0" />
+    <path android:fillColor="#0D0D0D" android:pathData="M25,11 L30.5,25 L19.5,25 Z" android:strokeColor="#0D0D0D" android:strokeWidth="1" android:strokeLineJoin="round" />
+    <path android:fillColor="#CFCFCF" android:pathData="M25,39 L30.5,25 L19.5,25 Z" android:strokeColor="#CFCFCF" android:strokeWidth="1" android:strokeLineJoin="round" />
+    <path android:fillColor="#FFFFFF" android:pathData="M25,25m-2,0a2,2 0 1,0 4,0a2,2 0 1,0 -4,0" />
 </vector>
