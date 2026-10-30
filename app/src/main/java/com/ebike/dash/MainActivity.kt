@@ -98,6 +98,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
     private var lastSavedPos = 0L
     private var demoTrack: TrackStore? = null
     private var lastLiveDraw = 0L
+    private var lastPuckPush = 0L
 
     private val clockFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
 
@@ -164,6 +165,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
         super.onResume()
         b.mapView.onResume()
         ui.post(statusTicker)
+        ui.post(puckKeeper)
         heading.start()
         music.start()
         if (demo == null) startGps()
@@ -172,6 +174,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
         super.onPause()
         b.mapView.onPause()
         ui.removeCallbacks(statusTicker)
+        ui.removeCallbacks(puckKeeper)
         heading.stop()
         music.stop()
         tracker.save(prefs)
@@ -399,14 +402,19 @@ class MainActivity : AppCompatActivity(), LocationSink {
             .trackingGesturesManagement(true)
             .build()
         val lc = m.locationComponent
-        lc.activateLocationComponent(
-            LocationComponentActivationOptions.builder(this, s)
-                .locationComponentOptions(opts)
-                .useDefaultLocationEngine(false)
-                .build()
-        )
-        lc.isLocationComponentEnabled = true
-        lc.renderMode = RenderMode.GPS
+        if (!lc.isLocationComponentActivated) {
+            lc.activateLocationComponent(
+                LocationComponentActivationOptions.builder(this, s)
+                    .locationComponentOptions(opts)
+                    .useDefaultLocationEngine(false)
+                    .build()
+            )
+            lc.isLocationComponentEnabled = true
+            lc.renderMode = RenderMode.GPS
+        } else {
+            // 换地图样式时组件会自己重建图层，这里只换箭头配色，避免重复初始化把箭头弄丢
+            lc.applyStyle(opts)
+        }
         if (!trackingListenerAdded) {
             trackingListenerAdded = true
             lc.addOnCameraTrackingChangedListener(object : OnCameraTrackingChangedListener {
@@ -417,9 +425,29 @@ class MainActivity : AppCompatActivity(), LocationSink {
                 override fun onCameraTrackingChanged(currentMode: Int) {}
             })
         }
-        lastLoc?.let { lc.forceLocationUpdate(it) }
+        pushPuck()
+        // 组件的图层重建可能晚于这里完成，下一帧和稍后再各放一次，确保箭头一定显示
+        b.mapView.post { pushPuck() }
+        b.mapView.postDelayed({ pushPuck() }, 400)
         if (following) follow()
         b.bottomArea.post { updateTrackingPadding() }
+    }
+
+    /** 把箭头放到最新位置（同一位置重复放不会让地图移动） */
+    private fun pushPuck(loc: Location? = lastLoc) {
+        val l = loc ?: return
+        val lc = map?.locationComponent ?: return
+        if (!lc.isLocationComponentActivated || style == null) return
+        lc.forceLocationUpdate(l)
+        lastPuckPush = android.os.SystemClock.uptimeMillis()
+    }
+
+    /** 保险：GPS 信号弱、很久没有新定位时，每隔一会儿重新放一次箭头 */
+    private val puckKeeper = object : Runnable {
+        override fun run() {
+            if (android.os.SystemClock.uptimeMillis() - lastPuckPush > 1500) pushPuck()
+            ui.postDelayed(this, 1000)
+        }
     }
 
     private fun follow() {
@@ -508,7 +536,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
 
         tracker.update(fixed, speedKmh)
         recordTrack(fixed)
-        map?.locationComponent?.let { if (it.isLocationComponentActivated) it.forceLocationUpdate(fixed) }
+        pushPuck(fixed)
         updateDashboard()
         updateGpsIndicator(fixed)
 
@@ -531,7 +559,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
         lastBearing = h
         val l = Location(loc).apply { bearing = h }
         lastLoc = l
-        map?.locationComponent?.let { if (it.isLocationComponentActivated) it.forceLocationUpdate(l) }
+        pushPuck(l)
     }
 
     private fun updateDashboard() {
