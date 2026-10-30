@@ -2,7 +2,6 @@ package com.ebike.dash
 
 import android.os.Handler
 import android.os.Looper
-import android.view.LayoutInflater
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
@@ -16,11 +15,19 @@ class MusicSheet(
     private val music: MusicController,
     private val onRequestAccess: () -> Unit,
 ) {
-    private val b = SheetMusicBinding.inflate(LayoutInflater.from(act))
-    private val panel = FloatingPanel(act, b.root)
     private val ui = Handler(Looper.getMainLooper())
     private var dragging = false
     private var first = true
+    private lateinit var b: SheetMusicBinding
+
+    /** 内容按当前配色生成；切换浅色 / 深色时会重新生成并重新绑定 */
+    private val panel = FloatingPanel(act) { inf, _ ->
+        b = SheetMusicBinding.inflate(inf)
+        bind()
+        first = true
+        update(music.now)
+        b.root
+    }
 
     val isShowing get() = panel.isShowing
 
@@ -33,7 +40,11 @@ class MusicSheet(
 
     fun show() {
         panel.onDismiss = { ui.removeCallbacks(ticker) }
+        panel.show()
+        ui.post(ticker)
+    }
 
+    private fun bind() {
         Motion.pressable(b.btnPlay, b.btnPrev, b.btnNext, b.btnOpenApp)
         b.btnPlay.setOnClickListener { music.playPause() }
         b.btnPrev.setOnClickListener { music.previous() }
@@ -52,10 +63,6 @@ class MusicSheet(
             }
         })
         b.slider.addOnChangeListener { _, v, fromUser -> if (fromUser) b.tvPos.text = fmt((v * 1000).toLong()) }
-
-        update(music.now)
-        panel.show()
-        ui.post(ticker)
     }
 
     fun update(np: NowPlaying?) {
@@ -101,7 +108,7 @@ class MusicSheet(
             b.ivArt.setPadding(pad, pad, pad, pad)
             b.ivArt.setBackgroundResource(R.drawable.bg_art_large)
             b.ivArt.setImageResource(R.drawable.ic_music)
-            b.ivArt.imageTintList = act.getColorStateList(R.color.fg_dim)
+            b.ivArt.imageTintList = b.root.context.getColorStateList(R.color.fg_dim)
         }
     }
 

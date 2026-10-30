@@ -25,7 +25,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
@@ -445,8 +444,8 @@ class MainActivity : AppCompatActivity(), LocationSink {
     /** 把浅色/深色配色应用到所有浮层控件，并让菜单、对话框跟随 */
     private fun applyPalette(p: Palette) {
         pal = p
-        delegate.localNightMode =
-            if (p === Palette.DARK) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+        // 已打开的菜单 / 播放器 / 提示跟着一起换配色（放到下一帧，避免在点击回调里替换正在点击的控件）
+        b.root.post { FloatingPanel.palette = p }
         val surface = ColorStateList.valueOf(p.surface)
         b.infoPanel.backgroundTintList = surface
         // 不透明：半透明卡片会透出自身阴影，看起来深浅不均
@@ -719,8 +718,12 @@ class MainActivity : AppCompatActivity(), LocationSink {
     }
 
     private fun showSettings() {
-        val sb = DialogSettingsBinding.inflate(LayoutInflater.from(this))
-        val dlg = FloatingPanel(this, sb.root)
+        FloatingPanel(this) { inf, panel -> bindSettings(inf, panel) }.show()
+    }
+
+    /** 菜单内容；切换浅色 / 深色时会用新配色重新生成 */
+    private fun bindSettings(inf: LayoutInflater, dlg: FloatingPanel): View {
+        val sb = DialogSettingsBinding.inflate(inf)
         Motion.pressable(sb.btnClearTrack, sb.btnMusicAccess, sb.btnDemo, sb.btnResetTrip)
 
         sb.swLabels.isChecked = prefs.showLabels
@@ -772,7 +775,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
             dlg.dismiss()
             confirmResetTrip()
         }
-        dlg.show()
+        return sb.root
     }
 
     private fun confirmClearTrack() {
