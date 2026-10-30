@@ -202,10 +202,10 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         ViewCompat.setOnApplyWindowInsetsListener(b.overlay) { v, insets ->
             val c = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
             v.setPadding(c.left, 0, c.right, c.bottom)
-            // 状态行放进屏幕最顶端（和前置摄像头同一行），不再往下让出整块刘海区域
+            // 状态行和系统状态栏差不多高：在刘海区域内略靠下，不贴着屏幕顶边
             val d = resources.displayMetrics.density
             b.topArea.updateLayoutParams<FrameLayout.LayoutParams> {
-                topMargin = if (c.top > 0) ((c.top - 20 * d) / 2).toInt().coerceAtLeast((4 * d).toInt()) else (8 * d).toInt()
+                topMargin = (c.top / 2 - 10 * d).toInt().coerceAtLeast(0) + (14 * d).toInt()
             }
             insets
         }

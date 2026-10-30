@@ -15,7 +15,7 @@
         android:roundIcon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.RideDash">
+        android:theme="@style/Theme.Driver">
 
         <activity
             android:name=".MainActivity"

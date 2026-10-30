@@ -42,9 +42,8 @@
                     android:id="@+id/tvGps"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
                     android:text="GPS"
-                    android:textSize="13sp" />
+                    android:textAppearance="@style/StatusText" />
 
                 <com.ebike.dash.SignalDotsView
                     android:id="@+id/gpsDots"
@@ -62,17 +61,13 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="12dp"
-                    android:fontFamily="sans-serif-medium"
-                    android:fontFeatureSettings="tnum"
-                    android:textSize="13sp" />
+                    android:textAppearance="@style/StatusText" />
 
                 <TextView
                     android:id="@+id/tvClock"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
-                    android:fontFeatureSettings="tnum"
-                    android:textSize="15sp" />
+                    android:textAppearance="@style/StatusText" />
             </LinearLayout>
         </LinearLayout>
 

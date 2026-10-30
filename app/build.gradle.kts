@@ -11,8 +11,8 @@ android {
         applicationId = "com.ebike.dash"
         minSdk = 24
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.3.1"
+        versionCode = 7
+        versionName = "0.4.0"
         // 只打包手机常用的 ARM 架构，安装包更小
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }

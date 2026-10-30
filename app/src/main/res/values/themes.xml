@@ -1,5 +1,5 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.RideDash" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.Driver" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/fg</item>
         <item name="colorOnPrimary">@color/bg</item>
         <item name="colorSecondary">@color/fg</item>
@@ -15,6 +15,14 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="28">shortEdges</item>
+    </style>
+
+    <!-- 顶部状态行：GPS / 电量 / 时间统一字体 -->
+    <style name="StatusText" parent="">
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:fontFeatureSettings">tnum</item>
     </style>
 
     <style name="Stat.Value" parent="">

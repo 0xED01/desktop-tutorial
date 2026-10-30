@@ -10,7 +10,7 @@ class Place(val name: String, val detail: String, val lat: Double, val lon: Doub
 
 /** 网络服务：OSRM 骑行路线规划 + Nominatim 地点搜索（均为免费开放服务） */
 object Net {
-    private const val UA = "RideDash/0.1 (Android e-bike dashboard)"
+    private const val UA = "Driver/0.4 (Android e-bike dashboard)"
     private const val ROUTER = "https://routing.openstreetmap.de/routed-bike/route/v1/driving/"
     private const val GEOCODER = "https://nominatim.openstreetmap.org/search"
 
