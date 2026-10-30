@@ -8,8 +8,8 @@ class Palette(
     val onSurface: Int,
     val dim: Int,
     val chip: Int,
-    val routeLine: String,
-    val routeCasing: String,
+    /** 足迹线颜色 */
+    val trackColor: String,
     val mapStyle: String,
 ) {
     val danger = Color.parseColor("#E5484D")
@@ -20,8 +20,7 @@ class Palette(
             onSurface = Color.parseColor("#0D0D0D"),
             dim = Color.parseColor("#8E8E8E"),
             chip = Color.parseColor("#F0F0F0"),
-            routeLine = "#0D0D0D",
-            routeCasing = "#FFFFFF",
+            trackColor = "#0D0D0D",
             mapStyle = "https://tiles.openfreemap.org/styles/positron",
         )
         val DARK = Palette(
@@ -29,8 +28,7 @@ class Palette(
             onSurface = Color.parseColor("#ECECEC"),
             dim = Color.parseColor("#9A9A9A"),
             chip = Color.parseColor("#303030"),
-            routeLine = "#FFFFFF",
-            routeCasing = "#0D0D0D",
+            trackColor = "#FFFFFF",
             mapStyle = "https://tiles.openfreemap.org/styles/dark",
         )
     }

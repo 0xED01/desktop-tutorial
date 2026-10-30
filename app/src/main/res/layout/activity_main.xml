@@ -83,13 +83,13 @@
             android:orientation="vertical"
             android:padding="4dp">
 
-            <ImageButton android:id="@+id/btnSearch" style="@style/RoundButton" android:src="@drawable/ic_search" android:contentDescription="搜索目的地" />
             <ImageButton android:id="@+id/btnRecenter" style="@style/RoundButton" android:src="@drawable/ic_my_location" android:contentDescription="回到当前位置" />
             <ImageButton android:id="@+id/btnInfo" style="@style/RoundButton" android:src="@drawable/ic_bar_chart" android:contentDescription="骑行数据" />
+            <ImageButton android:id="@+id/btnMusic" style="@style/RoundButton" android:src="@drawable/ic_music" android:contentDescription="音乐" />
             <ImageButton android:id="@+id/btnSettings" style="@style/RoundButton" android:src="@drawable/ic_settings" android:contentDescription="菜单" />
         </LinearLayout>
 
-        <!-- 底部：可展开的数据面板 + 数字速度 -->
+        <!-- 底部：骑行数据（可展开）+ 音乐 + 数字速度 -->
         <LinearLayout
             android:id="@+id/bottomArea"
             android:layout_width="wrap_content"
@@ -101,7 +101,7 @@
             android:orientation="vertical"
             android:padding="6dp">
 
-            <!-- 数据面板：默认隐藏，点右侧“数据”按钮显示 -->
+            <!-- 骑行数据：默认隐藏，点右侧“数据”按钮显示 -->
             <LinearLayout
                 android:id="@+id/infoPanel"
                 style="@style/Card"
@@ -111,47 +111,6 @@
                 android:orientation="vertical"
                 android:paddingVertical="12dp"
                 android:visibility="gone">
-
-                <LinearLayout
-                    android:id="@+id/navSection"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingEnd="10dp"
-                    android:visibility="gone">
-
-                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
-                        <TextView android:id="@+id/tvRemain" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-                        <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="剩余" />
-                    </LinearLayout>
-                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
-                        <TextView android:id="@+id/tvEtaMin" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-                        <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="用时" />
-                    </LinearLayout>
-                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
-                        <TextView android:id="@+id/tvEta" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-                        <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="到达" />
-                    </LinearLayout>
-
-                    <ImageButton
-                        android:id="@+id/btnStopNav"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:background="@drawable/bg_circle"
-                        android:contentDescription="结束导航"
-                        android:padding="11dp"
-                        android:scaleType="fitCenter"
-                        android:src="@drawable/ic_close" />
-                </LinearLayout>
-
-                <View
-                    android:id="@+id/navDivider"
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginHorizontal="20dp"
-                    android:layout_marginVertical="12dp"
-                    android:visibility="gone" />
 
                 <LinearLayout
                     android:id="@+id/statsRow"
@@ -177,6 +136,12 @@
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
+
+            <!-- 迷你播放器：默认隐藏，点右侧“音乐”按钮显示 -->
+            <include
+                android:id="@+id/music"
+                layout="@layout/view_music"
+                android:visibility="gone" />
 
             <!-- 数字速度 -->
             <include

@@ -34,14 +34,10 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
-import androidx.lifecycle.lifecycleScope
 import com.ebike.dash.databinding.ActivityMainBinding
 import com.ebike.dash.databinding.DialogSettingsBinding
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
@@ -53,34 +49,37 @@ import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
-import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
-import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
+import org.maplibre.geojson.MultiLineString
 import org.maplibre.geojson.Point
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
 
-class MainActivity : AppCompatActivity(), LocationSink, NavListener {
+class MainActivity : AppCompatActivity(), LocationSink {
 
     companion object {
-        private const val SRC_ROUTE = "rd-route"
-        private const val SRC_DEST = "rd-dest"
+        private const val SRC_TRACK = "rd-track"
+        private const val SRC_TRACK_LIVE = "rd-track-live"
+        private const val LAYER_TRACK = "rd-track"
+        private const val LAYER_TRACK_LIVE = "rd-track-live"
     }
 
     private lateinit var b: ActivityMainBinding
     private lateinit var prefs: Prefs
-    private lateinit var voice: Voice
     private lateinit var gps: GpsSource
-    private lateinit var nav: NavigationEngine
+    private lateinit var track: TrackStore
+    private lateinit var music: MusicController
+    private var musicSheet: MusicSheet? = null
     private val units = Units()
     private val tracker = RideTracker()
     private val ui = Handler(Looper.getMainLooper())
@@ -100,7 +99,8 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     private var following = true
     private var trackingListenerAdded = false
     private var lastSavedPos = 0L
-    private var destPoint: DoubleArray? = null
+    private var demoTrack: TrackStore? = null
+    private var lastLiveDraw = 0L
 
     private val clockFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
 
@@ -120,11 +120,11 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         setupImmersive()
 
         prefs = Prefs(this)
-        voice = Voice(this)
         gps = GpsSource(this, this)
         heading = HeadingSensor(this) { onHeading(it) }
-        nav = NavigationEngine(lifecycleScope, this, units)
         tracker.restore(prefs)
+        track = TrackStore(File(filesDir, "track.txt")).apply { load() }
+        music = MusicController(this) { onMusicChanged(it) }
 
         b.mapView.onCreate(savedInstanceState)
         b.mapView.getMapAsync { m ->
@@ -133,15 +133,16 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         }
 
         b.btnRecenter.setOnClickListener { recenter() }
-        b.btnSearch.setOnClickListener { showSearch() }
         b.btnSettings.setOnClickListener { showSettings() }
         b.btnInfo.setOnClickListener { setInfoVisible(!b.infoPanel.isVisible) }
-        b.btnStopNav.setOnClickListener { stopNavigation(true) }
+        b.btnMusic.setOnClickListener { setMusicVisible(!b.music.root.isVisible) }
+        setupMusicCard()
         b.statsRow.setOnLongClickListener {
             confirmResetTrip(); true
         }
 
         b.infoPanel.isVisible = prefs.showInfo
+        b.music.root.isVisible = prefs.showMusic
         applyPalette(if (isNight()) Palette.DARK else Palette.LIGHT)
         applyPrefs()
         b.bottomArea.post { updateTrackingPadding() }
@@ -159,6 +160,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         b.mapView.onResume()
         ui.post(statusTicker)
         heading.start()
+        music.start()
         if (demo == null) startGps()
     }
     override fun onPause() {
@@ -166,7 +168,9 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         b.mapView.onPause()
         ui.removeCallbacks(statusTicker)
         heading.stop()
+        music.stop()
         tracker.save(prefs)
+        track.flush()
     }
     override fun onStop() { super.onStop(); b.mapView.onStop() }
     override fun onLowMemory() { super.onLowMemory(); b.mapView.onLowMemory() }
@@ -177,7 +181,8 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     override fun onDestroy() {
         demo?.stop()
         gps.stop()
-        voice.shutdown()
+        track.endSegment()
+        track.close()
         b.mapView.onDestroy()
         super.onDestroy()
     }
@@ -211,7 +216,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         if (!gps.gpsEnabled()) {
             MaterialAlertDialogBuilder(this)
                 .setTitle("GPS 未开启")
-                .setMessage("码表需要 GPS 来测速和导航，请在系统设置中打开位置信息。")
+                .setMessage("Driver 需要 GPS 来测速和记录足迹，请在系统设置中打开位置信息。")
                 .setPositiveButton("去设置") { _, _ -> startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }
                 .setNegativeButton("取消", null)
                 .show()
@@ -248,10 +253,6 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             .target(LatLng(prefs.lastLat, prefs.lastLon))
             .zoom(15.5)
             .build()
-        m.addOnMapLongClickListener { p ->
-            onMapLongPress(p.latitude, p.longitude)
-            true
-        }
         loadStyle(force = true)
     }
 
@@ -277,10 +278,10 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             localizeLabels(s)
             hideBoundaries(s)
             applyLabelVisibility(s)
-            addRouteLayers(s)
+            addTrackLayers(s)
             enableLocationComponent(s)
-            nav.route?.let { drawRoute(it.coords) }
-            destPoint?.let { drawDest(it[0], it[1]) }
+            drawTrackHistory()
+            drawTrackLive(force = true)
         }
     }
 
@@ -314,60 +315,73 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         for (layer in s.layers) if (layer is SymbolLayer) layer.setProperties(PropertyFactory.visibility(v))
     }
 
-    private fun addRouteLayers(s: Style) {
-        s.addSource(GeoJsonSource(SRC_ROUTE))
-        s.addSource(GeoJsonSource(SRC_DEST))
+    // ---------------------------------------------------------------- 足迹
+
+    /** 足迹线：历史足迹淡一些，本次骑行的更实；都在道路之上、文字之下 */
+    private fun addTrackLayers(s: Style) {
+        s.addSource(GeoJsonSource(SRC_TRACK))
+        s.addSource(GeoJsonSource(SRC_TRACK_LIVE))
         val width = Expression.interpolate(
-            Expression.exponential(1.5f), Expression.zoom(),
-            Expression.stop(10, 3f), Expression.stop(14, 6f), Expression.stop(18, 16f),
+            Expression.exponential(1.4f), Expression.zoom(),
+            Expression.stop(10, 1.5f), Expression.stop(14, 3f), Expression.stop(18, 8f),
         )
-        val casingWidth = Expression.interpolate(
-            Expression.exponential(1.5f), Expression.zoom(),
-            Expression.stop(10, 5f), Expression.stop(14, 9f), Expression.stop(18, 22f),
-        )
-        val casing = LineLayer("rd-route-casing", SRC_ROUTE).withProperties(
-            PropertyFactory.lineColor(pal.routeCasing),
-            PropertyFactory.lineWidth(casingWidth),
-            PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
-            PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
-        )
-        val line = LineLayer("rd-route-line", SRC_ROUTE).withProperties(
-            PropertyFactory.lineColor(pal.routeLine),
+        fun layer(id: String, src: String, opacity: Float) = LineLayer(id, src).withProperties(
+            PropertyFactory.lineColor(pal.trackColor),
+            PropertyFactory.lineOpacity(opacity),
             PropertyFactory.lineWidth(width),
             PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
             PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+            PropertyFactory.visibility(if (prefs.showTrack) Property.VISIBLE else Property.NONE),
         )
-        val dest = CircleLayer("rd-dest", SRC_DEST).withProperties(
-            PropertyFactory.circleRadius(8f),
-            PropertyFactory.circleColor(pal.routeLine),
-            PropertyFactory.circleStrokeColor(pal.routeCasing),
-            PropertyFactory.circleStrokeWidth(4f),
-        )
-        // 路线画在所有道路之上、文字标注之下
+        val history = layer(LAYER_TRACK, SRC_TRACK, 0.45f)
+        val live = layer(LAYER_TRACK_LIVE, SRC_TRACK_LIVE, 0.9f)
         val lastShape = s.layers.lastOrNull { it !is SymbolLayer }?.id
         if (lastShape != null) {
-            s.addLayerAbove(casing, lastShape)
-            s.addLayerAbove(line, casing.id)
+            s.addLayerAbove(history, lastShape)
+            s.addLayerAbove(live, history.id)
         } else {
-            s.addLayer(casing)
-            s.addLayer(line)
+            s.addLayer(history)
+            s.addLayer(live)
         }
-        s.addLayer(dest)
     }
 
-    private fun drawRoute(coords: List<DoubleArray>?) {
-        val src = style?.getSourceAs<GeoJsonSource>(SRC_ROUTE) ?: return
-        if (coords == null || coords.size < 2) {
-            src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
-            return
-        }
-        src.setGeoJson(LineString.fromLngLats(coords.map { Point.fromLngLat(it[1], it[0]) }))
+    private fun lineOf(seg: List<DoubleArray>) = LineString.fromLngLats(seg.map { Point.fromLngLat(it[1], it[0]) })
+
+    /** 历史足迹（不含正在记录的这一段） */
+    private fun drawTrackHistory() {
+        val src = style?.getSourceAs<GeoJsonSource>(SRC_TRACK) ?: return
+        val cur = track.currentSegment
+        val lines = track.segments.filter { it !== cur && it.size >= 2 }.map { lineOf(it) }
+        if (lines.isEmpty()) src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+        else src.setGeoJson(MultiLineString.fromLineStrings(lines))
     }
 
-    private fun drawDest(lat: Double?, lon: Double?) {
-        val src = style?.getSourceAs<GeoJsonSource>(SRC_DEST) ?: return
-        if (lat == null || lon == null) src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
-        else src.setGeoJson(Feature.fromGeometry(Point.fromLngLat(lon, lat)))
+    /** 本次骑行（演示模式下画演示轨迹），最多每秒刷新一次 */
+    private fun drawTrackLive(force: Boolean = false) {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (!force && now - lastLiveDraw < 1000) return
+        lastLiveDraw = now
+        val src = style?.getSourceAs<GeoJsonSource>(SRC_TRACK_LIVE) ?: return
+        val seg = (demoTrack ?: track).currentSegment
+        if (seg == null || seg.size < 2) src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+        else src.setGeoJson(lineOf(seg))
+    }
+
+    private fun setTrackVisible(show: Boolean) {
+        prefs.showTrack = show
+        val v = PropertyFactory.visibility(if (show) Property.VISIBLE else Property.NONE)
+        style?.getLayer(LAYER_TRACK)?.setProperties(v)
+        style?.getLayer(LAYER_TRACK_LIVE)?.setProperties(v)
+    }
+
+    /** 记录足迹：有速度、定位精度够好时才记，停车抖动不会画出乱线 */
+    private fun recordTrack(loc: Location) {
+        val store = demoTrack ?: track
+        if (speedKmh < 3 || loc.accuracy > 25) return
+        if (store.add(loc.latitude, loc.longitude, System.currentTimeMillis())) {
+            if (store === track) drawTrackHistory()
+        }
+        drawTrackLive()
     }
 
     @SuppressLint("MissingPermission")
@@ -412,8 +426,8 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         following = true
         b.btnRecenter.alpha = 1f
         lc.cameraMode = CameraMode.TRACKING_GPS
-        lc.zoomWhileTracking(if (nav.active) 17.3 else 16.5, 900)
-        lc.tiltWhileTracking(if (nav.active) 55.0 else 40.0, 900)
+        lc.zoomWhileTracking(16.5, 900)
+        lc.tiltWhileTracking(40.0, 900)
         updateTrackingPadding()
     }
 
@@ -434,17 +448,23 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         b.infoPanel.backgroundTintList = surface
         // 不透明：半透明卡片会透出自身阴影，看起来深浅不均
         b.speed.root.backgroundTintList = surface
-        b.navDivider.setBackgroundColor(p.chip)
-        for (btn in listOf(b.btnSearch, b.btnRecenter, b.btnInfo, b.btnSettings)) {
+        b.music.root.backgroundTintList = surface
+        for (btn in listOf(b.btnRecenter, b.btnInfo, b.btnMusic, b.btnSettings)) {
             btn.backgroundTintList = surface
             btn.imageTintList = ColorStateList.valueOf(p.onSurface)
         }
-        // 结束导航按钮：反色实心圆
-        b.btnStopNav.backgroundTintList = ColorStateList.valueOf(p.onSurface)
-        b.btnStopNav.imageTintList = surface
+        // 迷你播放器：切歌按钮透明底，播放按钮反色实心圆
+        for (btn in listOf(b.music.btnPrev, b.music.btnNext)) {
+            btn.backgroundTintList = surface
+            btn.imageTintList = ColorStateList.valueOf(p.onSurface)
+        }
+        b.music.btnPlay.backgroundTintList = ColorStateList.valueOf(p.onSurface)
+        b.music.btnPlay.imageTintList = surface
         tintTexts(b.overlay, p)
+        onMusicChanged(if (::music.isInitialized) music.now else null)
         map?.uiSettings?.setCompassImage(compassDrawable())
         updateInfoButton()
+        updateMusicButton()
         b.topScrim.background = GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
             intArrayOf(ColorUtils.setAlphaComponent(p.surface, 200), ColorUtils.setAlphaComponent(p.surface, 0)),
@@ -484,8 +504,8 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         lastLoc = fixed
 
         tracker.update(fixed, speedKmh)
+        recordTrack(fixed)
         map?.locationComponent?.let { if (it.isLocationComponentActivated) it.forceLocationUpdate(fixed) }
-        nav.onLocation(fixed)
         updateDashboard()
         updateGpsIndicator(fixed)
 
@@ -537,7 +557,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     }
 
 
-    /** 数据面板（骑行数据 + 导航剩余信息），默认隐藏 */
+    /** 骑行数据面板，默认隐藏 */
     private fun setInfoVisible(show: Boolean) {
         prefs.showInfo = show
         b.infoPanel.isVisible = show
@@ -549,11 +569,6 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         val on = b.infoPanel.isVisible
         b.btnInfo.backgroundTintList = ColorStateList.valueOf(if (on) pal.onSurface else pal.surface)
         b.btnInfo.imageTintList = ColorStateList.valueOf(if (on) pal.surface else pal.onSurface)
-    }
-
-    private fun setNavSectionVisible(show: Boolean) {
-        b.navSection.isVisible = show
-        b.navDivider.isVisible = show
     }
 
     private fun updateGpsIndicator(loc: Location) {
@@ -584,120 +599,85 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         }
     }
 
-    // ---------------------------------------------------------------- 导航
-
     private fun currentPos(): DoubleArray? = lastLoc?.let { doubleArrayOf(it.latitude, it.longitude) }
 
-    /** 长按地图：先查出这个位置的地址，再确认是否导航 */
-    private fun onMapLongPress(lat: Double, lon: Double) {
-        destPoint = doubleArrayOf(lat, lon)
-        drawDest(lat, lon)
-        lifecycleScope.launch {
-            val place = try {
-                withContext(Dispatchers.IO) { Net.reverse(lat, lon) }
-            } catch (_: Exception) {
-                null
-            }
-            val p = Place(place?.name ?: "地图上的位置", place?.address ?: "", lat, lon)
-            val dist = currentPos()?.let { units.navDist(Geo.distance(it[0], it[1], lat, lon)) }
-            MaterialAlertDialogBuilder(this@MainActivity)
-                .setTitle(p.name)
-                .setMessage(listOfNotNull(p.address.ifBlank { null }, dist?.let { "距离你 $it" }).joinToString("\n"))
-                .setPositiveButton("去这里") { _, _ -> prefs.addHistory(p); startNavigation(p.lat, p.lon, p.name) }
-                .setNegativeButton("取消", null)
-                .setNeutralButton("收藏") { _, _ -> saveAsShortcut(p) }
-                .setOnCancelListener { clearPendingDest() }
-                .setOnDismissListener { if (!nav.active) clearPendingDest() }
-                .show()
+    // ---------------------------------------------------------------- 音乐
+
+    private fun setupMusicCard() {
+        val m = b.music
+        m.btnPlay.setOnClickListener { music.playPause() }
+        m.btnPrev.setOnClickListener { music.previous() }
+        m.btnNext.setOnClickListener { music.next() }
+        m.root.setOnClickListener { openMusicSheet() }
+    }
+
+    private fun setMusicVisible(show: Boolean) {
+        prefs.showMusic = show
+        b.music.root.isVisible = show
+        updateMusicButton()
+        // 第一次打开时，引导开启“通知使用权”以显示歌名和封面
+        if (show && !music.hasAccess() && !prefs.askedMusicAccess) {
+            prefs.askedMusicAccess = true
+            askMusicAccess()
         }
     }
 
-    private fun clearPendingDest() {
-        if (nav.active) return
-        destPoint = null
-        drawDest(null, null)
+    private fun updateMusicButton() {
+        val on = b.music.root.isVisible
+        b.btnMusic.backgroundTintList = ColorStateList.valueOf(if (on) pal.onSurface else pal.surface)
+        b.btnMusic.imageTintList = ColorStateList.valueOf(if (on) pal.surface else pal.onSurface)
     }
 
-    private fun saveAsShortcut(p: Place) {
+    private fun openMusicSheet() {
+        musicSheet = MusicSheet(this, music) { askMusicAccess() }.also { it.show() }
+    }
+
+    private fun onMusicChanged(np: NowPlaying?) {
+        val m = b.music
+        val access = music.hasAccess()
+        m.tvTitle.text = when {
+            np != null -> np.title.ifBlank { "未知歌曲" }
+            !access -> "Apple Music"
+            else -> "未在播放"
+        }
+        m.tvArtist.text = when {
+            np != null -> np.artist.ifBlank { "Apple Music" }
+            !access -> "点击开启歌曲信息显示"
+            else -> "点 ▶ 继续播放"
+        }
+        m.btnPlay.setImageResource(if (np?.playing == true) R.drawable.ic_pause else R.drawable.ic_play)
+        val art = np?.art
+        if (art != null) {
+            m.ivArt.setPadding(0, 0, 0, 0)
+            m.ivArt.imageTintList = null
+            m.ivArt.setImageBitmap(art)
+            m.ivArt.background = null
+        } else {
+            val pad = (12 * resources.displayMetrics.density).toInt()
+            m.ivArt.setPadding(pad, pad, pad, pad)
+            m.ivArt.setBackgroundColor(pal.chip)
+            m.ivArt.setImageResource(R.drawable.ic_music)
+            m.ivArt.imageTintList = ColorStateList.valueOf(pal.dim)
+        }
+        musicSheet?.takeIf { it.isShowing }?.update(np)
+    }
+
+    private fun askMusicAccess() {
         MaterialAlertDialogBuilder(this)
-            .setTitle("收藏为")
-            .setItems(arrayOf("家", "公司")) { _, i ->
-                prefs.putPlace(if (i == 0) Prefs.HOME else Prefs.WORK, p)
-                toast(if (i == 0) "已设为家" else "已设为公司")
+            .setTitle("显示正在播放的歌曲")
+            .setMessage(
+                "开启「通知使用权」后，Driver 才能读取 Apple Music 正在播放的歌名、封面和进度。\n\n" +
+                    "Driver 不会读取或保存你的任何通知内容。不开启也可以用播放、暂停和切歌。"
+            )
+            .setPositiveButton("去开启") { _, _ ->
+                try {
+                    startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                } catch (_: Exception) {
+                    toast("请在系统设置中搜索“通知使用权”")
+                }
             }
+            .setNegativeButton("暂不", null)
             .show()
-    }
-
-    private fun startNavigation(lat: Double, lon: Double, name: String) {
-        val from = currentPos()
-        if (from == null) {
-            toast("还没有定位，请稍候或开启演示模式")
-            return
-        }
-        destPoint = doubleArrayOf(lat, lon)
-        drawDest(lat, lon)
-        toast("正在规划骑行路线…")
-        nav.start(from[0], from[1], lat, lon, name)
-    }
-
-    private fun stopNavigation(byUser: Boolean) {
-        nav.stop()
-        destPoint = null
-        drawRoute(null)
-        drawDest(null, null)
-        setNavSectionVisible(false)
-        if (byUser) voice.speak("导航已结束")
-        if (following) follow()
-    }
-
-    override fun onRouteReady(route: Route, reroute: Boolean) {
-        drawRoute(route.coords)
-        setNavSectionVisible(true)
-        if (!reroute) {
-            voice.speak("开始导航，全程${units.spokenDist(route.length)}")
-            follow()
-        }
-        updateNavInfo(route.length)
-    }
-
-    override fun onRouteError(msg: String) {
-        if (!nav.active) {
-            destPoint = null
-            drawDest(null, null)
-        }
-        toast("路线规划失败：$msg")
-    }
-
-    override fun onProgress(p: NavProgress) {
-        nav.route?.let { drawRoute(it.remainingCoords(p.snap)) }
-        updateNavInfo(p.remaining)
-    }
-
-    private fun updateNavInfo(remaining: Double) {
-        // 用当前均速估算到达时间，最低按 15 km/h
-        val v = maxOf(tracker.avgKmh, 15.0) / 3.6
-        val sec = (remaining / v).toLong()
-        b.tvRemain.text = units.navDist(remaining).replace(" ", "")
-        b.tvEtaMin.text = if (sec >= 3600) "${sec / 3600}时${sec / 60 % 60}分" else "${(sec / 60).coerceAtLeast(1)}分钟"
-        b.tvEta.text = clockFmt.format(Date(System.currentTimeMillis() + sec * 1000))
-    }
-
-    override fun onSpeak(text: String) = voice.speak(text)
-
-    override fun onArrived() {
-        toast("已到达目的地")
-        stopNavigation(false)
-    }
-
-    private fun showSearch() {
-        val center = currentPos() ?: map?.cameraPosition?.target?.let { doubleArrayOf(it.latitude, it.longitude) }
-            ?: doubleArrayOf(prefs.lastLat, prefs.lastLon)
-        SearchSheet(
-            this, prefs, units, center,
-            navDestName = if (nav.active) nav.destName else null,
-            onPick = { startNavigation(it.lat, it.lon, it.name) },
-            onEndNav = { stopNavigation(true) },
-        ).show()
     }
 
     // ---------------------------------------------------------------- 演示模式
@@ -707,6 +687,8 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         if (d != null) {
             d.stop()
             demo = null
+            demoTrack = null
+            drawTrackLive(force = true)
             speedKmh = 0.0
             lastLoc = null
             toast("演示模式已关闭")
@@ -717,8 +699,10 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         val start = currentPos() ?: map?.cameraPosition?.target?.let { doubleArrayOf(it.latitude, it.longitude) }
             ?: doubleArrayOf(prefs.lastLat, prefs.lastLon)
         gps.stop()
-        demo = DemoSource(start[0], start[1], this) { nav.route }.also { it.start() }
-        toast("演示模式：模拟骑行中（长按地图可模拟导航）")
+        // 演示轨迹只画在屏幕上，不写进真实足迹
+        demoTrack = TrackStore(null)
+        demo = DemoSource(start[0], start[1], this).also { it.start() }
+        toast("演示模式：模拟骑行中")
         follow()
     }
 
@@ -726,7 +710,6 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
 
     private fun applyPrefs() {
         units.imperial = prefs.imperial
-        voice.enabled = prefs.voice
         b.speed.tvUnit.text = units.speedUnit
         updateDashboard()
     }
@@ -750,8 +733,25 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             loadStyle()
         }
 
-        sb.swVoice.isChecked = prefs.voice
-        sb.swVoice.setOnCheckedChangeListener { _, c -> prefs.voice = c; applyPrefs() }
+        sb.swTrack.isChecked = prefs.showTrack
+        sb.swTrack.setOnCheckedChangeListener { _, c -> setTrackVisible(c) }
+        sb.tvTrack.text = String.format(
+            Locale.US, "已记录 %.1f %s，共 %d 段",
+            units.bigDist(track.totalMeters), units.distUnit, track.segments.count { it.size >= 2 },
+        )
+        sb.btnClearTrack.setOnClickListener {
+            dlg.dismiss()
+            confirmClearTrack()
+        }
+        sb.btnMusicAccess.text = if (music.hasAccess()) "歌名和封面显示：已开启" else "开启歌名和封面显示"
+        sb.btnMusicAccess.setOnClickListener {
+            dlg.dismiss()
+            if (music.hasAccess()) {
+                try { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) } catch (_: Exception) {}
+            } else {
+                askMusicAccess()
+            }
+        }
         sb.swImperial.isChecked = prefs.imperial
         sb.swImperial.setOnCheckedChangeListener { _, c -> prefs.imperial = c; applyPrefs() }
 
@@ -769,6 +769,19 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             confirmResetTrip()
         }
         dlg.show()
+    }
+
+    private fun confirmClearTrack() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("清除所有足迹？")
+            .setMessage("地图上记录的所有骑行路线都会被删除，无法恢复。")
+            .setPositiveButton("清除") { _, _ ->
+                track.clear()
+                drawTrackHistory()
+                drawTrackLive(force = true)
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 
     private fun confirmResetTrip() {

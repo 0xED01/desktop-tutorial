@@ -43,25 +43,48 @@
             <Button android:id="@+id/tNight" style="@style/Menu.Toggle" android:text="深色" />
         </com.google.android.material.button.MaterialButtonToggleGroup>
 
-        <!-- 导航 -->
+        <!-- 足迹 -->
         <TextView
             style="@style/Menu.Section"
-            android:text="导航" />
+            android:text="足迹" />
 
         <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/swVoice"
+            android:id="@+id/swTrack"
             style="@style/Menu.Switch"
-            android:text="语音播报" />
+            android:text="在地图上显示足迹" />
 
-        <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/swImperial"
-            style="@style/Menu.Switch"
-            android:text="英制单位（mph）" />
+        <TextView
+            android:id="@+id/tvTrack"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/fg_dim"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/btnClearTrack"
+            style="@style/Menu.Action"
+            android:layout_marginTop="10dp"
+            android:text="清除所有足迹" />
+
+        <!-- 音乐 -->
+        <TextView
+            style="@style/Menu.Section"
+            android:text="音乐" />
+
+        <Button
+            android:id="@+id/btnMusicAccess"
+            style="@style/Menu.Action"
+            android:text="显示歌名和封面" />
 
         <!-- 其它 -->
         <TextView
             style="@style/Menu.Section"
             android:text="其它" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/swImperial"
+            style="@style/Menu.Switch"
+            android:text="英制单位（mph）" />
 
         <Button
             android:id="@+id/btnDemo"
