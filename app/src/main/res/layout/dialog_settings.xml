@@ -46,7 +46,7 @@
         <!-- 码表 -->
         <TextView
             style="@style/Menu.Section"
-            android:text="码表" />
+            android:text="速度" />
 
         <TextView
             android:id="@+id/tvLimit"
@@ -64,27 +64,6 @@
             android:valueFrom="10"
             android:valueTo="80"
             app:labelBehavior="gone" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="表盘量程"
-            android:textColor="@color/fg"
-            android:textSize="15sp" />
-
-        <com.google.android.material.button.MaterialButtonToggleGroup
-            android:id="@+id/groupGauge"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            app:selectionRequired="true"
-            app:singleSelection="true">
-
-            <Button android:id="@+id/g40" style="@style/Menu.Toggle" android:text="40" />
-            <Button android:id="@+id/g60" style="@style/Menu.Toggle" android:text="60" />
-            <Button android:id="@+id/g80" style="@style/Menu.Toggle" android:text="80" />
-            <Button android:id="@+id/g120" style="@style/Menu.Toggle" android:text="120" />
-        </com.google.android.material.button.MaterialButtonToggleGroup>
 
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/swImperial"

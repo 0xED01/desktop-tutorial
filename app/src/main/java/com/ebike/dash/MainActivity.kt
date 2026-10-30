@@ -1,6 +1,7 @@
 package com.ebike.dash
 
 import android.Manifest
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.IntentFilter
@@ -20,6 +21,7 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
@@ -68,6 +70,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity(), LocationSink, NavListener {
 
@@ -94,6 +97,8 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     private var lastBearing = 0f
     private lateinit var heading: HeadingSensor
     private var lastHeadingPush = 0L
+    private var shownSpeed = 0f
+    private var speedAnim: ValueAnimator? = null
     private var speedKmh = 0.0
     private var following = true
     private var trackingListenerAdded = false
@@ -135,11 +140,13 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         b.btnRecenter.setOnClickListener { recenter() }
         b.btnSearch.setOnClickListener { showSearch() }
         b.btnSettings.setOnClickListener { showSettings() }
+        b.btnInfo.setOnClickListener { setInfoVisible(!b.infoPanel.isVisible) }
         b.btnStopNav.setOnClickListener { stopNavigation(true) }
         b.statsRow.setOnLongClickListener {
             confirmResetTrip(); true
         }
 
+        b.infoPanel.isVisible = prefs.showInfo
         applyPalette(if (isNight()) Palette.DARK else Palette.LIGHT)
         applyPrefs()
         b.bottomArea.post { updateTrackingPadding() }
@@ -217,7 +224,9 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     private fun updateTrackingPadding() {
         val lc = map?.locationComponent ?: return
         if (!lc.isLocationComponentActivated) return
-        lc.paddingWhileTracking(doubleArrayOf(0.0, b.root.height * 0.12, 0.0, b.bottomArea.height * 0.85))
+        // 只按速度卡片的高度留白，展开数据面板时地图不会跳动
+        val d = resources.displayMetrics.density
+        lc.paddingWhileTracking(doubleArrayOf(0.0, b.root.height * 0.12, 0.0, b.speedCard.height + 60.0 * d))
     }
 
     // ---------------------------------------------------------------- 地图
@@ -406,8 +415,10 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         delegate.localNightMode =
             if (p === Palette.DARK) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
         val surface = ColorStateList.valueOf(p.surface)
-        for (card in listOf(b.navBanner, b.navInfo, b.statsRow)) card.backgroundTintList = surface
-        for (btn in listOf(b.btnSearch, b.btnRecenter, b.btnSettings)) {
+        b.infoPanel.backgroundTintList = surface
+        b.speedCard.backgroundTintList = ColorStateList.valueOf(ColorUtils.setAlphaComponent(p.surface, 225))
+        b.navDivider.setBackgroundColor(p.chip)
+        for (btn in listOf(b.btnSearch, b.btnRecenter, b.btnInfo, b.btnSettings)) {
             btn.backgroundTintList = surface
             btn.imageTintList = ColorStateList.valueOf(p.onSurface)
         }
@@ -415,8 +426,8 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         b.btnStopNav.backgroundTintList = ColorStateList.valueOf(p.onSurface)
         b.btnStopNav.imageTintList = surface
         tintTexts(b.overlay, p)
-        b.turnArrow.setColors(p.onSurface, p.surface)
-        b.gauge.setPalette(p)
+        updateSpeedColor()
+        updateInfoButton()
         b.topScrim.background = GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
             intArrayOf(ColorUtils.setAlphaComponent(p.surface, 200), ColorUtils.setAlphaComponent(p.surface, 0)),
@@ -483,19 +494,10 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         val l = Location(loc).apply { bearing = h }
         lastLoc = l
         map?.locationComponent?.let { if (it.isLocationComponentActivated) it.forceLocationUpdate(l) }
-        b.gauge.caption = buildString {
-            append(Geo.compass(h))
-            if (l.hasAltitude()) append(" · 海拔 ${l.altitude.toInt()}m")
-        }
     }
 
     private fun updateDashboard() {
-        b.gauge.setSpeed(units.speed(speedKmh).toFloat())
-        val loc = lastLoc
-        b.gauge.caption = if (loc == null) "等待定位" else buildString {
-            append(Geo.compass(lastBearing))
-            if (loc.hasAltitude()) append(" · 海拔 ${loc.altitude.toInt()}m")
-        }
+        showSpeed(units.speed(speedKmh).toFloat())
         b.tvTrip.text = String.format(Locale.US, "%.2f", units.bigDist(tracker.tripMeters))
         b.lblTrip.text = "里程 ${units.distUnit}"
         val s = tracker.movingMs / 1000
@@ -503,6 +505,45 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         else String.format(Locale.US, "%02d:%02d", s / 60, s % 60)
         b.tvAvg.text = String.format(Locale.US, "%.1f", units.speed(tracker.avgKmh))
         b.tvMax.text = String.format(Locale.US, "%.1f", units.speed(tracker.maxKmh))
+    }
+
+    /** 数字平滑滚动到新速度 */
+    private fun showSpeed(v: Float) {
+        speedAnim?.cancel()
+        speedAnim = ValueAnimator.ofFloat(shownSpeed, v).apply {
+            duration = 450
+            interpolator = DecelerateInterpolator()
+            addUpdateListener {
+                shownSpeed = it.animatedValue as Float
+                b.tvSpeed.text = shownSpeed.roundToInt().toString()
+            }
+            start()
+        }
+        updateSpeedColor()
+    }
+
+    /** 超速时数字变红，其余时间只用前景色 */
+    private fun updateSpeedColor() {
+        b.tvSpeed.setTextColor(if (speedKmh > prefs.speedLimit + 0.5) pal.danger else pal.onSurface)
+    }
+
+    /** 数据面板（骑行数据 + 导航剩余信息），默认隐藏 */
+    private fun setInfoVisible(show: Boolean) {
+        prefs.showInfo = show
+        b.infoPanel.isVisible = show
+        updateInfoButton()
+    }
+
+    /** 面板打开时按钮反色，表示“已开启” */
+    private fun updateInfoButton() {
+        val on = b.infoPanel.isVisible
+        b.btnInfo.backgroundTintList = ColorStateList.valueOf(if (on) pal.onSurface else pal.surface)
+        b.btnInfo.imageTintList = ColorStateList.valueOf(if (on) pal.surface else pal.onSurface)
+    }
+
+    private fun setNavSectionVisible(show: Boolean) {
+        b.navSection.isVisible = show
+        b.navDivider.isVisible = show
     }
 
     private fun updateGpsIndicator(loc: Location) {
@@ -585,28 +626,19 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         destPoint = null
         drawRoute(null)
         drawDest(null, null)
-        b.navBanner.isVisible = false
-        b.navInfo.isVisible = false
+        setNavSectionVisible(false)
         if (byUser) voice.speak("导航已结束")
         if (following) follow()
     }
 
     override fun onRouteReady(route: Route, reroute: Boolean) {
         drawRoute(route.coords)
-        b.navBanner.isVisible = true
-        b.navInfo.isVisible = true
+        setNavSectionVisible(true)
         if (!reroute) {
             voice.speak("开始导航，全程${units.spokenDist(route.length)}")
             follow()
         }
-        val first = route.steps.getOrNull(1)
-        if (first != null) {
-            b.turnArrow.set(first.type, first.modifier)
-            b.tvTurnText.text = first.instruction()
-            b.tvTurnDist.text = units.navDist(route.stepAlong[1])
-        }
         updateNavInfo(route.length)
-        b.bottomArea.post { updateTrackingPadding() }
     }
 
     override fun onRouteError(msg: String) {
@@ -618,9 +650,6 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     }
 
     override fun onProgress(p: NavProgress) {
-        b.turnArrow.set(p.step.type, p.step.modifier)
-        b.tvTurnDist.text = units.navDist(p.distToStep)
-        b.tvTurnText.text = p.step.instruction()
         nav.route?.let { drawRoute(it.remainingCoords(p.snap)) }
         updateNavInfo(p.remaining)
     }
@@ -728,9 +757,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     private fun applyPrefs() {
         units.imperial = prefs.imperial
         voice.enabled = prefs.voice
-        b.gauge.unit = units.speedUnit
-        b.gauge.maxSpeed = if (prefs.imperial) (prefs.gaugeMax * 0.621371f / 5).toInt() * 5f else prefs.gaugeMax.toFloat()
-        b.gauge.limit = units.speed(prefs.speedLimit.toDouble()).toFloat()
+        b.tvUnit.text = units.speedUnit
         updateDashboard()
     }
 
@@ -745,14 +772,6 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         sb.sliderLimit.addOnChangeListener { _, v, _ ->
             prefs.speedLimit = v.toInt()
             sb.tvLimit.text = limitText(v.toInt())
-            applyPrefs()
-        }
-
-        val gaugeIds = mapOf(40 to sb.g40.id, 60 to sb.g60.id, 80 to sb.g80.id, 120 to sb.g120.id)
-        sb.groupGauge.check(gaugeIds[prefs.gaugeMax] ?: sb.g60.id)
-        sb.groupGauge.addOnButtonCheckedListener { _, id, checked ->
-            if (!checked) return@addOnButtonCheckedListener
-            prefs.gaugeMax = gaugeIds.entries.first { it.value == id }.key
             applyPrefs()
         }
 

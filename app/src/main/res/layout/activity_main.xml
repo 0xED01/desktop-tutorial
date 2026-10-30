@@ -74,50 +74,6 @@
                     android:fontFeatureSettings="tnum"
                     android:textSize="15sp" />
             </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/navBanner"
-                style="@style/Card"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingHorizontal="18dp"
-                android:paddingVertical="14dp"
-                android:visibility="gone">
-
-                <com.ebike.dash.TurnArrowView
-                    android:id="@+id/turnArrow"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/tvTurnDist"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-medium"
-                        android:fontFeatureSettings="tnum"
-                        android:textSize="26sp" />
-
-                    <TextView
-                        android:id="@+id/tvTurnText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="1dp"
-                        android:ellipsize="end"
-                        android:maxLines="2"
-                        android:tag="label"
-                        android:textSize="15sp" />
-                </LinearLayout>
-            </LinearLayout>
         </LinearLayout>
 
         <!-- 右侧按钮 -->
@@ -134,10 +90,11 @@
 
             <ImageButton android:id="@+id/btnSearch" style="@style/RoundButton" android:src="@drawable/ic_search" android:contentDescription="搜索目的地" />
             <ImageButton android:id="@+id/btnRecenter" style="@style/RoundButton" android:src="@drawable/ic_my_location" android:contentDescription="回到当前位置" />
+            <ImageButton android:id="@+id/btnInfo" style="@style/RoundButton" android:src="@drawable/ic_bar_chart" android:contentDescription="骑行数据" />
             <ImageButton android:id="@+id/btnSettings" style="@style/RoundButton" android:src="@drawable/ic_settings" android:contentDescription="菜单" />
         </LinearLayout>
 
-        <!-- 底部：导航信息 + 码表 + 骑行数据 -->
+        <!-- 底部：可展开的数据面板 + 数字速度 -->
         <LinearLayout
             android:id="@+id/bottomArea"
             android:layout_width="wrap_content"
@@ -149,74 +106,117 @@
             android:orientation="vertical"
             android:padding="6dp">
 
+            <!-- 数据面板：默认隐藏，点右侧“数据”按钮显示 -->
             <LinearLayout
-                android:id="@+id/navInfo"
+                android:id="@+id/infoPanel"
                 style="@style/Card"
                 android:layout_width="316dp"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="10dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingVertical="8dp"
-                android:paddingStart="20dp"
-                android:paddingEnd="8dp"
+                android:orientation="vertical"
+                android:paddingVertical="12dp"
                 android:visibility="gone">
 
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                    <TextView android:id="@+id/tvRemain" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-                    <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="剩余" />
-                </LinearLayout>
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                    <TextView android:id="@+id/tvEtaMin" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-                    <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="用时" />
-                </LinearLayout>
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                    <TextView android:id="@+id/tvEta" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-                    <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="到达" />
+                <LinearLayout
+                    android:id="@+id/navSection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingEnd="10dp"
+                    android:visibility="gone">
+
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                        <TextView android:id="@+id/tvRemain" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="剩余" />
+                    </LinearLayout>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                        <TextView android:id="@+id/tvEtaMin" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="用时" />
+                    </LinearLayout>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                        <TextView android:id="@+id/tvEta" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="到达" />
+                    </LinearLayout>
+
+                    <ImageButton
+                        android:id="@+id/btnStopNav"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_circle"
+                        android:contentDescription="结束导航"
+                        android:padding="11dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/ic_close" />
                 </LinearLayout>
 
-                <ImageButton
-                    android:id="@+id/btnStopNav"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:background="@drawable/bg_circle"
-                    android:contentDescription="结束导航"
-                    android:padding="11dp"
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/ic_close" />
+                <View
+                    android:id="@+id/navDivider"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginHorizontal="20dp"
+                    android:layout_marginVertical="12dp"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:id="@+id/statsRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                        <TextView android:id="@+id/tvTrip" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView android:id="@+id/lblTrip" style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="里程 km" />
+                    </LinearLayout>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                        <TextView android:id="@+id/tvTime" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="时间" />
+                    </LinearLayout>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                        <TextView android:id="@+id/tvAvg" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="均速" />
+                    </LinearLayout>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                        <TextView android:id="@+id/tvMax" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="最高" />
+                    </LinearLayout>
+                </LinearLayout>
             </LinearLayout>
 
-            <com.ebike.dash.SpeedometerView
-                android:id="@+id/gauge"
-                android:layout_width="250dp"
-                android:layout_height="250dp"
-                android:elevation="3dp" />
-
+            <!-- 数字速度 -->
             <LinearLayout
-                android:id="@+id/statsRow"
+                android:id="@+id/speedCard"
                 style="@style/Card"
-                android:layout_width="316dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:baselineAligned="true"
+                android:gravity="center"
+                android:minWidth="200dp"
                 android:orientation="horizontal"
-                android:paddingVertical="12dp">
+                android:paddingHorizontal="32dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="8dp">
 
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
-                    <TextView android:id="@+id/tvTrip" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-                    <TextView android:id="@+id/lblTrip" style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="里程 km" />
-                </LinearLayout>
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
-                    <TextView android:id="@+id/tvTime" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-                    <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="时间" />
-                </LinearLayout>
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
-                    <TextView android:id="@+id/tvAvg" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-                    <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="均速" />
-                </LinearLayout>
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
-                    <TextView android:id="@+id/tvMax" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-                    <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="最高" />
-                </LinearLayout>
+                <TextView
+                    android:id="@+id/tvSpeed"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:fontFeatureSettings="tnum"
+                    android:includeFontPadding="false"
+                    android:letterSpacing="-0.03"
+                    android:text="0"
+                    android:textSize="92sp" />
+
+                <TextView
+                    android:id="@+id/tvUnit"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:tag="label"
+                    android:text="km/h"
+                    android:textSize="17sp" />
             </LinearLayout>
         </LinearLayout>
     </FrameLayout>

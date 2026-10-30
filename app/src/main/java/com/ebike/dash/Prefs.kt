@@ -10,9 +10,10 @@ class Prefs(ctx: Context) {
         get() = sp.getInt("limit", 25)
         set(v) = sp.edit().putInt("limit", v).apply()
 
-    var gaugeMax: Int
-        get() = sp.getInt("gaugeMax", 60)
-        set(v) = sp.edit().putInt("gaugeMax", v).apply()
+    /** 是否展开骑行数据面板 */
+    var showInfo: Boolean
+        get() = sp.getBoolean("showInfo", false)
+        set(v) = sp.edit().putBoolean("showInfo", v).apply()
 
     var imperial: Boolean
         get() = sp.getBoolean("imperial", false)
