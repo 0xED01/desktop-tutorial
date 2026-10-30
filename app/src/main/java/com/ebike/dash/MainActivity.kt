@@ -502,7 +502,6 @@ class MainActivity : AppCompatActivity(), LocationSink {
         }
         b.music.btnPlay.backgroundTintList = ColorStateList.valueOf(p.onSurface)
         b.music.btnPlay.imageTintList = surface
-        b.music.eq.backgroundTintList = ColorStateList.valueOf(p.chip)
         b.music.eq.setColor(p.onSurface)
         b.speed.energy.setColors(p.onSurface, p.chip)
         tintTexts(b.overlay, p)

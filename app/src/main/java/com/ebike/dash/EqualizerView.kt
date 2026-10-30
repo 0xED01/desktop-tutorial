@@ -86,7 +86,8 @@ class EqualizerView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         if (playing || rest < 1f) step()
         val d = resources.displayMetrics.density
-        val pad = min(width, height) * 0.22f
+        // 没有底框，柱子可以占满更多空间
+        val pad = min(width, height) * 0.1f
         val areaW = width - pad * 2
         val areaH = height - pad * 2
         // 柱宽：尽量粗一些，但不超过 10dp；间距是柱宽的 0.8 倍

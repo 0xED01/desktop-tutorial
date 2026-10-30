@@ -15,7 +15,6 @@
         android:id="@+id/eq"
         android:layout_width="46dp"
         android:layout_height="46dp"
-        android:background="@drawable/bg_art_small"
         android:importantForAccessibility="no"
         android:tag="4" />
 
