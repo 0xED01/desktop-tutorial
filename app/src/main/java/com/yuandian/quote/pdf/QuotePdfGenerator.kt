@@ -1,5 +1,6 @@
 package com.yuandian.quote.pdf
 
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -70,11 +71,45 @@ class QuotePdfGenerator {
     private val linePaint = Paint().apply { color = LINE; strokeWidth = 0.6f; style = Paint.Style.STROKE }
     private val fillPaint = Paint().apply { style = Paint.Style.FILL }
 
+    /** 页面输出目标：PDF 文件或位图（位图用于测试和截图） */
+    private interface PageSink {
+        fun begin(pageNo: Int): Canvas
+        fun end()
+    }
+
+    private class PdfSink(val doc: PdfDocument) : PageSink {
+        private var page: PdfDocument.Page? = null
+        override fun begin(pageNo: Int): Canvas =
+            doc.startPage(PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, pageNo).create()).also { page = it }.canvas
+        override fun end() { doc.finishPage(page) }
+    }
+
     fun generate(quote: Quote, company: CompanyProfile, out: File) {
         // 第一遍：统计总页数；第二遍：带“共 N 页”正式输出
-        val pages = render(quote, company, null, null)
+        val pages = PdfDocument().let { doc -> render(quote, company, null, PdfSink(doc)).also { doc.close() } }
         out.parentFile?.mkdirs()
-        FileOutputStream(out).use { render(quote, company, pages, it) }
+        val doc = PdfDocument()
+        try {
+            render(quote, company, pages, PdfSink(doc))
+            FileOutputStream(out).use { doc.writeTo(it) }
+        } finally {
+            doc.close()
+        }
+    }
+
+    /** 用同一套排版把报价单画成位图，每页一张；scale = 1 时为 595×842 像素 */
+    fun renderToBitmaps(quote: Quote, company: CompanyProfile, scale: Float): List<Bitmap> {
+        fun sink(out: MutableList<Bitmap>) = object : PageSink {
+            override fun begin(pageNo: Int): Canvas {
+                val bmp = Bitmap.createBitmap((PAGE_W * scale).toInt(), (PAGE_H * scale).toInt(), Bitmap.Config.ARGB_8888)
+                bmp.eraseColor(Color.WHITE)
+                out.add(bmp)
+                return Canvas(bmp).apply { scale(scale, scale) }
+            }
+            override fun end() {}
+        }
+        val pages = render(quote, company, null, sink(mutableListOf()))
+        return mutableListOf<Bitmap>().also { render(quote, company, pages, sink(it)) }
     }
 
     private fun layout(text: String, p: TextPaint, width: Float, align: Align = Align.LEFT): StaticLayout {
@@ -94,11 +129,9 @@ class QuotePdfGenerator {
         save(); translate(x, y); l.draw(this); restore()
     }
 
-    /** 返回总页数；out 为 null 时只计算不输出。 */
-    private fun render(quote: Quote, company: CompanyProfile, totalPages: Int?, out: FileOutputStream?): Int {
-        val doc = PdfDocument()
+    /** 排版并逐页输出，返回总页数；totalPages 为 null 时页脚不显示“共 N 页”。 */
+    private fun render(quote: Quote, company: CompanyProfile, totalPages: Int?, sink: PageSink): Int {
         var pageNo = 0
-        lateinit var page: PdfDocument.Page
         lateinit var canvas: Canvas
         var y = 0f
         val bottom = PAGE_H - MARGIN - FOOTER_H
@@ -110,13 +143,12 @@ class QuotePdfGenerator {
             canvas.drawText("本报价单由「原点报价助手」生成", MARGIN, PAGE_H - MARGIN, fp)
             val pageText = if (totalPages != null) "第 $pageNo 页 / 共 $totalPages 页" else "第 $pageNo 页"
             canvas.drawText(pageText, PAGE_W - MARGIN - fp.measureText(pageText), PAGE_H - MARGIN, fp)
-            doc.finishPage(page)
+            sink.end()
         }
 
         fun newPage() {
             pageNo++
-            page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, pageNo).create())
-            canvas = page.canvas
+            canvas = sink.begin(pageNo)
             y = MARGIN
         }
 
@@ -281,8 +313,6 @@ class QuotePdfGenerator {
         canvas.drawText("日期：", MARGIN + half, y + 10f, sp)
 
         finishPage()
-        if (out != null) doc.writeTo(out)
-        doc.close()
         return pageNo
     }
 }
