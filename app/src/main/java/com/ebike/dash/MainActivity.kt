@@ -1057,6 +1057,25 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             dlg.dismiss()
             pickVoice()
         }
+        // 声音甜度：调音调，松手试听
+        fun pitchText(v: Float) = "声音甜度  " + when {
+            v < 1.0f -> "沉稳"
+            v < 1.15f -> "自然"
+            v < 1.3f -> "甜美"
+            else -> "超甜"
+        }
+        val pitch = (Math.round(prefs.voicePitch / 0.05f) * 0.05f).coerceIn(0.9f, 1.5f)
+        sb.sliderPitch.value = pitch
+        sb.tvPitch.text = pitchText(pitch)
+        sb.sliderPitch.addOnChangeListener { _, v, _ -> sb.tvPitch.text = pitchText(v) }
+        sb.sliderPitch.addOnSliderTouchListener(object : com.google.android.material.slider.Slider.OnSliderTouchListener {
+            override fun onStartTrackingTouch(slider: com.google.android.material.slider.Slider) {}
+            override fun onStopTrackingTouch(slider: com.google.android.material.slider.Slider) {
+                prefs.voicePitch = slider.value
+                voice.applyTone()
+                voice.preview()
+            }
+        })
         sb.swBackground.isChecked = prefs.backgroundRecord
         sb.swBackground.setOnCheckedChangeListener { _, c ->
             prefs.backgroundRecord = c

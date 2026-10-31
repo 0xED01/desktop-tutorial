@@ -81,16 +81,21 @@ class Voice(ctx: Context, private val prefs: Prefs) : TextToSpeech.OnInitListene
                 if (cn == TextToSpeech.LANG_MISSING_DATA || cn == TextToSpeech.LANG_NOT_SUPPORTED) tts.setLanguage(Locale.getDefault())
             }
         }
-        // 略高的音调、略慢的语速，听起来更柔和
-        tts.setPitch(if (taiwanese) 1.12f else 1.05f)
-        tts.setSpeechRate(0.95f)
+        applyTone()
         onChanged?.invoke()
+    }
+
+    /** 音调（甜度）调高一点、语速略慢，听起来更甜、更柔和 */
+    fun applyTone() {
+        if (!ready) return
+        tts.setPitch(prefs.voicePitch)
+        tts.setSpeechRate(0.95f)
     }
 
     /** 选好声音后试听一句 */
     fun preview() {
         if (!ready) return
-        val text = if (taiwanese) "前方三百公尺右转，进入中山北路，骑车注意安全喔" else "前方三百米右转，进入中山北路，骑行注意安全"
+        val text = if (taiwanese) "前方三百公尺右转唷，进入中山北路，骑车要注意安全喔" else "前方三百米右转，进入中山北路，骑行注意安全"
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "driver-preview")
     }
 

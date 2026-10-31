@@ -35,6 +35,11 @@ class Prefs(ctx: Context) {
         get() = sp.getString("voiceName", null)
         set(v) = sp.edit().putString("voiceName", v).apply()
 
+    /** 播报音调（“甜度”），1.0 为原声 */
+    var voicePitch: Float
+        get() = sp.getFloat("voicePitch", 1.2f)
+        set(v) = sp.edit().putFloat("voicePitch", v).apply()
+
     /** 是否展开迷你播放器 */
     var showMusic: Boolean
         get() = sp.getBoolean("showMusic", false)
