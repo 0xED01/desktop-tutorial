@@ -53,38 +53,6 @@
             style="@style/Menu.Switch"
             android:text="语音播报" />
 
-        <Button
-            android:id="@+id/btnVoicePick"
-            style="@style/Menu.Action"
-            android:text="播报声音" />
-
-        <TextView
-            android:id="@+id/tvPitch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:textColor="@color/fg"
-            android:textSize="15sp" />
-
-        <com.google.android.material.slider.Slider
-            android:id="@+id/sliderPitch"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:stepSize="0.05"
-            android:valueFrom="0.9"
-            android:valueTo="1.5"
-            app:haloRadius="0dp"
-            app:labelBehavior="gone"
-            app:thumbColor="@color/fg"
-            app:thumbHeight="14dp"
-            app:thumbTrackGapSize="0dp"
-            app:thumbWidth="14dp"
-            app:tickVisible="false"
-            app:trackColorActive="@color/fg"
-            app:trackColorInactive="@color/chip"
-            app:trackHeight="4dp"
-            app:trackStopIndicatorSize="0dp" />
-
         <!-- 足迹 -->
         <TextView
             style="@style/Menu.Section"

@@ -144,7 +144,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         tracker.restore(prefs)
         track = TrackStore(File(filesDir, "track.txt")).apply { load() }
         music = MusicController(this) { onMusicChanged(it) }
-        voice = Voice(this, prefs).apply { onChanged = { units.taiwanese = taiwanese } }
+        voice = Voice(this)
         nav = NavigationEngine(lifecycleScope, this, units)
         offline = OfflineMaps(this).apply {
             onUpdate = { refreshDownloadPanel() }
@@ -894,39 +894,6 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         stopNavigation(false)
     }
 
-    /** 选择播报声音：列出手机上的中文语音（台湾在前），选中后试听 */
-    private fun pickVoice() {
-        val opts = voice.options()
-        val hasTaiwan = opts.any { it.taiwan }
-        val items = mutableListOf("自动（优先台湾口音）")
-        items += opts.map { it.label }
-        if (!hasTaiwan) items += "安装台湾口音语音…"
-        val title = if (hasTaiwan) "选择播报声音（选后试听）" else "手机里还没有台湾口音的语音"
-        FloatingPanel.actions(this, title, items) { i ->
-            when {
-                i == 0 -> { prefs.voiceName = null; voice.apply(null); voice.preview() }
-                i <= opts.size -> {
-                    val o = opts[i - 1]
-                    prefs.voiceName = o.name
-                    voice.apply(o.name)
-                    voice.preview()
-                }
-                else -> FloatingPanel.confirm(
-                    this,
-                    "安装台湾口音语音",
-                    "在系统设置的“文字转语音”里，把首选引擎设为“Google 语音服务”，再在其中下载“中文（台湾）”语音包，回到 Driver 选择即可。",
-                    positive = "去设置",
-                ) {
-                    try {
-                        startActivity(Intent("com.android.settings.TTS_SETTINGS"))
-                    } catch (_: Exception) {
-                        toast("请在系统设置中搜索“文字转语音”")
-                    }
-                }
-            }
-        }
-    }
-
     // ---------------------------------------------------------------- 音乐
 
     private fun setupMusicCard() {
@@ -1034,7 +1001,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     /** 菜单内容；切换浅色 / 深色时会用新配色重新生成 */
     private fun bindSettings(inf: LayoutInflater, dlg: FloatingPanel): View {
         val sb = DialogSettingsBinding.inflate(inf)
-        Motion.pressable(sb.btnClearTrack, sb.btnMusicAccess, sb.btnDemo, sb.btnResetTrip, sb.btnVoicePick)
+        Motion.pressable(sb.btnClearTrack, sb.btnMusicAccess, sb.btnDemo, sb.btnResetTrip)
 
         sb.swLabels.isChecked = prefs.showLabels
         sb.swLabels.setOnCheckedChangeListener { _, c ->
@@ -1052,30 +1019,6 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
 
         sb.swVoice.isChecked = prefs.voice
         sb.swVoice.setOnCheckedChangeListener { _, c -> prefs.voice = c; applyPrefs() }
-        sb.btnVoicePick.text = "播报声音：${voice.currentLabel()}"
-        sb.btnVoicePick.setOnClickListener {
-            dlg.dismiss()
-            pickVoice()
-        }
-        // 声音甜度：调音调，松手试听
-        fun pitchText(v: Float) = "声音甜度  " + when {
-            v < 1.0f -> "沉稳"
-            v < 1.15f -> "自然"
-            v < 1.3f -> "甜美"
-            else -> "超甜"
-        }
-        val pitch = (Math.round(prefs.voicePitch / 0.05f) * 0.05f).coerceIn(0.9f, 1.5f)
-        sb.sliderPitch.value = pitch
-        sb.tvPitch.text = pitchText(pitch)
-        sb.sliderPitch.addOnChangeListener { _, v, _ -> sb.tvPitch.text = pitchText(v) }
-        sb.sliderPitch.addOnSliderTouchListener(object : com.google.android.material.slider.Slider.OnSliderTouchListener {
-            override fun onStartTrackingTouch(slider: com.google.android.material.slider.Slider) {}
-            override fun onStopTrackingTouch(slider: com.google.android.material.slider.Slider) {
-                prefs.voicePitch = slider.value
-                voice.applyTone()
-                voice.preview()
-            }
-        })
         sb.swBackground.isChecked = prefs.backgroundRecord
         sb.swBackground.setOnCheckedChangeListener { _, c ->
             prefs.backgroundRecord = c
