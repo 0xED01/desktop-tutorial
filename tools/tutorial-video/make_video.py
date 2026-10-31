@@ -10,9 +10,44 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 SHOTS, FONTS, OUT = (Path(p) for p in sys.argv[1:4])
+TTS_PY, TTS_MODEL = sys.argv[4], sys.argv[5]  # Piper 所在的 python 与中文语音模型
+WORK = OUT / "_audio"
+WORK.mkdir(parents=True, exist_ok=True)
+SR = 44100
+
+# 每个画面的旁白（显示在配音稿里的文字）
+NARRATION = {
+    "intro": "原点报价助手，专为五金机电企业打造，几分钟做好一张专业报价单。",
+    "f00": "首页工作台，客户、商品、报价一目了然。",
+    "f01": "第一步，添加客户。点击底部“客户”。",
+    "f02": "再点右下角的“添加客户”。",
+    "f03": "填写公司名称、联系人和电话，然后保存。",
+    "f04": "客户添加成功，支持快速搜索。",
+    "f05": "第二步，进入商品页，点击“添加商品”。",
+    "f06": "录入名称、型号、规格和单价，保存。",
+    "f07": "商品库建好，报价时直接选用。",
+    "f08": "第三步，回到工作台，点击“新建报价单”。",
+    "f09": "报价编号自动生成。点这里选择客户。",
+    "f10": "直接点选刚才添加的客户。",
+    "f11": "第四步，从商品库添加商品。",
+    "f12": "可以一次勾选多个商品，点击添加。",
+    "f13": "第五步，数量和单价随意修改，金额自动计算。",
+    "f14": "第六步，点击“保存报价”。",
+    "f15": "报价单已生成，PDF 同步做好。",
+    "pdf": "这是生成的 A4 报价单，排版清晰，金额自动转大写。",
+    "f16": "第七步，可以把 PDF 保存到手机。",
+    "f17": "第八步，点击“分享”，选择微信，直接发给客户。",
+    "outro": "客户管理、商品库、一键报价、PDF 导出，全部离线可用。原点软件出品。",
+}
+
+
+def speech_text(s):
+    """送给语音合成的文本：去掉引号，字母数字之间加空格以便正确朗读"""
+    return s.replace("“", "").replace("”", "").replace("A4", "A 4").replace("PDF", "P D F")
 OUT.mkdir(parents=True, exist_ok=True)
 
 W, H, FPS = 1080, 1920, 30
@@ -117,8 +152,9 @@ def header(img, pill_text, heading, sub):
 
 # ---------------- 场景 ----------------
 class Scene:
-    def __init__(self, dur, render, voice=""):
-        self.dur, self.render, self.voice = dur, render, voice
+    def __init__(self, dur, render, key):
+        self.dur, self.render, self.key = dur, render, key
+        self.voice = NARRATION.get(key, "")
 
 
 def ease(x):
@@ -149,7 +185,7 @@ def intro_scene():
         layer.putalpha(layer.getchannel("A").point(lambda v: int(v * a)))
         img.paste(layer, (0, 0), layer)
         return img
-    return Scene(3.2, render, "原点报价助手，专为五金、机械设备和工业配件企业设计。手机上几分钟，就能做好一张专业报价单。")
+    return Scene(3.2, render, "intro")
 
 
 def app_scene(fr):
@@ -183,8 +219,7 @@ def app_scene(fr):
                 d.ellipse([x - r0, y - r0, x + r0, y + r0], fill=GREEN + (120,), outline=(255, 255, 255, 230), width=4)
                 img.paste(ov, (0, 0), ov)
         return img
-    voice = fr["sub"].replace("「", "“").replace("」", "”")
-    return Scene(hold, render, (h + "。" if p != "首页" else "") + voice + "。")
+    return Scene(hold, render, fr["file"][:-4])
 
 
 def pdf_scene():
@@ -214,7 +249,7 @@ def pdf_scene():
                 gd.line([(0, i), (W, i)], fill=int(255 * i / fade_h))
             img.paste(BG.crop((0, H - fade_h, W, H)), (0, H - fade_h), grad)
         return img
-    return Scene(3.8, render, "报价单自动生成标准A4格式的PDF，中文排版清晰，金额自动转换大写，可以直接发给客户。")
+    return Scene(3.8, render, "pdf")
 
 
 def outro_scene():
@@ -255,7 +290,7 @@ def outro_scene():
         if a < 1:
             img = Image.blend(BG, img, a)
         return img
-    return Scene(5.0, render, "客户管理、商品库、一键报价、PDF导出，完全离线使用。原点报价助手，原点软件出品。")
+    return Scene(5.0, render, "outro")
 
 
 frames = json.loads((SHOTS / "frames.json").read_text())
@@ -266,16 +301,34 @@ for fr in frames:
         scenes.append(pdf_scene())
 scenes.append(outro_scene())
 
+VOICE_START = 0.35  # 画面出现后多久开始说话
+jobs = [{"text": speech_text(sc.voice), "out": str(WORK / f"{i:02d}_{sc.key}.wav")} for i, sc in enumerate(scenes)]
+(WORK / "jobs.json").write_text(json.dumps(jobs, ensure_ascii=False), encoding="utf-8")
+subprocess.run([TTS_PY, "-I", str(Path(__file__).with_name("tts_batch.py")), TTS_MODEL, str(WORK / "jobs.json")], check=True)
+
+
+def read_wav(path):
+    import wave
+    with wave.open(str(path)) as wf:
+        sr, n = wf.getframerate(), wf.getnframes()
+        x = np.frombuffer(wf.readframes(n), dtype=np.int16).astype(np.float32) / 32768
+    t_new = np.arange(int(len(x) * SR / sr)) / SR
+    return np.interp(t_new, np.arange(len(x)) / sr, x)
+
+
+voices = [read_wav(j["out"]) for j in jobs]
+for sc, v in zip(scenes, voices):
+    sc.dur = max(sc.dur, VOICE_START + len(v) / SR + 0.4)
+
 total = sum(s.dur for s in scenes)
 print(f"{len(scenes)} 个场景，时长 {total:.1f} 秒")
 
 out_mp4 = OUT / "原点报价助手_使用教程_竖屏.mp4"
+silent_mp4 = WORK / "video_only.mp4"
 cmd = [
     "ffmpeg", "-y", "-loglevel", "error",
     "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
-    "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
-    "-shortest", "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
-    "-c:a", "aac", "-b:a", "64k", "-movflags", "+faststart", str(out_mp4),
+    "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", str(silent_mp4),
 ]
 proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
 
@@ -301,6 +354,67 @@ for idx, sc in enumerate(scenes):
 proc.stdin.close()
 proc.wait()
 
+# ---------------- 音轨：配音 + 自制背景音乐 ----------------
+n_total = int(elapsed * SR) + SR
+voice_track = np.zeros(n_total, np.float32)
+for (start, _), v in zip(script_lines, voices):
+    i = int((start + VOICE_START) * SR)
+    voice_track[i:i + len(v)] += v[: n_total - i]
+peak = np.abs(voice_track).max() or 1
+voice_track *= 0.85 / peak
+
+
+def background_music(n):
+    """轻柔的钢琴感和弦琶音：C - Am - F - G 循环，约 96 BPM"""
+    t = np.arange(n) / SR
+    out = np.zeros(n, np.float32)
+    beat = 60 / 96
+    chords = [[60, 64, 67, 72], [57, 60, 64, 69], [53, 57, 60, 65], [55, 59, 62, 67]]
+    hz = lambda m: 440 * 2 ** ((m - 69) / 12)
+    bar = beat * 4
+    k = 0
+    while k * beat * 0.5 < n / SR:
+        st = k * beat * 0.5
+        chord = chords[int(st // bar) % 4]
+        note = chord[[0, 1, 2, 3, 2, 1, 2, 3][k % 8]] + 12
+        i0 = int(st * SR)
+        L = min(int(1.6 * SR), n - i0)
+        tt = np.arange(L) / SR
+        env = np.exp(-tt * 3.2) * np.minimum(1, tt / 0.008)
+        f = hz(note)
+        out[i0:i0 + L] += (np.sin(2 * np.pi * f * tt) + 0.3 * np.sin(4 * np.pi * f * tt)) * env * 0.16
+        k += 1
+    for c in range(int(n / SR / bar) + 1):  # 低音铺底
+        chord = chords[c % 4]
+        i0 = int(c * bar * SR)
+        L = min(int(bar * SR), n - i0)
+        if L <= 0:
+            break
+        tt = np.arange(L) / SR
+        env = np.minimum(1, tt / 0.3) * np.minimum(1, (bar - tt) / 0.4)
+        for m in (chord[0] - 12, chord[0], chord[2]):
+            out[i0:i0 + L] += np.sin(2 * np.pi * hz(m) * tt) * env * 0.07
+    fade = int(1.5 * SR)
+    out[:fade] *= np.linspace(0, 1, fade)
+    out[-fade * 2:] *= np.linspace(1, 0, fade * 2)
+    return out / (np.abs(out).max() or 1)
+
+
+music = background_music(n_total)
+# 说话时把音乐压低（简单的闪避）
+env = np.convolve((np.abs(voice_track) > 0.02).astype(np.float32), np.ones(int(0.25 * SR)) / int(0.25 * SR), mode="same")
+duck = 1 - 0.55 * np.clip(env * 3, 0, 1)
+mix = voice_track + music * 0.22 * duck
+mix = np.clip(mix / max(1.0, np.abs(mix).max() / 0.95), -1, 1)
+import wave
+with wave.open(str(WORK / "mix.wav"), "wb") as wf:
+    wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(SR)
+    wf.writeframes((mix * 32767).astype(np.int16).tobytes())
+subprocess.run([
+    "ffmpeg", "-y", "-loglevel", "error", "-i", str(silent_mp4), "-i", str(WORK / "mix.wav"),
+    "-c:v", "copy", "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-shortest", "-movflags", "+faststart", str(out_mp4),
+], check=True)
+
 # 配音稿（去掉连续重复的句子）
 lines, seen = [], None
 for ts, v in script_lines:
@@ -309,7 +423,7 @@ for ts, v in script_lines:
     seen = v
 (OUT / "配音稿.txt").write_text(
     "原点报价助手 · 使用教程 配音稿\n"
-    "（时间为视频中对应画面的开始时间，可在剪映中「文本朗读」生成 AI 配音）\n\n" + "\n".join(lines) + "\n",
+    "（时间为视频中对应画面的开始时间；正式发布时可在剪映中用「文本朗读」重新生成配音）\n\n" + "\n".join(lines) + "\n",
     encoding="utf-8",
 )
 print("完成：", out_mp4)

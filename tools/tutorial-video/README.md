@@ -9,6 +9,14 @@
 2. **`make_video.py`**：用 Pillow 和 ffmpeg 把截图合成 1080×1920 竖屏视频，
    包含片头、手机外框、步骤字幕、点击动画、PDF 展示和片尾。同时输出封面图和配音稿。
    字幕字体为 Noto Sans SC（SIL OFL 开源许可）。
+3. **配音**：`tts_batch.py` 调用开源离线语音合成 Piper（中文音色 zh_CN-huayan-medium）生成旁白，
+   每个画面的停留时间按旁白长度自动延长。背景音乐由 `make_video.py` 用代码合成（C-Am-F-G 琶音），
+   没有版权问题；说话时音乐会自动压低。
+
+   用法：`python3 make_video.py <截图目录> <字体目录> <输出目录> <装有 piper-tts 的 python> <huayan.onnx>`
+
+   ⚠️ huayan 音色的训练数据授权标注为「Unknown」，适合内部演示。
+   正式商业发布前，建议在剪映中用「文本朗读」按 `配音稿.txt` 重新配音，或使用真人录音。
 
 截图测试依赖 Robolectric 4.14.1、Roborazzi 1.39.0 和 compose ui-test。
 为了不增加主项目的同步时间，这些依赖没有加入主工程；需要重新生成视频时，
