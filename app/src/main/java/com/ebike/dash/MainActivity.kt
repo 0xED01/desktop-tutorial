@@ -77,6 +77,9 @@ class MainActivity : AppCompatActivity(), LocationSink {
     private lateinit var gps: GpsSource
     private lateinit var track: TrackStore
     private lateinit var music: MusicController
+    private lateinit var offline: OfflineMaps
+    private var dl: com.ebike.dash.databinding.PanelDownloadBinding? = null
+    private var dlPanel: FloatingPanel? = null
     private var musicSheet: MusicSheet? = null
     private val units = Units()
     private val tracker = RideTracker()
@@ -126,6 +129,13 @@ class MainActivity : AppCompatActivity(), LocationSink {
         tracker.restore(prefs)
         track = TrackStore(File(filesDir, "track.txt")).apply { load() }
         music = MusicController(this) { onMusicChanged(it) }
+        offline = OfflineMaps(this).apply {
+            onUpdate = { refreshDownloadPanel() }
+            onFinished = { ok, msg ->
+                dlPanel?.dismiss()
+                toast(if (ok) "离线地图已就绪，没有网络也能看附近的地图" else "离线地图下载失败：${msg ?: "未知原因"}")
+            }
+        }
 
         b.mapView.onCreate(savedInstanceState)
         b.mapView.getMapAsync { m ->
@@ -810,6 +820,30 @@ class MainActivity : AppCompatActivity(), LocationSink {
             dlg.dismiss()
             confirmClearTrack()
         }
+        // 离线地图
+        if (offline.downloading) {
+            sb.tvOffline.text = "正在下载离线地图 ${(offline.progress * 100).toInt()}%"
+        } else {
+            sb.tvOffline.text = "下载后，没有网络时也能显示附近的地图。浏览过的地方也会自动缓存。"
+            offline.summary { areas, bytes ->
+                if (areas > 0) {
+                    sb.tvOffline.text = String.format(Locale.US, "已下载 %d 个区域，约 %.0f MB。没有网络时也能显示。", areas, bytes / 1048576.0)
+                    sb.btnOfflineDelete.isVisible = true
+                }
+            }
+        }
+        Motion.pressable(sb.btnOfflineDownload, sb.btnOfflineDelete)
+        sb.btnOfflineDownload.setOnClickListener {
+            dlg.dismiss()
+            if (offline.downloading) showDownloadPanel() else confirmOfflineDownload()
+        }
+        sb.btnOfflineDelete.setOnClickListener {
+            dlg.dismiss()
+            FloatingPanel.confirm(this, "删除离线地图？", "删除后，没有网络时将无法显示这些地方的地图。", "删除") {
+                offline.deleteAll { toast("离线地图已删除") }
+            }
+        }
+
         sb.btnMusicAccess.text = if (music.hasAccess()) "歌名显示：已开启" else "开启歌名显示"
         sb.btnMusicAccess.setOnClickListener {
             dlg.dismiss()
@@ -836,6 +870,57 @@ class MainActivity : AppCompatActivity(), LocationSink {
             confirmResetTrip()
         }
         return sb.root
+    }
+
+    // ---------------------------------------------------------------- 离线地图
+
+    private fun confirmOfflineDownload() {
+        val center = currentPos() ?: map?.cameraPosition?.target?.let { doubleArrayOf(it.latitude, it.longitude) }
+        if (center == null) {
+            toast("还没有定位，请稍候再试")
+            return
+        }
+        FloatingPanel.confirm(
+            this,
+            "下载附近的离线地图",
+            "以当前位置为中心约 ${OfflineMaps.RADIUS_KM.toInt()} 公里范围，浅色和深色两套，大约 30–60 MB。\n\n建议连接 Wi‑Fi 后下载。",
+            positive = "开始下载",
+        ) {
+            offline.download(center[0], center[1])
+            showDownloadPanel()
+        }
+    }
+
+    private fun showDownloadPanel() {
+        dlPanel = FloatingPanel(this, maxWidthDp = 360) { inf, panel ->
+            val v = com.ebike.dash.databinding.PanelDownloadBinding.inflate(inf)
+            dl = v
+            v.bar.setColors(FloatingPanel.palette.onSurface, FloatingPanel.palette.chip)
+            Motion.pressable(v.btnPositive, v.btnNegative)
+            v.btnPositive.setOnClickListener {
+                panel.dismiss()
+                if (offline.downloading) toast("下载会在后台继续，完成后提醒你")
+            }
+            v.btnNegative.setOnClickListener {
+                offline.cancel()
+                panel.dismiss()
+                toast("已取消下载")
+            }
+            refreshDownloadPanel()
+            v.root
+        }.apply {
+            onDismiss = { dl = null; dlPanel = null }
+            show()
+        }
+    }
+
+    private fun refreshDownloadPanel() {
+        val v = dl ?: return
+        v.tvMessage.text = offline.notice ?: "下载完成后，没有网络也能显示这片区域的地图。"
+        v.bar.level = offline.progress
+        v.tvPercent.text = String.format(
+            Locale.US, "%d%%  ·  %.1f MB", (offline.progress * 100).toInt(), offline.bytes / 1048576.0,
+        )
     }
 
     private fun confirmClearTrack() {

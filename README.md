@@ -33,6 +33,7 @@
 **地图**
 - MapLibre 矢量地图（OpenFreeMap 灰阶样式），倾斜视角，地名优先显示中文
 - 菜单里可开关"显示地名"；行政区划边界虚线已隐藏
+- **离线地图**：菜单 → 离线地图 → 下载附近 20 公里（浅色 + 深色，约 30–60 MB），没有网络也能显示；浏览过的地方也会自动缓存（最多 200 MB）。GPS 测速和足迹记录本身不需要网络
 - 浅色 / 深色两套主题（界面和地图一起切换），可自动按时间切换
 - 我的位置是简约箭头，始终指向手机前方：骑行时按 GPS 行进方向，停车时按手机指南针
 - 指南针与右侧按钮同款圆形样式，放在按钮列上方
@@ -76,6 +77,7 @@ adb install -r app/build/outputs/apk/release/app-release.apk
 | `MusicController.kt` | 读取 / 控制正在播放的音乐（优先 Apple Music） |
 | `MusicSheet.kt` | 悬浮播放器 |
 | `FloatingPanel.kt` | 统一的悬浮卡片（菜单、播放器、确认提示） |
+| `OfflineMaps.kt` | 离线地图下载、统计与删除 |
 | `RecordingService.kt` | 前台服务：锁屏 / 后台时继续记录足迹 |
 | `MusicListenerService.kt` | "通知使用权"所需的空服务 |
 | `LocationSources.kt` | 系统 GPS 定位 + 演示模式模拟器 |
@@ -96,6 +98,7 @@ adb install -r app/build/outputs/apk/release/app-release.apk
 
 ## 后续可以继续优化
 
+- 离线地图支持按城市选择下载
 - 足迹按日期查看、回放、导出 GPX
 - 足迹热力图 / 探索过的区域统计（"点亮城市"）
 - 蓝牙连接电动车控制器，显示真实电量和续航
