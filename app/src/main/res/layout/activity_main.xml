@@ -87,6 +87,7 @@
             <ImageButton android:id="@+id/btnRecenter" style="@style/RoundButton" android:src="@drawable/ic_my_location" android:contentDescription="回到当前位置" />
             <ImageButton android:id="@+id/btnInfo" style="@style/RoundButton" android:src="@drawable/ic_bar_chart" android:contentDescription="骑行数据" />
             <ImageButton android:id="@+id/btnMusic" style="@style/RoundButton" android:src="@drawable/ic_music" android:contentDescription="音乐" />
+            <ImageButton android:id="@+id/btnExplore" style="@style/RoundButton" android:src="@drawable/ic_sparkle" android:contentDescription="探索" />
             <ImageButton android:id="@+id/btnSettings" style="@style/RoundButton" android:src="@drawable/ic_settings" android:contentDescription="菜单" />
         </LinearLayout>
 
@@ -259,5 +260,175 @@
                     android:text="下载这个范围" />
             </LinearLayout>
         </LinearLayout>
+    </FrameLayout>
+
+    <!-- 玩法模式（点亮城市、骑行回放）：主界面淡出，底部一张卡片 -->
+    <FrameLayout
+        android:id="@+id/modeOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone">
+
+        <!-- 回放结尾的 Driver 字标 -->
+        <ImageView
+            android:id="@+id/modeLogo"
+            android:layout_width="220dp"
+            android:layout_height="220dp"
+            android:layout_gravity="center"
+            android:layout_marginBottom="120dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_launcher_fg"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/modeCard"
+            style="@style/Card"
+            android:layout_width="316dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="28dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:id="@+id/tvModeTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:tag="label"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/tvModeBig"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:fontFamily="sans-serif-medium"
+                android:fontFeatureSettings="tnum"
+                android:includeFontPadding="false"
+                android:textSize="40sp" />
+
+            <TextView
+                android:id="@+id/tvModeSub"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFeatureSettings="tnum"
+                android:tag="label"
+                android:textSize="13sp" />
+
+            <com.ebike.dash.EnergyBarView
+                android:id="@+id/modeBar"
+                android:layout_width="match_parent"
+                android:layout_height="6dp"
+                android:layout_marginTop="14dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/btnModeLeft"
+                    style="@style/PillButton"
+                    android:layout_marginEnd="10dp" />
+
+                <TextView
+                    android:id="@+id/btnModeRight"
+                    style="@style/PillButton" />
+            </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- 夜骑仪表：全黑屏幕，只留巨大的速度和能量条；轻点两下退出 -->
+    <FrameLayout
+        android:id="@+id/nightDash"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:layout_marginHorizontal="24dp"
+            android:layout_marginTop="28dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvNightClock"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textAppearance="@style/StatusText"
+                android:textColor="#80FFFFFF" />
+
+            <TextView
+                android:id="@+id/tvNightBattery"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/StatusText"
+                android:textColor="#80FFFFFF" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvNightSpeed"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:fontFeatureSettings="tnum"
+                android:includeFontPadding="false"
+                android:letterSpacing="-0.03"
+                android:text="0"
+                android:textColor="#FFFFFF"
+                android:textSize="168sp" />
+
+            <TextView
+                android:id="@+id/tvNightUnit"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.08"
+                android:text="km/h"
+                android:textColor="#80FFFFFF"
+                android:textSize="16sp" />
+
+            <com.ebike.dash.EnergyBarView
+                android:id="@+id/nightEnergy"
+                android:layout_width="280dp"
+                android:layout_height="8dp"
+                android:layout_marginTop="36dp" />
+
+            <TextView
+                android:id="@+id/tvNightInfo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:fontFeatureSettings="tnum"
+                android:textColor="#80FFFFFF"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvNightHint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="36dp"
+            android:text="轻点两下退出"
+            android:textColor="#59FFFFFF"
+            android:textSize="13sp" />
     </FrameLayout>
 </FrameLayout>

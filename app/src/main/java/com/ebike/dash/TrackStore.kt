@@ -7,12 +7,15 @@ import java.util.Locale
 
 /**
  * 足迹：把骑过的路按段记录下来。
- * 文件格式很简单：每行 “纬度,经度”，单独一行 “S” 表示新的一段。
+ * 文件格式很简单：每行 “纬度,经度”，以 “S” 开头的一行表示新的一段，
+ * 新版会写成 “S,开始时间(毫秒)”，旧文件里只有 “S” 的段没有时间。
  * file 为 null 时只存在内存里（演示模式用）。
  */
 class TrackStore(private val file: File?) {
     /** 所有段，最后一段可能是正在记录的当前段 */
     val segments = ArrayList<MutableList<DoubleArray>>()
+    /** 每段的开始时间（毫秒），0 表示未知（旧数据） */
+    val segmentStart = java.util.IdentityHashMap<List<DoubleArray>, Long>()
     var totalMeters = 0.0; private set
 
     private var current: MutableList<DoubleArray>? = null
@@ -24,13 +27,15 @@ class TrackStore(private val file: File?) {
 
     fun load() {
         segments.clear()
+        segmentStart.clear()
         totalMeters = 0.0
         val f = file ?: return
         if (!f.exists()) return
         var seg: MutableList<DoubleArray>? = null
         f.forEachLine { line ->
-            if (line == "S") {
-                seg = ArrayList<DoubleArray>().also { segments.add(it) }
+            if (line == "S" || line.startsWith("S,")) {
+                val t = line.substringAfter("S,", "0").toLongOrNull() ?: 0L
+                seg = ArrayList<DoubleArray>().also { segments.add(it); segmentStart[it] = t }
                 return@forEachLine
             }
             val c = line.indexOf(',')
@@ -41,7 +46,15 @@ class TrackStore(private val file: File?) {
             s.lastOrNull()?.let { totalMeters += Geo.distance(it[0], it[1], lat, lon) }
             s.add(doubleArrayOf(lat, lon))
         }
+        segments.filter { it.size < 2 }.forEach { segmentStart.remove(it) }
         segments.removeAll { it.size < 2 }
+    }
+
+    /** 一段的长度（米） */
+    fun lengthOf(seg: List<DoubleArray>): Double {
+        var d = 0.0
+        for (i in 1 until seg.size) d += Geo.distance(seg[i - 1][0], seg[i - 1][1], seg[i][0], seg[i][1])
+        return d
     }
 
     /**
@@ -55,8 +68,8 @@ class TrackStore(private val file: File?) {
         val d = if (last != null) Geo.distance(last[0], last[1], lat, lon) else 0.0
         var started = false
         if (cur == null || last == null || timeMs - lastTime > GAP_MS || d > JUMP_M) {
-            current = ArrayList<DoubleArray>().also { segments.add(it) }
-            write("S")
+            current = ArrayList<DoubleArray>().also { segments.add(it); segmentStart[it] = timeMs }
+            write("S,$timeMs")
             started = true
         } else {
             if (d < MIN_STEP) return false
@@ -70,7 +83,7 @@ class TrackStore(private val file: File?) {
 
     /** 结束当前段（例如停车、退出） */
     fun endSegment() {
-        current?.let { if (it.size < 2) segments.remove(it) }
+        current?.let { if (it.size < 2) { segments.remove(it); segmentStart.remove(it) } }
         current = null
         flush()
     }
@@ -78,6 +91,7 @@ class TrackStore(private val file: File?) {
     fun clear() {
         close()
         segments.clear()
+        segmentStart.clear()
         current = null
         totalMeters = 0.0
         file?.delete()

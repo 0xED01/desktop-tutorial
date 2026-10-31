@@ -62,6 +62,20 @@ class Prefs(ctx: Context) {
     fun getLong(key: String) = sp.getLong(key, 0L)
     fun putLong(key: String, v: Long) = sp.edit().putLong(key, v).apply()
 
+    // ---------------------------------------------------------------- 月度报告：骑行时听的歌
+
+    /** 骑行时每听一分钟，给这首歌记一分钟 */
+    fun addSongMinute(monthKey: String, title: String) {
+        val o = try { JSONObject(sp.getString("songs_$monthKey", "{}")) } catch (_: Exception) { JSONObject() }
+        o.put(title, o.optInt(title) + 1)
+        sp.edit().putString("songs_$monthKey", o.toString()).apply()
+    }
+
+    fun topSong(monthKey: String): String? {
+        val o = try { JSONObject(sp.getString("songs_$monthKey", "{}")) } catch (_: Exception) { return null }
+        return o.keys().asSequence().maxByOrNull { o.optInt(it) }
+    }
+
     // ---------------------------------------------------------------- 地点：最近搜索 / 家 / 公司
 
     fun getPlaces(key: String): List<Place> {

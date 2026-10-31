@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 今晚骑去哪：选距离 → 开盲盒（音乐柱跳动表示“抽取中”）→ 揭晓目的地 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-medium"
+        android:text="今晚骑去哪"
+        android:textColor="@color/fg"
+        android:textSize="21sp" />
+
+    <TextView
+        android:id="@+id/tvSub"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="开一个盲盒，去一个你还没骑过的地方"
+        android:textColor="@color/fg_dim"
+        android:textSize="14sp" />
+
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/groupDist"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        app:selectionRequired="true"
+        app:singleSelection="true">
+
+        <Button android:id="@+id/dNear" style="@style/Menu.Toggle" android:text="3 公里" />
+        <Button android:id="@+id/dMid" style="@style/Menu.Toggle" android:text="6 公里" />
+        <Button android:id="@+id/dFar" style="@style/Menu.Toggle" android:text="10 公里" />
+    </com.google.android.material.button.MaterialButtonToggleGroup>
+
+    <!-- 抽取中：音乐柱跳动；揭晓后显示目的地 -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="96dp"
+        android:layout_marginTop="16dp">
+
+        <com.ebike.dash.EqualizerView
+            android:id="@+id/eq"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:tag="11" />
+
+        <LinearLayout
+            android:id="@+id/result"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:visibility="invisible">
+
+            <TextView
+                android:id="@+id/tvDest"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:maxLines="1"
+                android:textColor="@color/fg"
+                android:textSize="22sp" />
+
+            <TextView
+                android:id="@+id/tvDestSub"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:ellipsize="end"
+                android:gravity="center"
+                android:maxLines="1"
+                android:textColor="@color/fg_dim"
+                android:textSize="14sp" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/btnNegative"
+            style="@style/PillButton"
+            android:layout_marginEnd="10dp"
+            android:backgroundTint="@color/chip"
+            android:text="取消"
+            android:textColor="@color/fg" />
+
+        <TextView
+            android:id="@+id/btnPositive"
+            style="@style/PillButton"
+            android:backgroundTint="@color/fg"
+            android:text="开盲盒"
+            android:textColor="@color/bg" />
+    </LinearLayout>
+</LinearLayout>

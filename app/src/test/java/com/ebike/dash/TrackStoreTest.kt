@@ -32,6 +32,10 @@ class TrackStoreTest {
 
         val again = TrackStore(f).apply { load() }
         assertEquals(2, again.segments.size)
+        // 新格式会记录每段的开始时间
+        assertEquals(0L, again.segmentStart[again.segments[0]])
+        assertEquals(200_000L, again.segmentStart[again.segments[1]])
+        assertEquals(203.0, again.lengthOf(again.segments[0]), 3.0)
         assertEquals(t.totalMeters, again.totalMeters, 1.0)
         assertEquals(223.0, again.totalMeters, 3.0)
         f.delete()

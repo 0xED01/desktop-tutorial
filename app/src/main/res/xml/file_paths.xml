@@ -1,0 +1,4 @@
+<paths>
+    <!-- 分享月度报告图片用 -->
+    <cache-path name="share" path="share/" />
+</paths>

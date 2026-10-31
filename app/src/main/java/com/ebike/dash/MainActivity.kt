@@ -80,6 +80,11 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         private const val LAYER_TRACK_LIVE = "rd-track-live"
         private const val SRC_ROUTE = "rd-route"
         private const val SRC_DEST = "rd-dest"
+        private const val SRC_DIM = "rd-dim"
+        private const val LAYER_DIM = "rd-dim"
+        private const val LAYER_GLOW = "rd-track-glow"
+        private const val SRC_REPLAY = "rd-replay"
+        private const val SRC_REPLAY_DOT = "rd-replay-dot"
     }
 
     private lateinit var b: ActivityMainBinding
@@ -92,6 +97,14 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     private lateinit var nav: NavigationEngine
     private var destPoint: DoubleArray? = null
     private var selecting = false
+    /** 当前玩法模式："lit" 点亮城市 / "replay" 骑行回放 / null */
+    private var mode: String? = null
+    private var modeBack: androidx.activity.OnBackPressedCallback? = null
+    private var modeAnim: ValueAnimator? = null
+    private var blindBoxTrip: String? = null
+    private var lastSongTick = 0L
+    private var nightPulse: ValueAnimator? = null
+    private var nightBack: androidx.activity.OnBackPressedCallback? = null
     private var selectBack: androidx.activity.OnBackPressedCallback? = null
     private var dl: com.ebike.dash.databinding.PanelDownloadBinding? = null
     private var dlPanel: FloatingPanel? = null
@@ -161,6 +174,8 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         }
 
         b.btnSearch.setOnClickListener { showSearch() }
+        b.btnExplore.setOnClickListener { showExplore() }
+        setupNightDash()
         b.btnStopNav.setOnClickListener { stopNavigation(true) }
         b.btnSelectCancel.setOnClickListener { endAreaSelection(download = false) }
         b.btnSelectOk.setOnClickListener { endAreaSelection(download = true) }
@@ -177,7 +192,8 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         b.music.root.isVisible = prefs.showMusic
         // 所有可点的按钮和卡片使用统一的按压动效
         Motion.pressable(
-            b.btnSearch, b.btnRecenter, b.btnInfo, b.btnMusic, b.btnSettings, b.btnStopNav,
+            b.btnSearch, b.btnRecenter, b.btnInfo, b.btnMusic, b.btnExplore, b.btnSettings, b.btnStopNav,
+            b.btnModeLeft, b.btnModeRight,
             b.music.btnPrev, b.music.btnPlay, b.music.btnNext, b.btnSelectCancel, b.btnSelectOk,
         )
         Motion.pressable(b.music.root, scale = 0.98f)
@@ -188,7 +204,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         updateStatus()
         // 启动时状态栏、按钮、底部卡片依次浮现
         Motion.enter(
-            listOf(b.statusRow, b.btnSearch, b.btnRecenter, b.btnInfo, b.btnMusic, b.btnSettings) +
+            listOf(b.statusRow, b.btnSearch, b.btnRecenter, b.btnInfo, b.btnMusic, b.btnExplore, b.btnSettings) +
                 listOf(b.infoPanel, b.music.root, b.speed.root).filter { it.isVisible }
         )
 
@@ -329,6 +345,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         if (!force && night == nightApplied) return
         nightApplied = night
         applyPalette(if (night) Palette.DARK else Palette.LIGHT)
+        if (mode != null) exitMode()
         style = null
         m.setStyle(Style.Builder().fromUri(pal.mapStyle)) { s ->
             style = s
@@ -596,7 +613,12 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         b.btnSelectCancel.setTextColor(p.onSurface)
         b.btnSelectOk.backgroundTintList = ColorStateList.valueOf(p.onSurface)
         b.btnSelectOk.setTextColor(p.surface)
-        for (btn in listOf(b.btnSearch, b.btnRecenter, b.btnInfo, b.btnMusic, b.btnSettings)) {
+        b.modeCard.backgroundTintList = surface
+        b.btnModeLeft.backgroundTintList = ColorStateList.valueOf(p.chip)
+        b.btnModeRight.backgroundTintList = ColorStateList.valueOf(p.onSurface)
+        b.modeBar.setColors(p.onSurface, p.chip)
+        b.nightEnergy.setColors(Color.WHITE, Color.argb(46, 255, 255, 255))
+        for (btn in listOf(b.btnSearch, b.btnRecenter, b.btnInfo, b.btnMusic, b.btnExplore, b.btnSettings)) {
             btn.backgroundTintList = surface
             btn.imageTintList = ColorStateList.valueOf(p.onSurface)
         }
@@ -611,6 +633,9 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         b.speed.energy.setColors(p.onSurface, p.chip)
         tintTexts(b.overlay, p)
         tintTexts(b.selectCard, p)
+        tintTexts(b.modeCard, p)
+        b.btnModeLeft.setTextColor(p.onSurface)
+        b.btnModeRight.setTextColor(p.surface)
         b.btnSelectCancel.setTextColor(p.onSurface)
         b.btnSelectOk.setTextColor(p.surface)
         onMusicChanged(if (::music.isInitialized) music.now else null)
@@ -658,6 +683,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         tracker.update(fixed, speedKmh)
         recordTrack(fixed)
         nav.onLocation(fixed)
+        countSongMinute()
         updateRecordingNotice()
         if (System.currentTimeMillis() - lastSavedPos > 30_000) {
             lastSavedPos = System.currentTimeMillis()
@@ -718,6 +744,9 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         b.tvTime.text = if (s >= 3600) String.format(Locale.US, "%d:%02d:%02d", s / 3600, s / 60 % 60, s % 60)
         else String.format(Locale.US, "%02d:%02d", s / 60, s % 60)
         b.tvAvg.text = String.format(Locale.US, "%.1f", units.speed(tracker.avgKmh))
+        b.tvNightInfo.text = String.format(
+            Locale.US, "%.2f %s  ·  %s", units.bigDist(tracker.tripMeters), units.distUnit, b.tvTime.text,
+        )
         b.tvMax.text = String.format(Locale.US, "%.1f", units.speed(tracker.maxKmh))
     }
 
@@ -731,6 +760,10 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
                 shownSpeed = it.animatedValue as Float
                 b.speed.tvSpeed.text = shownSpeed.roundToInt().toString()
                 b.speed.energy.level = shownSpeed / energyFullScale()
+                if (b.nightDash.isVisible) {
+                    b.tvNightSpeed.text = shownSpeed.roundToInt().toString()
+                    b.nightEnergy.level = shownSpeed / energyFullScale()
+                }
             }
             start()
         }
@@ -776,12 +809,14 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
 
     private fun updateStatus() {
         b.tvClock.text = clockFmt.format(Date())
+        b.tvNightClock.text = b.tvClock.text
         val bat = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         if (bat != null) {
             val level = bat.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             val scale = bat.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
             val charging = bat.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0
             if (level >= 0) b.tvBattery.text = "${if (charging) "充电 " else ""}${level * 100 / scale}%"
+            b.tvNightBattery.text = b.tvBattery.text
         }
     }
 
@@ -846,6 +881,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     }
 
     private fun stopNavigation(byUser: Boolean) {
+        if (byUser) blindBoxTrip = null
         nav.stop()
         destPoint = null
         drawRoute(null)
@@ -890,8 +926,570 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     override fun onSpeak(text: String) = voice.speak(text)
 
     override fun onArrived() {
-        toast("已到达目的地")
         stopNavigation(false)
+        val box = blindBoxTrip
+        blindBoxTrip = null
+        if (box != null) {
+            FloatingPanel.confirm(
+                this, "解锁新地点！", "你骑到了「$box」，城市又被点亮了一点。",
+                positive = "看看点亮的城市", negative = "好的",
+            ) { startLitCity() }
+        } else {
+            toast("已到达目的地")
+        }
+    }
+
+    // ---------------------------------------------------------------- 探索（点亮城市 / 盲盒 / 回放 / 报告 / 夜骑）
+
+    private fun showExplore() {
+        FloatingPanel.actions(this, "探索", listOf("点亮城市", "今晚骑去哪", "骑行回放", "月度报告", "夜骑仪表")) { i ->
+            when (i) {
+                0 -> startLitCity()
+                1 -> showBlindBox()
+                2 -> startReplay()
+                3 -> showReport()
+                4 -> setNightDash(true)
+            }
+        }
+    }
+
+    /** 进入玩法模式：主界面淡出，底部出现模式卡片（与框选离线地图同一套动效） */
+    private fun enterMode(name: String) {
+        mode = name
+        following = false
+        map?.locationComponent?.takeIf { it.isLocationComponentActivated }?.cameraMode = CameraMode.NONE
+        map?.uiSettings?.isCompassEnabled = false
+        for (v in listOf(b.topArea, b.fabColumn, b.bottomArea)) {
+            v.animate().alpha(0f).setDuration(Motion.SHORT).setInterpolator(Motion.EASE)
+                .withEndAction { v.visibility = View.INVISIBLE }.start()
+        }
+        b.modeLogo.isVisible = false
+        b.modeBar.level = 0f
+        b.modeOverlay.alpha = 0f
+        b.modeOverlay.isVisible = true
+        b.modeOverlay.animate().alpha(1f).setDuration(Motion.STANDARD).setInterpolator(Motion.EASE).start()
+        Motion.panelIn(View(this), b.modeCard)
+        modeBack = object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() = exitMode()
+        }.also { onBackPressedDispatcher.addCallback(it) }
+    }
+
+    private fun exitMode() {
+        val was = mode ?: return
+        mode = null
+        modeAnim?.cancel()
+        modeAnim = null
+        modeBack?.remove()
+        modeBack = null
+        when (was) {
+            "lit" -> litLook(false)
+            "replay" -> replayLayers(false)
+        }
+        b.modeOverlay.animate().alpha(0f).setDuration(Motion.SHORT + 60).setInterpolator(Motion.EASE)
+            .withEndAction { b.modeOverlay.isVisible = false }.start()
+        for (v in listOf(b.topArea, b.fabColumn, b.bottomArea)) {
+            v.visibility = View.VISIBLE
+            v.animate().alpha(1f).setDuration(Motion.STANDARD).setInterpolator(Motion.EASE).start()
+        }
+        map?.uiSettings?.isCompassEnabled = true
+        if (lastLoc != null) follow()
+    }
+
+    private fun setModeCard(title: String, big: String, sub: String, left: String, right: String) {
+        Motion.setText(b.tvModeTitle, title)
+        b.tvModeBig.text = big
+        Motion.setText(b.tvModeSub, sub)
+        b.btnModeLeft.text = left
+        b.btnModeRight.text = right
+    }
+
+    private fun fitCamera(bounds: LatLngBounds, ms: Int) {
+        val m = map ?: return
+        val d = resources.displayMetrics.density
+        b.modeCard.post {
+            val pad = intArrayOf((28 * d).toInt(), (72 * d).toInt(), (28 * d).toInt(), (b.modeCard.height + 56 * d).toInt())
+            m.getCameraForLatLngBounds(bounds, pad, 0.0, 0.0)?.let { m.easeCamera(CameraUpdateFactory.newCameraPosition(it), ms) }
+        }
+    }
+
+    // ---- 点亮城市
+
+    private fun startLitCity() {
+        if (style == null) return
+        val segs = track.segments.filter { it.size >= 2 }
+        val home = prefs.getPlace(Prefs.HOME)?.let { doubleArrayOf(it.lat, it.lon) }
+        val center = LitCity.center(segs, home)
+        if (center == null || segs.isEmpty()) {
+            toast("还没有足迹，先去骑一圈，城市就会被点亮")
+            return
+        }
+        val r = LitCity.compute(segs, center)
+        enterMode("lit")
+        litLook(true)
+        fitCamera(OfflineMaps.around(center[0], center[1], LitCity.RADIUS_KM), 1400)
+        setModeCard("我的城市（方圆 ${LitCity.RADIUS_KM.toInt()} 公里）· 已点亮", "0.0%", litSub(r), "延时回放", "完成")
+        b.btnModeLeft.setOnClickListener { litTimelapse(segs, center) }
+        b.btnModeRight.setOnClickListener { exitMode() }
+        countUp(r.percent)
+        lifecycleScope.launch {
+            val place = try { withContext(Dispatchers.IO) { Net.reverse(center[0], center[1]) } } catch (_: Exception) { null }
+            if (mode == "lit") {
+                Motion.setText(b.tvModeTitle, "${LitCity.cityName(place?.address, place?.name)}（方圆 ${LitCity.RADIUS_KM.toInt()} 公里）· 已点亮")
+            }
+        }
+    }
+
+    private fun litSub(r: LitCity.Result) = String.format(
+        Locale.US, "点亮 %.1f km²  ·  足迹 %.0f %s", r.areaKm2, units.bigDist(track.totalMeters), units.distUnit,
+    )
+
+    /** 百分比从 0 数到目标值 */
+    private fun countUp(percent: Double) {
+        modeAnim?.cancel()
+        modeAnim = ValueAnimator.ofFloat(0f, percent.toFloat()).apply {
+            duration = Motion.STANDARD * 5
+            interpolator = Motion.EASE
+            addUpdateListener {
+                val v = it.animatedValue as Float
+                b.tvModeBig.text = String.format(Locale.US, "%.1f%%", v)
+                b.modeBar.level = v / 100f
+            }
+            start()
+        }
+    }
+
+    /** 点亮效果：地图压暗、隐藏地名，足迹变成发光的白线 */
+    private fun litLook(on: Boolean) {
+        val s = style ?: return
+        if (on) {
+            val world = org.maplibre.geojson.Polygon.fromLngLats(
+                listOf(listOf(Point.fromLngLat(-180.0, -85.0), Point.fromLngLat(180.0, -85.0),
+                    Point.fromLngLat(180.0, 85.0), Point.fromLngLat(-180.0, 85.0), Point.fromLngLat(-180.0, -85.0)))
+            )
+            s.addSource(GeoJsonSource(SRC_DIM, world))
+            val dim = org.maplibre.android.style.layers.FillLayer(LAYER_DIM, SRC_DIM).withProperties(
+                PropertyFactory.fillColor("#000000"), PropertyFactory.fillOpacity(0f),
+            )
+            s.addLayerBelow(dim, LAYER_TRACK)
+            val glow = LineLayer(LAYER_GLOW, SRC_TRACK).withProperties(
+                PropertyFactory.lineColor("#FFFFFF"),
+                PropertyFactory.lineOpacity(0.45f),
+                PropertyFactory.lineWidth(Expression.interpolate(Expression.linear(), Expression.zoom(),
+                    Expression.stop(9, 6f), Expression.stop(14, 14f), Expression.stop(18, 26f))),
+                PropertyFactory.lineBlur(8f),
+                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+            )
+            s.addLayerBelow(glow, LAYER_TRACK)
+            for (id in listOf(LAYER_TRACK, LAYER_TRACK_LIVE)) {
+                s.getLayer(id)?.setProperties(
+                    PropertyFactory.lineColor("#FFFFFF"), PropertyFactory.lineOpacity(1f),
+                    PropertyFactory.visibility(Property.VISIBLE),
+                )
+            }
+            for (layer in s.layers) if (layer is SymbolLayer) layer.setProperties(PropertyFactory.visibility(Property.NONE))
+            ValueAnimator.ofFloat(0f, 0.62f).apply {
+                duration = Motion.STANDARD * 3
+                interpolator = Motion.EASE
+                addUpdateListener { a -> s.getLayer(LAYER_DIM)?.setProperties(PropertyFactory.fillOpacity(a.animatedValue as Float)) }
+                start()
+            }
+        } else {
+            s.getLayer(LAYER_GLOW)?.let { s.removeLayer(it) }
+            s.getLayer(LAYER_DIM)?.let { s.removeLayer(it) }
+            s.getSource(SRC_DIM)?.let { s.removeSource(it) }
+            s.getLayer(LAYER_TRACK)?.setProperties(PropertyFactory.lineColor(pal.trackColor), PropertyFactory.lineOpacity(0.45f))
+            s.getLayer(LAYER_TRACK_LIVE)?.setProperties(PropertyFactory.lineColor(pal.trackColor), PropertyFactory.lineOpacity(0.9f))
+            setTrackVisible(prefs.showTrack)
+            applyLabelVisibility(s)
+            drawTrackHistory()
+            drawTrackLive(force = true)
+        }
+    }
+
+    /** 延时回放：所有足迹按骑行顺序重新“生长”一遍，点亮比例同步上涨 */
+    private fun litTimelapse(segs: List<List<DoubleArray>>, center: DoubleArray) {
+        val src = style?.getSourceAs<GeoJsonSource>(SRC_TRACK) ?: return
+        style?.getSourceAs<GeoJsonSource>(SRC_TRACK_LIVE)?.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+        val total = segs.sumOf { it.size }
+        val acc = LitCity.Accumulator(center)
+        var si = 0; var pi = 0; var done = 0
+        val shown = ArrayList<MutableList<DoubleArray>>()
+        b.btnModeLeft.text = "重播"
+        modeAnim?.cancel()
+        modeAnim = ValueAnimator.ofInt(0, total).apply {
+            duration = 8000
+            interpolator = android.view.animation.LinearInterpolator()
+            var lastDraw = 0L
+            addUpdateListener { a ->
+                val target = a.animatedValue as Int
+                while (done < target && si < segs.size) {
+                    val seg = segs[si]
+                    if (pi == 0) { acc.newSegment(); shown.add(ArrayList()) }
+                    acc.add(seg[pi]); shown.last().add(seg[pi])
+                    pi++; done++
+                    if (pi >= seg.size) { si++; pi = 0 }
+                }
+                val now = android.os.SystemClock.uptimeMillis()
+                if (now - lastDraw > 33 || target == total) {
+                    lastDraw = now
+                    val lines = shown.filter { it.size >= 2 }.map { lineOf(it) }
+                    if (lines.isNotEmpty()) src.setGeoJson(MultiLineString.fromLineStrings(lines))
+                    val r = acc.result()
+                    b.tvModeBig.text = String.format(Locale.US, "%.1f%%", r.percent)
+                    b.modeBar.level = (r.percent / 100).toFloat()
+                }
+            }
+            start()
+        }
+    }
+
+    // ---- 今晚骑去哪
+
+    private fun showBlindBox() {
+        val here = currentPos()
+        if (here == null) {
+            toast("还没有定位，请稍候或开启演示模式")
+            return
+        }
+        var chosenKm = 6.0
+        var picked: DoubleArray? = null
+        var pickedName = ""
+        var departed = false
+        FloatingPanel(this, maxWidthDp = 380) { inf, panel ->
+            val v = com.ebike.dash.databinding.PanelBlindboxBinding.inflate(inf)
+            v.eq.setColor(FloatingPanel.palette.onSurface)
+            v.eq.setPlaying(false, animate = false)
+            Motion.pressable(v.btnPositive, v.btnNegative)
+            val ids = listOf(v.dNear.id to 3.0, v.dMid.id to 6.0, v.dFar.id to 10.0)
+            v.groupDist.check(ids.first { it.second == chosenKm }.first)
+            v.groupDist.addOnButtonCheckedListener { _, id, checked ->
+                if (checked) chosenKm = ids.first { it.first == id }.second
+            }
+            fun roll() {
+                picked = null
+                v.result.visibility = View.INVISIBLE
+                v.eq.visibility = View.VISIBLE
+                v.eq.setPlaying(true)
+                v.btnPositive.isEnabled = false
+                v.btnPositive.alpha = 0.4f
+                // 足迹在骑行中还会增加，后台计算用一份快照
+                val snapshot = track.segments.map { it.toList() }
+                lifecycleScope.launch {
+                    val startAt = android.os.SystemClock.uptimeMillis()
+                    val p = withContext(Dispatchers.Default) { BlindBox.pick(here, chosenKm, snapshot) }
+                    val place = try { withContext(Dispatchers.IO) { Net.reverse(p[0], p[1]) } } catch (_: Exception) { null }
+                    val never = withContext(Dispatchers.Default) { BlindBox.distanceToTracks(p, snapshot) > 500 }
+                    // 至少“摇”1.4 秒，有开盲盒的仪式感
+                    val wait = 1400 - (android.os.SystemClock.uptimeMillis() - startAt)
+                    if (wait > 0) kotlinx.coroutines.delay(wait)
+                    if (!panel.isShowing) return@launch
+                    picked = p
+                    pickedName = place?.name?.takeIf { it.isNotBlank() } ?: "神秘地点"
+                    v.eq.setPlaying(false)
+                    v.eq.visibility = View.INVISIBLE
+                    v.tvDest.text = pickedName
+                    val dist = units.navDist(Geo.distance(here[0], here[1], p[0], p[1]))
+                    v.tvDestSub.text = listOfNotNull(dist, if (never) "你还没去过" else "附近来过", place?.address?.takeIf { it.isNotBlank() })
+                        .joinToString("  ·  ")
+                    v.result.alpha = 0f
+                    v.result.visibility = View.VISIBLE
+                    v.result.animate().alpha(1f).setDuration(Motion.STANDARD).setInterpolator(Motion.EASE).start()
+                    destPoint = p
+                    drawDest(p[0], p[1])
+                    v.btnPositive.isEnabled = true
+                    v.btnPositive.alpha = 1f
+                    v.btnPositive.text = "出发"
+                    v.btnNegative.text = "换一个"
+                }
+            }
+            v.btnPositive.setOnClickListener {
+                val p = picked
+                if (p == null) {
+                    roll()
+                } else {
+                    departed = true
+                    panel.dismiss()
+                    blindBoxTrip = pickedName
+                    startNavigation(p[0], p[1], pickedName)
+                }
+            }
+            v.btnNegative.setOnClickListener { if (picked == null) panel.dismiss() else roll() }
+            v.root
+        }.apply {
+            onDismiss = { if (!departed) clearPendingDest() }
+            show()
+        }
+    }
+
+    // ---- 骑行回放
+
+    private fun replayLayers(on: Boolean) {
+        val s = style ?: return
+        val lc = map?.locationComponent
+        if (on) {
+            s.addSource(GeoJsonSource(SRC_REPLAY))
+            s.addSource(GeoJsonSource(SRC_REPLAY_DOT))
+            val width = Expression.interpolate(Expression.exponential(1.5f), Expression.zoom(),
+                Expression.stop(10, 3f), Expression.stop(14, 6f), Expression.stop(18, 14f))
+            s.addLayer(LineLayer("rd-replay-line", SRC_REPLAY).withProperties(
+                PropertyFactory.lineColor(pal.trackColor), PropertyFactory.lineWidth(width),
+                PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+            ))
+            s.addLayer(CircleLayer("rd-replay-dot", SRC_REPLAY_DOT).withProperties(
+                PropertyFactory.circleRadius(8f), PropertyFactory.circleColor(pal.trackColor),
+                PropertyFactory.circleStrokeColor(hex(pal.surface)), PropertyFactory.circleStrokeWidth(4f),
+            ))
+            // 回放时隐藏真实位置的箭头，避免干扰
+            if (lc?.isLocationComponentActivated == true) setPuckVisible(false)
+        } else {
+            s.getLayer("rd-replay-line")?.let { s.removeLayer(it) }
+            s.getLayer("rd-replay-dot")?.let { s.removeLayer(it) }
+            s.getSource(SRC_REPLAY)?.let { s.removeSource(it) }
+            s.getSource(SRC_REPLAY_DOT)?.let { s.removeSource(it) }
+            if (lc?.isLocationComponentActivated == true) setPuckVisible(true)
+            b.modeLogo.isVisible = false
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun setPuckVisible(show: Boolean) {
+        val lc = map?.locationComponent ?: return
+        lc.isLocationComponentEnabled = show
+        if (show) pushPuck()
+    }
+
+    private fun startReplay() {
+        if (style == null) return
+        val store = demoTrack ?: track
+        val seg = store.segments.lastOrNull { it.size >= 2 && store.lengthOf(it) >= 200 }
+        if (seg == null) {
+            toast("还没有可回放的骑行，先骑一段吧（演示模式下也可以）")
+            return
+        }
+        val pts = seg.toList()
+        val cum = DoubleArray(pts.size)
+        for (i in 1 until pts.size) cum[i] = cum[i - 1] + Geo.distance(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1])
+        val len = cum.last()
+        val start = store.segmentStart[seg] ?: 0L
+        val title = if (start > 0) SimpleDateFormat("M月d日 HH:mm 的骑行", Locale.CHINA).format(Date(start)) else "最近一次骑行"
+        enterMode("replay")
+        replayLayers(true)
+        setModeCard(title, "0.0 ${units.distUnit}", "回放中  ·  可以用系统录屏分享", "重播", "完成")
+        b.btnModeLeft.setOnClickListener { playReplay(pts, cum, title) }
+        b.btnModeRight.setOnClickListener { exitMode() }
+        playReplay(pts, cum, title)
+    }
+
+    /** 镜头跟着路线飞过去，线条在身后画出；结束时拉远看全程，出现 Driver 字标 */
+    private fun playReplay(pts: List<DoubleArray>, cum: DoubleArray, title: String) {
+        val m = map ?: return
+        val len = cum.last()
+        b.modeLogo.isVisible = false
+        Motion.setText(b.tvModeTitle, title)
+        Motion.setText(b.tvModeSub, "回放中  ·  可以用系统录屏分享")
+        var bearing = Geo.bearing(pts[0][0], pts[0][1], pts[1][0], pts[1][1]).toDouble()
+        var idx = 0
+        modeAnim?.cancel()
+        modeAnim = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = (len / 1000 * 1200).toLong().coerceIn(8000, 20000)
+            interpolator = android.view.animation.AccelerateDecelerateInterpolator()
+            addUpdateListener { a ->
+                val dist = (a.animatedValue as Float) * len
+                while (idx < pts.size - 2 && cum[idx + 1] < dist) idx++
+                val segLen = (cum[idx + 1] - cum[idx]).coerceAtLeast(0.01)
+                val f = ((dist - cum[idx]) / segLen).coerceIn(0.0, 1.0)
+                val lat = pts[idx][0] + (pts[idx + 1][0] - pts[idx][0]) * f
+                val lon = pts[idx][1] + (pts[idx + 1][1] - pts[idx][1]) * f
+                // 镜头朝向：看向前方约 80 米，平滑转动
+                var j = idx + 1
+                while (j < pts.size - 1 && cum[j] < dist + 80) j++
+                val target = Geo.bearing(lat, lon, pts[j][0], pts[j][1]).toDouble()
+                val diff = ((target - bearing + 540) % 360) - 180
+                bearing = (bearing + diff * 0.08 + 360) % 360
+                val line = ArrayList<Point>(idx + 2)
+                for (k in 0..idx) line.add(Point.fromLngLat(pts[k][1], pts[k][0]))
+                line.add(Point.fromLngLat(lon, lat))
+                style?.getSourceAs<GeoJsonSource>(SRC_REPLAY)?.let { if (line.size >= 2) it.setGeoJson(LineString.fromLngLats(line)) }
+                style?.getSourceAs<GeoJsonSource>(SRC_REPLAY_DOT)?.setGeoJson(Point.fromLngLat(lon, lat))
+                m.moveCamera(CameraUpdateFactory.newCameraPosition(
+                    CameraPosition.Builder().target(LatLng(lat, lon)).zoom(16.2).tilt(55.0).bearing(bearing).build()
+                ))
+                b.tvModeBig.text = String.format(Locale.US, "%.1f %s", units.bigDist(dist), units.distUnit)
+                b.modeBar.level = a.animatedValue as Float
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    if (mode != "replay" || modeAnim !== animation) return
+                    // 结尾：拉远看全程 + Driver 字标
+                    val bld = LatLngBounds.Builder()
+                    pts.forEach { bld.include(LatLng(it[0], it[1])) }
+                    fitCamera(bld.build(), 1600)
+                    Motion.setText(b.tvModeSub, "${title.removeSuffix(" 的骑行")}  ·  Driver")
+                    b.modeLogo.alpha = 0f
+                    b.modeLogo.scaleX = 0.9f; b.modeLogo.scaleY = 0.9f
+                    b.modeLogo.isVisible = true
+                    b.modeLogo.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(900)
+                        .setDuration(Motion.STANDARD * 2).setInterpolator(Motion.EASE).start()
+                }
+            })
+            start()
+        }
+    }
+
+    // ---- 月度报告
+
+    private fun showReport() {
+        var offset = 0
+        FloatingPanel(this, maxWidthDp = 380) { inf, _ ->
+            val v = com.ebike.dash.databinding.PanelReportBinding.inflate(inf)
+            val p = FloatingPanel.palette
+            fun bind() {
+                val cal = Calendar.getInstance().apply { add(Calendar.MONTH, -offset) }
+                val y = cal.get(Calendar.YEAR)
+                val mo = cal.get(Calendar.MONTH) + 1
+                val st = MonthReport.compute(track, y, mo, prefs.topSong(MonthReport.monthKey(y, mo)))
+                v.tvYear.text = "$y"
+                v.tvMonth.text = "${mo} 月骑行报告"
+                v.thumb.set(st.segments, p.onSurface, p.dim)
+                v.tvTotal.text = String.format(Locale.US, "%.1f %s", units.bigDist(st.meters), units.distUnit)
+                val center = LitCity.center(track.segments.filter { it.size >= 2 }, prefs.getPlace(Prefs.HOME)?.let { doubleArrayOf(it.lat, it.lon) })
+                val lit = if (center != null && st.segments.isNotEmpty()) LitCity.compute(st.segments, center).areaKm2 else 0.0
+                val latest = if (st.latestMinute < 0) "—" else String.format(Locale.US, "%02d:%02d", st.latestMinute / 60, st.latestMinute % 60)
+                val items = listOf(
+                    "骑行次数" to "${st.rides} 次",
+                    "最长一次" to String.format(Locale.US, "%.1f %s", units.bigDist(st.longestMeters), units.distUnit),
+                    "最晚出发" to latest,
+                    "点亮面积" to String.format(Locale.US, "%.1f km²", lit),
+                    "最常听" to (st.topSong ?: "—"),
+                    "累计足迹" to String.format(Locale.US, "%.0f %s", units.bigDist(track.totalMeters), units.distUnit),
+                )
+                v.grid.removeAllViews()
+                for ((label, value) in items) {
+                    val cell = com.ebike.dash.databinding.ItemStatBinding.inflate(inf, v.grid, false)
+                    cell.tvValue.text = value
+                    cell.tvLabel.text = label
+                    v.grid.addView(cell.root)
+                }
+            }
+            v.groupMonth.check(if (offset == 0) v.mThis.id else v.mLast.id)
+            v.groupMonth.addOnButtonCheckedListener { _, id, checked ->
+                if (!checked) return@addOnButtonCheckedListener
+                offset = if (id == v.mThis.id) 0 else 1
+                v.poster.animate().alpha(0f).setDuration(Motion.SHORT / 2).setInterpolator(Motion.EASE).withEndAction {
+                    bind()
+                    v.poster.animate().alpha(1f).setDuration(Motion.SHORT).setInterpolator(Motion.EASE).start()
+                }.start()
+            }
+            bind()
+            Motion.pressable(v.btnSave, v.btnShare)
+            v.btnSave.setOnClickListener { savePoster(v.poster) }
+            v.btnShare.setOnClickListener { sharePoster(v.poster) }
+            v.root
+        }.show()
+    }
+
+    /** 把海报区域画成图片（带卡片底色） */
+    private fun posterBitmap(poster: View): android.graphics.Bitmap {
+        val bmp = android.graphics.Bitmap.createBitmap(poster.width, poster.height, android.graphics.Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(bmp)
+        c.drawColor(FloatingPanel.palette.surface)
+        poster.draw(c)
+        return bmp
+    }
+
+    private fun savePoster(poster: View) {
+        if (Build.VERSION.SDK_INT < 29) {
+            toast("这台手机请用“分享”保存图片")
+            return
+        }
+        try {
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, "Driver_${System.currentTimeMillis()}.png")
+                put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
+                put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Driver")
+            }
+            val uri = contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                ?: throw IllegalStateException()
+            contentResolver.openOutputStream(uri)?.use { posterBitmap(poster).compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            toast("已保存到相册（Pictures/Driver）")
+        } catch (_: Exception) {
+            toast("保存失败，请用“分享”试试")
+        }
+    }
+
+    private fun sharePoster(poster: View) {
+        try {
+            val dir = File(cacheDir, "share").apply { mkdirs() }
+            val f = File(dir, "driver_report.png")
+            f.outputStream().use { posterBitmap(poster).compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.files", f)
+            val send = Intent(Intent.ACTION_SEND).setType("image/png").putExtra(Intent.EXTRA_STREAM, uri)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            startActivity(Intent.createChooser(send, "分享骑行报告"))
+        } catch (_: Exception) {
+            toast("分享失败")
+        }
+    }
+
+    /** 骑行中每听一分钟歌，给这首歌记一分钟（月度报告“最常听”） */
+    private fun countSongMinute() {
+        val now = System.currentTimeMillis()
+        if (now - lastSongTick < 60_000 || speedKmh < 3) return
+        val np = music.now ?: return
+        if (!np.playing || np.title.isBlank()) return
+        lastSongTick = now
+        val cal = Calendar.getInstance()
+        prefs.addSongMinute(MonthReport.monthKey(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1), np.title)
+    }
+
+    // ---- 夜骑仪表
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupNightDash() {
+        val gd = android.view.GestureDetector(this, object : android.view.GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: android.view.MotionEvent) = true
+            override fun onDoubleTap(e: android.view.MotionEvent): Boolean {
+                setNightDash(false)
+                return true
+            }
+        })
+        b.nightDash.setOnTouchListener { _, e -> gd.onTouchEvent(e); true }
+    }
+
+    private fun setNightDash(on: Boolean) {
+        val v = b.nightDash
+        if (on) {
+            b.tvNightSpeed.text = shownSpeed.roundToInt().toString()
+            b.nightEnergy.level = shownSpeed / energyFullScale()
+            updateStatus()
+            updateDashboard()
+            v.alpha = 0f
+            v.isVisible = true
+            v.animate().alpha(1f).setDuration(Motion.STANDARD).setInterpolator(Motion.EASE).start()
+            b.tvNightHint.alpha = 1f
+            b.tvNightHint.animate().alpha(0f).setStartDelay(3000).setDuration(Motion.STANDARD * 2).start()
+            // 能量条轻轻“呼吸”
+            nightPulse?.cancel()
+            nightPulse = ValueAnimator.ofFloat(1f, 0.7f).apply {
+                duration = 1400
+                repeatMode = ValueAnimator.REVERSE
+                repeatCount = ValueAnimator.INFINITE
+                interpolator = android.view.animation.AccelerateDecelerateInterpolator()
+                addUpdateListener { b.nightEnergy.alpha = it.animatedValue as Float }
+                start()
+            }
+            nightBack = object : androidx.activity.OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() = setNightDash(false)
+            }.also { onBackPressedDispatcher.addCallback(it) }
+        } else {
+            nightPulse?.cancel()
+            nightPulse = null
+            nightBack?.remove()
+            nightBack = null
+            v.animate().alpha(0f).setDuration(Motion.SHORT + 60).setInterpolator(Motion.EASE)
+                .withEndAction { v.isVisible = false }.start()
+        }
     }
 
     // ---------------------------------------------------------------- 音乐
@@ -991,6 +1589,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         units.imperial = prefs.imperial
         voice.enabled = prefs.voice
         b.speed.tvUnit.text = units.speedUnit
+        b.tvNightUnit.text = units.speedUnit
         updateDashboard()
     }
 
