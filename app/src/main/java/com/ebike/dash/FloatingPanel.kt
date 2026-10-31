@@ -35,7 +35,7 @@ class FloatingPanel(
     private val d = act.resources.displayMetrics.density
     private val root = FrameLayout(act)
     private val scrim = View(act)
-    private val card = FrameLayout(act)
+    private val card = DragDismissFrame(act)
     private var content: View? = null
     private var shownPalette = palette
     private val back = object : OnBackPressedCallback(true) {
@@ -63,6 +63,20 @@ class FloatingPanel(
         card.elevation = 16 * d
         card.clipToOutline = true
         card.isClickable = true // 点卡片内部空白处不关闭
+        // 向下拖动关闭：卡片跟手，暗幕随之变淡；松手时甩走或弹回
+        card.onDrag = { dy ->
+            Motion.cancelSprings(card)
+            val t = if (dy > 0) dy else dy * 0.15f
+            card.translationY = t
+            val f = (t / (card.height * 1.4f)).coerceIn(0f, 1f)
+            scrim.alpha = 1f - f
+            card.scaleX = 1f - f * 0.05f
+            card.scaleY = card.scaleX
+        }
+        card.onRelease = { dy, v ->
+            if (dy > card.height * 0.22f || v > 1100 * d) dismiss(fling = v.coerceAtLeast(0f))
+            else Motion.panelSettle(scrim, card, v)
+        }
         val v = build(inflater(), this)
         content = v
         card.addView(v, FrameLayout.LayoutParams(-1, if (topHeightFraction != null) -1 else -2))
@@ -82,19 +96,25 @@ class FloatingPanel(
         root.addView(card, lp)
         host.addView(root, FrameLayout.LayoutParams(-1, -1))
         act.onBackPressedDispatcher.addCallback(back)
-        Motion.panelIn(scrim, card)
+        // 内容变化导致高度改变时（搜索结果出现、盲盒揭晓、切换月份），卡片平滑伸缩
+        Motion.smoothResize(root, card)
+        Motion.panelIn(scrim, card, v)
     }
 
-    fun dismiss() {
+    /** 关闭；fling 为向下甩的速度（像素/秒），null 表示普通关闭 */
+    fun dismiss(fling: Float? = null) {
         if (!isShowing) return
         isShowing = false
         open.remove(this)
         back.remove()
-        Motion.panelOut(scrim, card) {
+        val end: () -> Unit = {
+            root.layoutTransition = null
+            card.layoutTransition = null
             card.removeAllViews()
             host.removeView(root)
             onDismiss?.invoke()
         }
+        if (fling != null) Motion.panelFling(scrim, card, fling, end) else Motion.panelOut(scrim, card, end)
     }
 
     /** 配色变化：用新配色重建内容，旧内容淡出、新内容淡入，卡片和暗幕颜色渐变 */

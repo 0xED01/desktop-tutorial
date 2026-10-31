@@ -11,8 +11,8 @@ android {
         applicationId = "com.ebike.dash"
         minSdk = 24
         targetSdk = 35
-        versionCode = 24
-        versionName = "0.13.1"
+        versionCode = 25
+        versionName = "0.14.0"
         // 只打包手机常用的 ARM 架构，安装包更小
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
@@ -48,6 +48,7 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("androidx.dynamicanimation:dynamicanimation:1.0.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")

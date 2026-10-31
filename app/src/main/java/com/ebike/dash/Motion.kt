@@ -12,6 +12,9 @@ import android.view.animation.PathInterpolator
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.view.doOnPreDraw
+import androidx.dynamicanimation.animation.DynamicAnimation
+import androidx.dynamicanimation.animation.SpringAnimation
+import androidx.dynamicanimation.animation.SpringForce
 
 /**
  * 全 App 统一的动效规范：同一条缓动曲线、两档时长。
@@ -98,33 +101,113 @@ object Motion {
 
     // ---------------------------------------------------------------- 悬浮面板
 
-    private const val PANEL_SCALE = 0.94f
-    private const val PANEL_OFFSET_DP = 24f
+    private const val PANEL_SCALE = 0.92f
+    private const val PANEL_OFFSET_DP = 36f
 
-    /** 悬浮面板打开：背景渐暗，面板从略下方浮起、放大、淡入 */
-    fun panelIn(scrim: View, card: View) {
+    /** 弹簧参数：几乎不回弹、略带惯性的自然停稳，所有悬浮窗共用 */
+    private const val SPRING_STIFFNESS = 380f
+    private const val SPRING_DAMPING = 0.86f
+
+    /** 让 view 的某个属性用弹簧动画到 target（会先停掉同一属性上正在跑的弹簧） */
+    fun spring(v: View, prop: DynamicAnimation.ViewProperty, target: Float, startVelocity: Float = 0f) {
+        @Suppress("UNCHECKED_CAST")
+        val map = (v.getTag(R.id.motion_springs) as? HashMap<DynamicAnimation.ViewProperty, SpringAnimation>)
+            ?: HashMap<DynamicAnimation.ViewProperty, SpringAnimation>().also { v.setTag(R.id.motion_springs, it) }
+        val anim = map.getOrPut(prop) {
+            SpringAnimation(v, prop).apply {
+                spring = SpringForce().setStiffness(SPRING_STIFFNESS).setDampingRatio(SPRING_DAMPING)
+            }
+        }
+        anim.cancel()
+        anim.setStartVelocity(startVelocity)
+        anim.animateToFinalPosition(target)
+    }
+
+    fun cancelSprings(v: View) {
+        @Suppress("UNCHECKED_CAST")
+        (v.getTag(R.id.motion_springs) as? HashMap<DynamicAnimation.ViewProperty, SpringAnimation>)?.values?.forEach { it.cancel() }
+    }
+
+    /**
+     * 悬浮面板打开：暗幕渐显；卡片从下方弹簧浮起、放大、淡入；
+     * 卡片里的内容一行一行依次浮现。
+     */
+    fun panelIn(scrim: View, card: View, content: View? = null) {
         scrim.alpha = 0f
         card.alpha = 0f
         card.scaleX = PANEL_SCALE
         card.scaleY = PANEL_SCALE
         card.translationY = dp(card, PANEL_OFFSET_DP)
+        val rows = content?.let { rowsOf(it) }.orEmpty()
+        rows.forEach { it.alpha = 0f; it.translationY = dp(it, 10f) }
         card.doOnPreDraw {
             card.pivotX = card.width / 2f
             card.pivotY = card.height / 2f
             scrim.animate().alpha(1f).setDuration(STANDARD).setInterpolator(EASE).start()
-            card.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f)
-                .setDuration(STANDARD).setInterpolator(EASE).withLayer().start()
+            card.animate().alpha(1f).setDuration(SHORT + 40).setInterpolator(EASE).start()
+            spring(card, DynamicAnimation.TRANSLATION_Y, 0f)
+            spring(card, DynamicAnimation.SCALE_X, 1f)
+            spring(card, DynamicAnimation.SCALE_Y, 1f)
+            rows.forEachIndexed { i, r ->
+                r.animate().alpha(1f).translationY(0f).setStartDelay(70L + i * 28L)
+                    .setDuration(STANDARD).setInterpolator(EASE).start()
+            }
         }
+    }
+
+    /** 卡片里“一行一行”的内容：ScrollView 里的那一层，或内容本身的直接子项（最多 12 行） */
+    private fun rowsOf(content: View): List<View> {
+        var g: View = content
+        if (g is android.widget.ScrollView && g.childCount == 1) g = g.getChildAt(0)
+        if (g !is ViewGroup) return emptyList()
+        return (0 until g.childCount).map { g.getChildAt(it) }.filter { it.visibility == View.VISIBLE }.take(12)
     }
 
     /** 悬浮面板关闭：与打开相反，略快 */
     fun panelOut(scrim: View, card: View, end: () -> Unit) {
+        cancelSprings(card)
         scrim.animate().cancel()
         card.animate().cancel()
         scrim.animate().alpha(0f).setDuration(SHORT + 60).setInterpolator(EASE).start()
-        card.animate().alpha(0f).scaleX(PANEL_SCALE).scaleY(PANEL_SCALE).translationY(dp(card, PANEL_OFFSET_DP / 2))
+        card.animate().alpha(0f).scaleX(0.96f).scaleY(0.96f).translationY(card.translationY + dp(card, PANEL_OFFSET_DP / 2))
             .setDuration(SHORT + 60).setInterpolator(EASE).withLayer()
             .withEndAction(end).start()
+    }
+
+    /** 向下甩走：顺着手指的速度滑出屏幕 */
+    fun panelFling(scrim: View, card: View, velocity: Float, end: () -> Unit) {
+        cancelSprings(card)
+        val parentH = (card.parent as? View)?.height ?: card.height
+        val distance = (parentH - card.top).toFloat() - card.translationY
+        val speed = maxOf(velocity, dp(card, 2400f))
+        val ms = (distance / speed * 1000).toLong().coerceIn(140L, 300L)
+        scrim.animate().alpha(0f).setDuration(ms).setInterpolator(EASE).start()
+        card.animate().translationY(card.translationY + distance).setDuration(ms)
+            .setInterpolator(android.view.animation.DecelerateInterpolator()).withLayer()
+            .withEndAction(end).start()
+    }
+
+    /** 拖动松手但没到关闭的程度：弹回原位 */
+    fun panelSettle(scrim: View, card: View, velocity: Float) {
+        spring(card, DynamicAnimation.TRANSLATION_Y, 0f, velocity)
+        spring(card, DynamicAnimation.SCALE_X, 1f)
+        spring(card, DynamicAnimation.SCALE_Y, 1f)
+        scrim.animate().alpha(1f).setDuration(STANDARD).setInterpolator(EASE).start()
+    }
+
+    /** 卡片内容变化（高度变了）时，平滑过渡而不是跳一下 */
+    fun smoothResize(vararg groups: ViewGroup) {
+        for (g in groups) {
+            g.layoutTransition = android.animation.LayoutTransition().apply {
+                disableTransitionType(android.animation.LayoutTransition.APPEARING)
+                disableTransitionType(android.animation.LayoutTransition.DISAPPEARING)
+                disableTransitionType(android.animation.LayoutTransition.CHANGE_APPEARING)
+                disableTransitionType(android.animation.LayoutTransition.CHANGE_DISAPPEARING)
+                enableTransitionType(android.animation.LayoutTransition.CHANGING)
+                setDuration(STANDARD)
+                setInterpolator(android.animation.LayoutTransition.CHANGING, EASE)
+            }
+        }
     }
 
     /** 启动时依次浮现 */

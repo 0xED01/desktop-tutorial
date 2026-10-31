@@ -3,4 +3,5 @@
     <item name="motion_hiding" type="id" />
     <item name="motion_tint" type="id" />
     <item name="motion_icon" type="id" />
+    <item name="motion_springs" type="id" />
 </resources>
