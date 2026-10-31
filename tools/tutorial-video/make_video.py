@@ -14,7 +14,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 SHOTS, FONTS, OUT = (Path(p) for p in sys.argv[1:4])
-TTS_PY, TTS_MODEL = sys.argv[4], sys.argv[5]  # Piper 所在的 python 与中文语音模型
+TTS_PY, TTS_MODEL = sys.argv[4], sys.argv[5]  # 装有 sherpa-onnx 的 python 与 Kokoro 模型目录
 WORK = OUT / "_audio"
 WORK.mkdir(parents=True, exist_ok=True)
 SR = 44100
@@ -47,7 +47,7 @@ NARRATION = {
 
 def speech_text(s):
     """送给语音合成的文本：去掉引号，字母数字之间加空格以便正确朗读"""
-    return s.replace("“", "").replace("”", "").replace("A4", "A 4").replace("PDF", "P D F")
+    return s.replace("“", "").replace("”", "").replace("A4", "A 4").replace("PDF", "P D F").replace(" ，", "，")
 OUT.mkdir(parents=True, exist_ok=True)
 
 W, H, FPS = 1080, 1920, 30
