@@ -340,15 +340,21 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         val area = b.bottomArea
         if (area.height == 0 || b.fabColumn.height == 0) return
         val stack = area.height + (area.layoutParams as FrameLayout.LayoutParams).bottomMargin
-        var ty = -(stack + 12 * d)
-        val top = b.overlay.height - b.overlay.paddingBottom - b.fabColumn.height + ty
-        val minTop = b.topArea.bottom + 12 * d
-        if (top < minTop) ty += minTop - top
+        val ty = -(stack + 12 * d)
+        // 底部卡片都展开时空间可能不够：整列按比例略微缩小（以右下角为基准），最多缩到 80%
+        val bottomY = b.overlay.height - b.overlay.paddingBottom + ty
+        val avail = bottomY - (b.topArea.bottom + 12 * d)
+        val scale = (avail / b.fabColumn.height).coerceIn(0.8f, 1f)
+        b.fabColumn.pivotX = b.fabColumn.width.toFloat()
+        b.fabColumn.pivotY = b.fabColumn.height.toFloat()
         b.fabColumn.animate().cancel()
         if (animate) {
-            b.fabColumn.animate().translationY(ty).setDuration(Motion.STANDARD).setInterpolator(Motion.EASE).start()
+            b.fabColumn.animate().translationY(ty).scaleX(scale).scaleY(scale)
+                .setDuration(Motion.STANDARD).setInterpolator(Motion.EASE).start()
         } else {
             b.fabColumn.translationY = ty
+            b.fabColumn.scaleX = scale
+            b.fabColumn.scaleY = scale
         }
     }
 
@@ -461,7 +467,9 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         )
         val history = layer(LAYER_TRACK, SRC_TRACK, 0.45f)
         val live = layer(LAYER_TRACK_LIVE, SRC_TRACK_LIVE, 0.9f)
-        val lastShape = s.layers.lastOrNull { it !is SymbolLayer }?.id
+        // 锚点：最后一个“非文字”的地图图层，但要排除定位箭头自己的图层（mapbox-location-*），
+        // 否则换地图样式后足迹 / 路线会盖在箭头上面
+        val lastShape = s.layers.lastOrNull { it !is SymbolLayer && !isLocationLayer(it.id) }?.id
         if (lastShape != null) {
             s.addLayerAbove(history, lastShape)
             s.addLayerAbove(live, history.id)
@@ -514,6 +522,29 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
 
     private fun hex(c: Int) = String.format("#%06X", 0xFFFFFF and c)
 
+    /**
+     * 保证足迹、路线、终点都在定位箭头下面：如果有哪一层跑到了箭头上方，
+     * 按原顺序挪回箭头下面（不管地图组件以什么顺序重建图层，箭头都不会被盖住）
+     */
+    private fun keepPuckOnTop() {
+        val s = style ?: return
+        val layers = s.layers
+        val firstLoc = layers.indexOfFirst { isLocationLayer(it.id) }
+        if (firstLoc < 0) return
+        val ours = listOf(LAYER_TRACK, LAYER_TRACK_LIVE, "rd-route-casing", "rd-route-line", "rd-dest")
+        val misplaced = ours.filter { id -> layers.indexOfFirst { it.id == id } > firstLoc }
+        if (misplaced.isEmpty()) return
+        val anchor = layers[firstLoc].id
+        for (id in ours) {
+            val layer = s.getLayer(id) ?: continue
+            s.removeLayer(layer)
+            s.addLayerBelow(layer, anchor)
+        }
+    }
+
+    /** 定位箭头组件自己的图层 */
+    private fun isLocationLayer(id: String) = id.startsWith("mapbox-location") || id.startsWith("maplibre-location")
+
     /** 导航路线：前景色实线 + 底色描边，画在足迹之上、文字之下 */
     private fun addRouteLayers(s: Style) {
         s.addSource(GeoJsonSource(SRC_ROUTE))
@@ -546,7 +577,9 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         )
         s.addLayerAbove(casing, LAYER_TRACK_LIVE)
         s.addLayerAbove(line, casing.id)
-        s.addLayer(dest)
+        // 终点标记也放在定位箭头下面
+        val firstLoc = s.layers.firstOrNull { isLocationLayer(it.id) }?.id
+        if (firstLoc != null) s.addLayerBelow(dest, firstLoc) else s.addLayer(dest)
     }
 
     private fun drawRoute(coords: List<DoubleArray>?) {
@@ -598,9 +631,10 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             })
         }
         pushPuck()
-        // 组件的图层重建可能晚于这里完成，下一帧和稍后再各放一次，确保箭头一定显示
-        b.mapView.post { pushPuck() }
-        b.mapView.postDelayed({ pushPuck() }, 400)
+        keepPuckOnTop()
+        // 组件的图层重建可能晚于这里完成，下一帧和稍后再各检查一次，确保箭头一定显示、不被盖住
+        b.mapView.post { pushPuck(); keepPuckOnTop() }
+        b.mapView.postDelayed({ pushPuck(); keepPuckOnTop() }, 400)
         if (following) follow()
         b.bottomArea.post { updateTrackingPadding() }
     }
