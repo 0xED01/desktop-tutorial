@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:paddingTop="16dp">
+
+    <!-- 搜索框 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_pill"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingEnd="6dp">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_search_dim" />
+
+            <EditText
+                android:id="@+id/etQuery"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:background="@null"
+                android:hint="去哪儿？"
+                android:imeOptions="actionSearch"
+                android:importantForAutofill="no"
+                android:inputType="text"
+                android:maxLines="1"
+                android:textColor="@color/fg"
+                android:textColorHint="@color/fg_dim"
+                android:textSize="16sp" />
+
+            <ImageButton
+                android:id="@+id/btnClear"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="@drawable/bg_circle"
+                android:backgroundTint="@color/chip"
+                android:contentDescription="清空"
+                android:padding="10dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_close"
+                android:visibility="gone"
+                app:tint="@color/fg_dim" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/btnCancel"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_row"
+            android:gravity="center"
+            android:paddingHorizontal="12dp"
+            android:text="取消"
+            android:textColor="@color/fg"
+            android:textSize="16sp" />
+    </LinearLayout>
+
+    <!-- 导航中：当前目的地 -->
+    <LinearLayout
+        android:id="@+id/navCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="14dp"
+        android:background="@drawable/bg_pill"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingVertical="8dp"
+        android:paddingStart="20dp"
+        android:paddingEnd="8dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tvNavTo"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/fg"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/btnEndNav"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_pill"
+            android:backgroundTint="@color/fg"
+            android:gravity="center"
+            android:paddingHorizontal="16dp"
+            android:text="结束导航"
+            android:textColor="@color/bg"
+            android:textSize="14sp" />
+    </LinearLayout>
+
+    <!-- 家 / 公司 -->
+    <LinearLayout
+        android:id="@+id/shortcuts"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp">
+
+        <TextView
+            android:id="@+id/btnHome"
+            style="@style/Shortcut"
+            android:layout_marginEnd="10dp"
+            android:drawableStart="@drawable/ic_home"
+            android:text="家" />
+
+        <TextView
+            android:id="@+id/btnWork"
+            style="@style/Shortcut"
+            android:drawableStart="@drawable/ic_work"
+            android:text="公司" />
+    </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="12dp"
+        android:indeterminate="true"
+        android:indeterminateTint="@color/fg"
+        android:visibility="invisible" />
+
+    <TextView
+        android:id="@+id/tvSection"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:paddingHorizontal="24dp"
+        android:paddingVertical="6dp"
+        android:textColor="@color/fg_dim"
+        android:textSize="13sp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingBottom="24dp">
+
+        <LinearLayout
+            android:id="@+id/list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="8dp" />
+    </ScrollView>
+</LinearLayout>

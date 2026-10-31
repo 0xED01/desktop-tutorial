@@ -83,6 +83,7 @@
             android:orientation="vertical"
             android:padding="4dp">
 
+            <ImageButton android:id="@+id/btnSearch" style="@style/RoundButton" android:src="@drawable/ic_search" android:contentDescription="搜索目的地" />
             <ImageButton android:id="@+id/btnRecenter" style="@style/RoundButton" android:src="@drawable/ic_my_location" android:contentDescription="回到当前位置" />
             <ImageButton android:id="@+id/btnInfo" style="@style/RoundButton" android:src="@drawable/ic_bar_chart" android:contentDescription="骑行数据" />
             <ImageButton android:id="@+id/btnMusic" style="@style/RoundButton" android:src="@drawable/ic_music" android:contentDescription="音乐" />
@@ -101,7 +102,7 @@
             android:orientation="vertical"
             android:padding="6dp">
 
-            <!-- 骑行数据：默认隐藏，点右侧“数据”按钮显示 -->
+            <!-- 骑行数据（导航时还有剩余距离 / 到达时间）：默认隐藏，点右侧“数据”按钮显示 -->
             <LinearLayout
                 android:id="@+id/infoPanel"
                 style="@style/Card"
@@ -111,6 +112,47 @@
                 android:orientation="vertical"
                 android:paddingVertical="12dp"
                 android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/navSection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingEnd="10dp"
+                    android:visibility="gone">
+
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                        <TextView android:id="@+id/tvRemain" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="剩余" />
+                    </LinearLayout>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                        <TextView android:id="@+id/tvEtaMin" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="用时" />
+                    </LinearLayout>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                        <TextView android:id="@+id/tvEta" style="@style/Stat.Value" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+                        <TextView style="@style/Stat.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="到达" />
+                    </LinearLayout>
+
+                    <ImageButton
+                        android:id="@+id/btnStopNav"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_circle"
+                        android:contentDescription="结束导航"
+                        android:padding="11dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/ic_close" />
+                </LinearLayout>
+
+                <View
+                    android:id="@+id/navDivider"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginHorizontal="20dp"
+                    android:layout_marginVertical="12dp"
+                    android:visibility="gone" />
 
                 <LinearLayout
                     android:id="@+id/statsRow"
@@ -147,6 +189,75 @@
             <include
                 android:id="@+id/speed"
                 layout="@layout/view_speed" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- 离线地图框选：框外压暗，底部卡片显示范围与大小 -->
+    <FrameLayout
+        android:id="@+id/selectOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone">
+
+        <com.ebike.dash.SelectionFrameView
+            android:id="@+id/selectFrame"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <LinearLayout
+            android:id="@+id/selectCard"
+            style="@style/Card"
+            android:layout_width="316dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="28dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:id="@+id/tvSelectTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:text="框选离线地图范围"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/tvSelectInfo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFeatureSettings="tnum"
+                android:textSize="15sp" />
+
+            <TextView
+                android:id="@+id/tvSelectHint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:tag="label"
+                android:text="拖动、缩放地图来调整框内的范围"
+                android:textSize="13sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/btnSelectCancel"
+                    style="@style/PillButton"
+                    android:layout_marginEnd="10dp"
+                    android:text="取消" />
+
+                <TextView
+                    android:id="@+id/btnSelectOk"
+                    style="@style/PillButton"
+                    android:text="下载这个范围" />
+            </LinearLayout>
         </LinearLayout>
     </FrameLayout>
 </FrameLayout>

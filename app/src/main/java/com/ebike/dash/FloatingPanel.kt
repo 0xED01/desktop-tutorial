@@ -27,6 +27,8 @@ import kotlin.math.min
 class FloatingPanel(
     private val act: AppCompatActivity,
     private val maxWidthDp: Int = 400,
+    /** 靠上显示（搜索面板用，避免被键盘挡住），并占屏幕高度的这一比例；null = 居中、高度随内容 */
+    private val topHeightFraction: Float? = null,
     private val build: (inflater: LayoutInflater, panel: FloatingPanel) -> View,
 ) {
     private val host = act.findViewById<ViewGroup>(android.R.id.content)
@@ -63,15 +65,21 @@ class FloatingPanel(
         card.isClickable = true // 点卡片内部空白处不关闭
         val v = build(inflater(), this)
         content = v
-        card.addView(v, FrameLayout.LayoutParams(-1, -2))
+        card.addView(v, FrameLayout.LayoutParams(-1, if (topHeightFraction != null) -1 else -2))
 
         val screenW = act.resources.displayMetrics.widthPixels
+        val screenH = act.resources.displayMetrics.heightPixels
         val w = min(screenW - (32 * d).toInt(), (maxWidthDp * d).toInt())
         root.addView(scrim, FrameLayout.LayoutParams(-1, -1))
-        root.addView(card, FrameLayout.LayoutParams(w, -2, Gravity.CENTER).apply {
+        val lp = topHeightFraction?.let { f ->
+            FrameLayout.LayoutParams(w, (screenH * f).toInt(), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
+                topMargin = (52 * d).toInt()
+            }
+        } ?: FrameLayout.LayoutParams(w, -2, Gravity.CENTER).apply {
             topMargin = (40 * d).toInt()
             bottomMargin = (40 * d).toInt()
-        })
+        }
+        root.addView(card, lp)
         host.addView(root, FrameLayout.LayoutParams(-1, -1))
         act.onBackPressedDispatcher.addCallback(back)
         Motion.panelIn(scrim, card)
@@ -100,7 +108,7 @@ class FloatingPanel(
         val fresh = build(inflater(), this)
         content = fresh
         fresh.alpha = 0f
-        card.addView(fresh, FrameLayout.LayoutParams(-1, -2))
+        card.addView(fresh, FrameLayout.LayoutParams(-1, if (topHeightFraction != null) -1 else -2))
         (fresh as? ScrollView)?.post { fresh.scrollTo(0, oldScroll) }
         old.animate().alpha(0f).setDuration(Motion.SHORT).setInterpolator(Motion.EASE)
             .withEndAction { card.removeView(old) }.start()
@@ -129,6 +137,27 @@ class FloatingPanel(
 
         private val open = mutableListOf<FloatingPanel>()
 
+        /** 统一样式的选项列表：标题 + 一列胶囊按钮（代替系统的选择对话框） */
+        fun actions(act: AppCompatActivity, title: String, items: List<String>, onPick: (Int) -> Unit) {
+            FloatingPanel(act, maxWidthDp = 360) { inf, panel ->
+                val b = com.ebike.dash.databinding.PanelActionsBinding.inflate(inf)
+                b.tvTitle.text = title
+                items.forEachIndexed { i, label ->
+                    val btn = com.ebike.dash.databinding.ItemActionBinding.inflate(inf, b.list, false).root
+                    btn.text = label
+                    Motion.pressable(btn)
+                    btn.setOnClickListener {
+                        panel.dismiss()
+                        onPick(i)
+                    }
+                    b.list.addView(btn)
+                }
+                b.btnCancel.setOnClickListener { panel.dismiss() }
+                Motion.pressable(b.btnCancel)
+                b.root
+            }.show()
+        }
+
         /** 统一样式的确认提示：标题、说明、两个胶囊按钮 */
         fun confirm(
             act: AppCompatActivity,
@@ -136,6 +165,7 @@ class FloatingPanel(
             message: String,
             positive: String,
             negative: String = "取消",
+            onNegative: (() -> Unit)? = null,
             onPositive: () -> Unit,
         ) {
             FloatingPanel(act, maxWidthDp = 360) { inf, panel ->
@@ -146,7 +176,10 @@ class FloatingPanel(
                 b.btnPositive.text = positive
                 b.btnNegative.text = negative
                 Motion.pressable(b.btnPositive, b.btnNegative)
-                b.btnNegative.setOnClickListener { panel.dismiss() }
+                b.btnNegative.setOnClickListener {
+                    panel.dismiss()
+                    onNegative?.invoke()
+                }
                 b.btnPositive.setOnClickListener {
                     panel.dismiss()
                     onPositive()

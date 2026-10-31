@@ -76,15 +76,18 @@ class GpsSource(private val ctx: Context, private val sink: LocationSink) : Loca
 
 /**
  * 演示模式：模拟一段真实的骑行（加速、巡航、红灯停车），
- * 绕起点附近一圈。用于展示和室内调试。
+ * 有导航路线时沿路线骑行，否则绕起点转圈。用于展示和室内调试。
  */
 class DemoSource(
     startLat: Double,
     startLon: Double,
     private val sink: LocationSink,
+    private val routeProvider: () -> Route?,
 ) {
     private val handler = Handler(Looper.getMainLooper())
-    private val path: List<DoubleArray>
+    private val loop: List<DoubleArray>
+    private var path: List<DoubleArray>
+    private var activeRoute: Route? = null
     private var idx = 0
     private var off = 0.0
     private var speed = 0.0 // m/s
@@ -94,7 +97,8 @@ class DemoSource(
     init {
         // 起点附近一个约 350 米半径的环线
         val center = Geo.offset(startLat, startLon, 0.0, 350.0)
-        path = (0..48).map { i -> Geo.offset(center[0], center[1], 180.0 + i * 7.5, 350.0) }
+        loop = (0..48).map { i -> Geo.offset(center[0], center[1], 180.0 + i * 7.5, 350.0) }
+        path = loop
     }
 
     private val tick = object : Runnable {
@@ -108,6 +112,13 @@ class DemoSource(
     fun stop() = handler.removeCallbacks(tick)
 
     private fun step() {
+        val r = routeProvider()
+        if (r !== activeRoute) {
+            activeRoute = r
+            path = r?.coords ?: loop
+            idx = 0
+            off = 0.0
+        }
         t += dt
         // 目标速度：20~32 km/h 波动，每 75 秒模拟一次红灯停车 8 秒
         val cycle = t % 75.0
@@ -127,8 +138,13 @@ class DemoSource(
                 d -= seg - off
                 idx++
                 off = 0.0
-                if (idx >= path.size - 1) idx = 0
+                if (idx >= path.size - 1 && path === loop) idx = 0
             }
+        }
+        if (idx >= path.size - 1) {
+            speed = 0.0
+            idx = path.size - 2
+            off = Geo.distance(path[idx][0], path[idx][1], path[idx + 1][0], path[idx + 1][1])
         }
         val a = path[idx]
         val b = path[idx + 1]

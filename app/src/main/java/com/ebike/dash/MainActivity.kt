@@ -37,6 +37,14 @@ import androidx.core.view.updateLayoutParams
 import com.ebike.dash.databinding.ActivityMainBinding
 import com.ebike.dash.databinding.DialogSettingsBinding
 import org.maplibre.android.MapLibre
+import org.maplibre.android.geometry.LatLngBounds
+import org.maplibre.android.camera.CameraUpdateFactory
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import org.maplibre.geojson.Feature
+import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.location.LocationComponentActivationOptions
@@ -63,13 +71,15 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
 
-class MainActivity : AppCompatActivity(), LocationSink {
+class MainActivity : AppCompatActivity(), LocationSink, NavListener {
 
     companion object {
         private const val SRC_TRACK = "rd-track"
         private const val SRC_TRACK_LIVE = "rd-track-live"
         private const val LAYER_TRACK = "rd-track"
         private const val LAYER_TRACK_LIVE = "rd-track-live"
+        private const val SRC_ROUTE = "rd-route"
+        private const val SRC_DEST = "rd-dest"
     }
 
     private lateinit var b: ActivityMainBinding
@@ -78,6 +88,11 @@ class MainActivity : AppCompatActivity(), LocationSink {
     private lateinit var track: TrackStore
     private lateinit var music: MusicController
     private lateinit var offline: OfflineMaps
+    private lateinit var voice: Voice
+    private lateinit var nav: NavigationEngine
+    private var destPoint: DoubleArray? = null
+    private var selecting = false
+    private var selectBack: androidx.activity.OnBackPressedCallback? = null
     private var dl: com.ebike.dash.databinding.PanelDownloadBinding? = null
     private var dlPanel: FloatingPanel? = null
     private var musicSheet: MusicSheet? = null
@@ -129,6 +144,8 @@ class MainActivity : AppCompatActivity(), LocationSink {
         tracker.restore(prefs)
         track = TrackStore(File(filesDir, "track.txt")).apply { load() }
         music = MusicController(this) { onMusicChanged(it) }
+        voice = Voice(this)
+        nav = NavigationEngine(lifecycleScope, this, units)
         offline = OfflineMaps(this).apply {
             onUpdate = { refreshDownloadPanel() }
             onFinished = { ok, msg ->
@@ -143,6 +160,10 @@ class MainActivity : AppCompatActivity(), LocationSink {
             setupMap(m)
         }
 
+        b.btnSearch.setOnClickListener { showSearch() }
+        b.btnStopNav.setOnClickListener { stopNavigation(true) }
+        b.btnSelectCancel.setOnClickListener { endAreaSelection(download = false) }
+        b.btnSelectOk.setOnClickListener { endAreaSelection(download = true) }
         b.btnRecenter.setOnClickListener { recenter() }
         b.btnSettings.setOnClickListener { showSettings() }
         b.btnInfo.setOnClickListener { setInfoVisible(!b.infoPanel.isVisible) }
@@ -155,7 +176,10 @@ class MainActivity : AppCompatActivity(), LocationSink {
         b.infoPanel.isVisible = prefs.showInfo
         b.music.root.isVisible = prefs.showMusic
         // 所有可点的按钮和卡片使用统一的按压动效
-        Motion.pressable(b.btnRecenter, b.btnInfo, b.btnMusic, b.btnSettings, b.music.btnPrev, b.music.btnPlay, b.music.btnNext)
+        Motion.pressable(
+            b.btnSearch, b.btnRecenter, b.btnInfo, b.btnMusic, b.btnSettings, b.btnStopNav,
+            b.music.btnPrev, b.music.btnPlay, b.music.btnNext, b.btnSelectCancel, b.btnSelectOk,
+        )
         Motion.pressable(b.music.root, scale = 0.98f)
         applyPalette(if (isNight()) Palette.DARK else Palette.LIGHT)
         applyPrefs()
@@ -164,7 +188,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
         updateStatus()
         // 启动时状态栏、按钮、底部卡片依次浮现
         Motion.enter(
-            listOf(b.statusRow, b.btnRecenter, b.btnInfo, b.btnMusic, b.btnSettings) +
+            listOf(b.statusRow, b.btnSearch, b.btnRecenter, b.btnInfo, b.btnMusic, b.btnSettings) +
                 listOf(b.infoPanel, b.music.root, b.speed.root).filter { it.isVisible }
         )
 
@@ -210,6 +234,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
         demo?.stop()
         gps.stop()
         RecordingService.stop(this)
+        voice.shutdown()
         track.endSegment()
         track.close()
         b.mapView.onDestroy()
@@ -280,6 +305,11 @@ class MainActivity : AppCompatActivity(), LocationSink {
             .target(LatLng(prefs.lastLat, prefs.lastLon))
             .zoom(15.5)
             .build()
+        m.addOnMapLongClickListener { p ->
+            if (!selecting) onMapLongPress(p.latitude, p.longitude)
+            !selecting
+        }
+        m.addOnCameraMoveListener { if (selecting) updateSelectionInfo() }
         loadStyle(force = true)
     }
 
@@ -306,9 +336,12 @@ class MainActivity : AppCompatActivity(), LocationSink {
             hideBoundaries(s)
             applyLabelVisibility(s)
             addTrackLayers(s)
+            addRouteLayers(s)
             enableLocationComponent(s)
             drawTrackHistory()
             drawTrackLive(force = true)
+            nav.route?.let { drawRoute(it.coords) }
+            destPoint?.let { drawDest(it[0], it[1]) }
         }
     }
 
@@ -411,6 +444,57 @@ class MainActivity : AppCompatActivity(), LocationSink {
         drawTrackLive()
     }
 
+    // ---------------------------------------------------------------- 导航路线
+
+    private fun hex(c: Int) = String.format("#%06X", 0xFFFFFF and c)
+
+    /** 导航路线：前景色实线 + 底色描边，画在足迹之上、文字之下 */
+    private fun addRouteLayers(s: Style) {
+        s.addSource(GeoJsonSource(SRC_ROUTE))
+        s.addSource(GeoJsonSource(SRC_DEST))
+        val width = Expression.interpolate(
+            Expression.exponential(1.5f), Expression.zoom(),
+            Expression.stop(10, 3f), Expression.stop(14, 6f), Expression.stop(18, 15f),
+        )
+        val casingWidth = Expression.interpolate(
+            Expression.exponential(1.5f), Expression.zoom(),
+            Expression.stop(10, 5f), Expression.stop(14, 9f), Expression.stop(18, 21f),
+        )
+        val casing = LineLayer("rd-route-casing", SRC_ROUTE).withProperties(
+            PropertyFactory.lineColor(hex(pal.surface)),
+            PropertyFactory.lineWidth(casingWidth),
+            PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+            PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+        )
+        val line = LineLayer("rd-route-line", SRC_ROUTE).withProperties(
+            PropertyFactory.lineColor(pal.trackColor),
+            PropertyFactory.lineWidth(width),
+            PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+            PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+        )
+        val dest = CircleLayer("rd-dest", SRC_DEST).withProperties(
+            PropertyFactory.circleRadius(8f),
+            PropertyFactory.circleColor(pal.trackColor),
+            PropertyFactory.circleStrokeColor(hex(pal.surface)),
+            PropertyFactory.circleStrokeWidth(4f),
+        )
+        s.addLayerAbove(casing, LAYER_TRACK_LIVE)
+        s.addLayerAbove(line, casing.id)
+        s.addLayer(dest)
+    }
+
+    private fun drawRoute(coords: List<DoubleArray>?) {
+        val src = style?.getSourceAs<GeoJsonSource>(SRC_ROUTE) ?: return
+        if (coords == null || coords.size < 2) src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+        else src.setGeoJson(LineString.fromLngLats(coords.map { Point.fromLngLat(it[1], it[0]) }))
+    }
+
+    private fun drawDest(lat: Double?, lon: Double?) {
+        val src = style?.getSourceAs<GeoJsonSource>(SRC_DEST) ?: return
+        if (lat == null || lon == null) src.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+        else src.setGeoJson(Feature.fromGeometry(Point.fromLngLat(lon, lat)))
+    }
+
     @SuppressLint("MissingPermission")
     private fun enableLocationComponent(s: Style) {
         val m = map ?: return
@@ -478,8 +562,8 @@ class MainActivity : AppCompatActivity(), LocationSink {
         following = true
         b.btnRecenter.alpha = 1f
         lc.cameraMode = CameraMode.TRACKING_GPS
-        lc.zoomWhileTracking(16.5, 900)
-        lc.tiltWhileTracking(40.0, 900)
+        lc.zoomWhileTracking(if (nav.active) 17.0 else 16.5, 900)
+        lc.tiltWhileTracking(if (nav.active) 50.0 else 40.0, 900)
         updateTrackingPadding()
     }
 
@@ -501,7 +585,18 @@ class MainActivity : AppCompatActivity(), LocationSink {
         // 不透明：半透明卡片会透出自身阴影，看起来深浅不均
         b.speed.root.backgroundTintList = surface
         b.music.root.backgroundTintList = surface
-        for (btn in listOf(b.btnRecenter, b.btnInfo, b.btnMusic, b.btnSettings)) {
+        // 结束导航：反色实心圆；分隔线用浅灰
+        b.btnStopNav.backgroundTintList = ColorStateList.valueOf(p.onSurface)
+        b.btnStopNav.imageTintList = surface
+        b.navDivider.setBackgroundColor(p.chip)
+        // 框选离线地图：框外压暗，卡片与按钮同其它悬浮卡片
+        b.selectFrame.setColors(if (p.dark) Color.argb(140, 0, 0, 0) else Color.argb(90, 0, 0, 0), p.onSurface)
+        b.selectCard.backgroundTintList = surface
+        b.btnSelectCancel.backgroundTintList = ColorStateList.valueOf(p.chip)
+        b.btnSelectCancel.setTextColor(p.onSurface)
+        b.btnSelectOk.backgroundTintList = ColorStateList.valueOf(p.onSurface)
+        b.btnSelectOk.setTextColor(p.surface)
+        for (btn in listOf(b.btnSearch, b.btnRecenter, b.btnInfo, b.btnMusic, b.btnSettings)) {
             btn.backgroundTintList = surface
             btn.imageTintList = ColorStateList.valueOf(p.onSurface)
         }
@@ -515,6 +610,9 @@ class MainActivity : AppCompatActivity(), LocationSink {
         b.music.eq.setColor(p.onSurface)
         b.speed.energy.setColors(p.onSurface, p.chip)
         tintTexts(b.overlay, p)
+        tintTexts(b.selectCard, p)
+        b.btnSelectCancel.setTextColor(p.onSurface)
+        b.btnSelectOk.setTextColor(p.surface)
         onMusicChanged(if (::music.isInitialized) music.now else null)
         map?.uiSettings?.setCompassImage(compassDrawable())
         updateInfoButton(b.infoPanel.isVisible, animate = false)
@@ -559,6 +657,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
 
         tracker.update(fixed, speedKmh)
         recordTrack(fixed)
+        nav.onLocation(fixed)
         updateRecordingNotice()
         if (System.currentTimeMillis() - lastSavedPos > 30_000) {
             lastSavedPos = System.currentTimeMillis()
@@ -653,6 +752,11 @@ class MainActivity : AppCompatActivity(), LocationSink {
         Motion.tint(b.btnInfo, if (on) pal.onSurface else pal.surface, if (on) pal.surface else pal.onSurface, animate)
     }
 
+    private fun setNavSectionVisible(show: Boolean) {
+        b.navSection.isVisible = show
+        b.navDivider.isVisible = show
+    }
+
     private fun updateGpsIndicator(loc: Location) {
         val demoMode = loc.provider == "demo"
         val level = if (demoMode) SignalDotsView.COUNT else SignalDotsView.levelFor(loc.accuracy)
@@ -682,6 +786,113 @@ class MainActivity : AppCompatActivity(), LocationSink {
     }
 
     private fun currentPos(): DoubleArray? = lastLoc?.let { doubleArrayOf(it.latitude, it.longitude) }
+
+    // ---------------------------------------------------------------- 导航
+
+    private fun showSearch() {
+        val center = currentPos() ?: map?.cameraPosition?.target?.let { doubleArrayOf(it.latitude, it.longitude) }
+            ?: doubleArrayOf(prefs.lastLat, prefs.lastLon)
+        SearchSheet(
+            this, prefs, units, center,
+            navDestName = if (nav.active) nav.destName else null,
+            onPick = { startNavigation(it.lat, it.lon, it.name) },
+            onEndNav = { stopNavigation(true) },
+        ).show()
+    }
+
+    /** 长按地图：先查出这个位置的地址，再选择“去这里”或收藏 */
+    private fun onMapLongPress(lat: Double, lon: Double) {
+        destPoint = doubleArrayOf(lat, lon)
+        drawDest(lat, lon)
+        lifecycleScope.launch {
+            val place = try {
+                withContext(Dispatchers.IO) { Net.reverse(lat, lon) }
+            } catch (_: Exception) {
+                null
+            }
+            val p = Place(place?.name ?: "地图上的位置", place?.address ?: "", lat, lon)
+            val dist = currentPos()?.let { units.navDist(Geo.distance(it[0], it[1], lat, lon)) }
+            val title = listOfNotNull(p.name, dist).joinToString("  ·  ")
+            var picked = false
+            FloatingPanel.actions(this@MainActivity, title, listOf("去这里", "收藏为家", "收藏为公司")) { i ->
+                picked = true
+                when (i) {
+                    0 -> { prefs.addHistory(p); startNavigation(p.lat, p.lon, p.name) }
+                    1 -> { prefs.putPlace(Prefs.HOME, p); toast("已设为家"); clearPendingDest() }
+                    2 -> { prefs.putPlace(Prefs.WORK, p); toast("已设为公司"); clearPendingDest() }
+                }
+            }
+            // 没选“去这里”就关掉时，把临时标记去掉
+            ui.postDelayed({ if (!picked && !nav.active) clearPendingDest() }, 60_000)
+        }
+    }
+
+    private fun clearPendingDest() {
+        if (nav.active) return
+        destPoint = null
+        drawDest(null, null)
+    }
+
+    private fun startNavigation(lat: Double, lon: Double, name: String) {
+        val from = currentPos()
+        if (from == null) {
+            toast("还没有定位，请稍候或开启演示模式")
+            return
+        }
+        destPoint = doubleArrayOf(lat, lon)
+        drawDest(lat, lon)
+        toast("正在规划骑行路线…")
+        nav.start(from[0], from[1], lat, lon, name)
+    }
+
+    private fun stopNavigation(byUser: Boolean) {
+        nav.stop()
+        destPoint = null
+        drawRoute(null)
+        drawDest(null, null)
+        setNavSectionVisible(false)
+        if (byUser) voice.speak("导航已结束")
+        if (following) follow()
+    }
+
+    override fun onRouteReady(route: Route, reroute: Boolean) {
+        drawRoute(route.coords)
+        setNavSectionVisible(true)
+        if (!reroute) {
+            voice.speak("开始导航，全程${units.spokenDist(route.length)}")
+            follow()
+        }
+        updateNavInfo(route.length)
+    }
+
+    override fun onRouteError(msg: String) {
+        if (!nav.active) {
+            destPoint = null
+            drawDest(null, null)
+        }
+        toast("路线规划失败：$msg（导航需要网络）")
+    }
+
+    override fun onProgress(p: NavProgress) {
+        if (resumed) nav.route?.let { drawRoute(it.remainingCoords(p.snap)) }
+        updateNavInfo(p.remaining)
+    }
+
+    private fun updateNavInfo(remaining: Double) {
+        // 用当前均速估算到达时间，最低按 15 km/h
+        val v = maxOf(tracker.avgKmh, 15.0) / 3.6
+        val sec = (remaining / v).toLong()
+        b.tvRemain.text = units.navDist(remaining).replace(" ", "")
+        b.tvEtaMin.text = if (sec >= 3600) "${sec / 3600}时${sec / 60 % 60}分" else "${(sec / 60).coerceAtLeast(1)}分钟"
+        b.tvEta.text = clockFmt.format(Date(System.currentTimeMillis() + sec * 1000))
+    }
+
+    override fun onSpeak(text: String) = voice.speak(text)
+
+    override fun onArrived() {
+        toast("已到达目的地")
+        stopNavigation(false)
+    }
 
     // ---------------------------------------------------------------- 音乐
 
@@ -769,8 +980,8 @@ class MainActivity : AppCompatActivity(), LocationSink {
         RecordingService.stop(this)
         // 演示轨迹只画在屏幕上，不写进真实足迹
         demoTrack = TrackStore(null)
-        demo = DemoSource(start[0], start[1], this).also { it.start() }
-        toast("演示模式：模拟骑行中")
+        demo = DemoSource(start[0], start[1], this) { nav.route }.also { it.start() }
+        toast("演示模式：模拟骑行中（长按地图可模拟导航）")
         follow()
     }
 
@@ -778,6 +989,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
 
     private fun applyPrefs() {
         units.imperial = prefs.imperial
+        voice.enabled = prefs.voice
         b.speed.tvUnit.text = units.speedUnit
         updateDashboard()
     }
@@ -805,6 +1017,8 @@ class MainActivity : AppCompatActivity(), LocationSink {
             loadStyle()
         }
 
+        sb.swVoice.isChecked = prefs.voice
+        sb.swVoice.setOnCheckedChangeListener { _, c -> prefs.voice = c; applyPrefs() }
         sb.swBackground.isChecked = prefs.backgroundRecord
         sb.swBackground.setOnCheckedChangeListener { _, c ->
             prefs.backgroundRecord = c
@@ -824,7 +1038,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
         if (offline.downloading) {
             sb.tvOffline.text = "正在下载离线地图 ${(offline.progress * 100).toInt()}%"
         } else {
-            sb.tvOffline.text = "下载后，没有网络时也能显示附近的地图。浏览过的地方也会自动缓存。"
+            sb.tvOffline.text = "下载的是最精细的一级（全部道路、建筑、地名），没有网络时也能显示。浏览过的地方也会自动缓存。"
             offline.summary { areas, bytes ->
                 if (areas > 0) {
                     sb.tvOffline.text = String.format(Locale.US, "已下载 %d 个区域，约 %.0f MB。没有网络时也能显示。", areas, bytes / 1048576.0)
@@ -835,7 +1049,7 @@ class MainActivity : AppCompatActivity(), LocationSink {
         Motion.pressable(sb.btnOfflineDownload, sb.btnOfflineDelete)
         sb.btnOfflineDownload.setOnClickListener {
             dlg.dismiss()
-            if (offline.downloading) showDownloadPanel() else confirmOfflineDownload()
+            if (offline.downloading) showDownloadPanel() else startAreaSelection()
         }
         sb.btnOfflineDelete.setOnClickListener {
             dlg.dismiss()
@@ -874,21 +1088,102 @@ class MainActivity : AppCompatActivity(), LocationSink {
 
     // ---------------------------------------------------------------- 离线地图
 
-    private fun confirmOfflineDownload() {
-        val center = currentPos() ?: map?.cameraPosition?.target?.let { doubleArrayOf(it.latitude, it.longitude) }
-        if (center == null) {
-            toast("还没有定位，请稍候再试")
-            return
+    /** 进入框选：自动框住常骑的范围（足迹 + 当前位置），可拖动缩放地图调整 */
+    private fun startAreaSelection() {
+        val m = map ?: return
+        selecting = true
+        following = false
+        m.locationComponent.takeIf { it.isLocationComponentActivated }?.cameraMode = CameraMode.NONE
+        m.uiSettings.isCompassEnabled = false
+        for (v in listOf(b.topArea, b.fabColumn, b.bottomArea)) {
+            v.animate().alpha(0f).setDuration(Motion.SHORT).setInterpolator(Motion.EASE)
+                .withEndAction { v.visibility = View.INVISIBLE }.start()
         }
-        FloatingPanel.confirm(
-            this,
-            "下载附近的离线地图",
-            "以当前位置为中心约 ${OfflineMaps.RADIUS_KM.toInt()} 公里范围，浅色和深色两套，大约 30–60 MB。\n\n建议连接 Wi‑Fi 后下载。",
-            positive = "开始下载",
-        ) {
-            offline.download(center[0], center[1])
+        b.selectOverlay.alpha = 0f
+        b.selectOverlay.isVisible = true
+        b.selectOverlay.animate().alpha(1f).setDuration(Motion.STANDARD).setInterpolator(Motion.EASE).start()
+        Motion.panelIn(View(this), b.selectCard)
+        selectBack = object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() = endAreaSelection(download = false)
+        }.also { onBackPressedDispatcher.addCallback(it) }
+
+        b.selectOverlay.post {
+            val d = resources.displayMetrics.density
+            val f = b.selectFrame
+            f.setInsets(20 * d, 64 * d, 20 * d, b.selectCard.height + 28 * d + 20 * d)
+            val pad = intArrayOf(
+                (f.insetLeft + 8 * d).toInt(), (f.insetTop + 8 * d).toInt(),
+                (f.insetRight + 8 * d).toInt(), (f.insetBottom + 8 * d).toInt(),
+            )
+            val cam = m.getCameraForLatLngBounds(autoSelectionBounds(), pad, 0.0, 0.0)
+            if (cam != null) m.easeCamera(CameraUpdateFactory.newCameraPosition(cam), 700)
+            updateSelectionInfo()
+        }
+    }
+
+    /** 自动范围：所有足迹 + 当前位置；没有足迹时取附近 10 公里 */
+    private fun autoSelectionBounds(): LatLngBounds {
+        val here = currentPos() ?: map?.cameraPosition?.target?.let { doubleArrayOf(it.latitude, it.longitude) }
+            ?: doubleArrayOf(prefs.lastLat, prefs.lastLon)
+        val pts = track.segments.flatMap { seg -> seg.filterIndexed { i, _ -> i % 10 == 0 } }
+        if (pts.isEmpty()) return OfflineMaps.around(here[0], here[1], 10.0)
+        val bld = LatLngBounds.Builder().include(LatLng(here[0], here[1]))
+        pts.forEach { bld.include(LatLng(it[0], it[1])) }
+        // 再往外留 2 公里，太小时至少 5 公里半径
+        val small = OfflineMaps.around(here[0], here[1], 5.0)
+        bld.include(small.northEast).include(small.southWest)
+        val bounds = bld.build()
+        val ne = Geo.offset(bounds.latitudeNorth, bounds.longitudeEast, 45.0, 2000.0)
+        val sw = Geo.offset(bounds.latitudeSouth, bounds.longitudeWest, 225.0, 2000.0)
+        val padded = LatLngBounds.from(ne[0], ne[1], sw[0], sw[1])
+        return if (OfflineMaps.tileCount(padded) > OfflineMaps.TILE_LIMIT) OfflineMaps.around(here[0], here[1], 20.0) else padded
+    }
+
+    /** 当前框内的地理范围 */
+    private fun selectionBounds(): LatLngBounds? {
+        val m = map ?: return null
+        val f = b.selectFrame.frame
+        if (f.width() <= 0) return null
+        val tl = m.projection.fromScreenLocation(android.graphics.PointF(f.left, f.top))
+        val br = m.projection.fromScreenLocation(android.graphics.PointF(f.right, f.bottom))
+        return LatLngBounds.from(tl.latitude, br.longitude, br.latitude, tl.longitude)
+    }
+
+    private fun updateSelectionInfo() {
+        val bnd = selectionBounds() ?: return
+        val midLat = (bnd.latitudeNorth + bnd.latitudeSouth) / 2
+        val wKm = Geo.distance(midLat, bnd.longitudeWest, midLat, bnd.longitudeEast) / 1000
+        val hKm = Geo.distance(bnd.latitudeNorth, bnd.longitudeWest, bnd.latitudeSouth, bnd.longitudeWest) / 1000
+        val tiles = OfflineMaps.tileCount(bnd)
+        val mb = OfflineMaps.estimateBytes(bnd) / 1048576.0
+        val tooBig = tiles > OfflineMaps.TILE_LIMIT
+        b.tvSelectInfo.text = if (tooBig) {
+            String.format(Locale.US, "范围太大（约 %.0f MB），请缩小一些", mb)
+        } else {
+            String.format(Locale.US, "约 %.0f × %.0f 公里  ·  约 %.0f MB", wKm, hKm, mb.coerceAtLeast(1.0))
+        }
+        b.btnSelectOk.isEnabled = !tooBig
+        b.btnSelectOk.alpha = if (tooBig) 0.4f else 1f
+    }
+
+    private fun endAreaSelection(download: Boolean) {
+        if (!selecting) return
+        val bounds = if (download) selectionBounds() else null
+        selecting = false
+        selectBack?.remove()
+        selectBack = null
+        b.selectOverlay.animate().alpha(0f).setDuration(Motion.SHORT + 60).setInterpolator(Motion.EASE)
+            .withEndAction { b.selectOverlay.isVisible = false }.start()
+        for (v in listOf(b.topArea, b.fabColumn, b.bottomArea)) {
+            v.visibility = View.VISIBLE
+            v.animate().alpha(1f).setDuration(Motion.STANDARD).setInterpolator(Motion.EASE).start()
+        }
+        map?.uiSettings?.isCompassEnabled = true
+        if (bounds != null) {
+            offline.download(bounds)
             showDownloadPanel()
         }
+        if (lastLoc != null) follow()
     }
 
     private fun showDownloadPanel() {

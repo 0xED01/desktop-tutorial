@@ -43,6 +43,16 @@
             <Button android:id="@+id/tNight" style="@style/Menu.Toggle" android:text="深色" />
         </com.google.android.material.button.MaterialButtonToggleGroup>
 
+        <!-- 导航 -->
+        <TextView
+            style="@style/Menu.Section"
+            android:text="导航" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/swVoice"
+            style="@style/Menu.Switch"
+            android:text="语音播报" />
+
         <!-- 足迹 -->
         <TextView
             style="@style/Menu.Section"
@@ -88,7 +98,7 @@
             android:id="@+id/btnOfflineDownload"
             style="@style/Menu.Action"
             android:layout_marginTop="10dp"
-            android:text="下载附近 20 公里地图" />
+            android:text="选择范围下载离线地图" />
 
         <Button
             android:id="@+id/btnOfflineDelete"

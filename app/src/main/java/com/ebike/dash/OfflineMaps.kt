@@ -13,7 +13,8 @@ import org.maplibre.android.offline.OfflineTilePyramidRegionDefinition
 /**
  * 离线地图：把某个范围的地图提前下载到手机里，没有网络也能显示（GPS 本身不需要网络）。
  * 浅色、深色两套样式各下载一份；两者共用同一套道路数据，第二份只多一点点。
- * 地图数据最细到第 14 级，更近的缩放由手机放大显示，所以只需下载到 14 级。
+ * 地图数据最细到第 14 级（已包含全部道路、建筑、地名），更近的缩放由手机放大显示，
+ * 所以下载到 14 级就是“最精细”的离线地图。
  */
 class OfflineMaps(ctx: Context) {
     private val mgr = OfflineManager.getInstance(ctx)
@@ -68,20 +69,14 @@ class OfflineMaps(ctx: Context) {
         })
     }
 
-    /** 下载以 (lat, lon) 为中心、半径 radiusKm 的地图 */
-    fun download(lat: Double, lon: Double, radiusKm: Double = RADIUS_KM) {
+    /** 下载框选范围内的地图（0~14 级，即全部细节） */
+    fun download(bounds: LatLngBounds) {
         if (downloading) return
         downloading = true
         progress = 0f
         bytes = 0L
         notice = null
         created.clear()
-        val n = Geo.offset(lat, lon, 0.0, radiusKm * 1000)
-        val s = Geo.offset(lat, lon, 180.0, radiusKm * 1000)
-        val e = Geo.offset(lat, lon, 90.0, radiusKm * 1000)
-        val w = Geo.offset(lat, lon, 270.0, radiusKm * 1000)
-        val bounds = LatLngBounds.Builder().include(LatLng(n[0], n[1])).include(LatLng(s[0], s[1]))
-            .include(LatLng(e[0], e[1])).include(LatLng(w[0], w[1])).build()
         val group = System.currentTimeMillis()
         downloadStyle(listOf(Palette.LIGHT.mapStyle, Palette.DARK.mapStyle), 0, bounds, group)
         onUpdate?.invoke()
@@ -183,6 +178,43 @@ class OfflineMaps(ctx: Context) {
     }
 
     companion object {
-        const val RADIUS_KM = 20.0
+        const val MAX_ZOOM = 14
+        /** 单次最多下载的瓦片数（约一座大城市的市区） */
+        const val TILE_LIMIT = 12000L
+        /** 平均每块瓦片大小的估算值：城区约 100 KB、郊区约 20 KB */
+        private const val AVG_TILE_BYTES = 55_000L
+
+        /** 以 (lat, lon) 为中心、半径 km 的范围 */
+        fun around(lat: Double, lon: Double, km: Double): LatLngBounds {
+            val n = Geo.offset(lat, lon, 0.0, km * 1000)
+            val s = Geo.offset(lat, lon, 180.0, km * 1000)
+            val e = Geo.offset(lat, lon, 90.0, km * 1000)
+            val w = Geo.offset(lat, lon, 270.0, km * 1000)
+            return LatLngBounds.Builder().include(LatLng(n[0], n[1])).include(LatLng(s[0], s[1]))
+                .include(LatLng(e[0], e[1])).include(LatLng(w[0], w[1])).build()
+        }
+
+        /** 范围内 0~14 级的瓦片总数 */
+        fun tileCount(b: LatLngBounds): Long {
+            var total = 0L
+            for (z in 0..MAX_ZOOM) {
+                val (x0, y0) = tileXY(b.latitudeNorth, b.longitudeWest, z)
+                val (x1, y1) = tileXY(b.latitudeSouth, b.longitudeEast, z)
+                total += (x1 - x0 + 1).toLong() * (y1 - y0 + 1)
+            }
+            return total
+        }
+
+        /** 估算下载大小（字节） */
+        fun estimateBytes(b: LatLngBounds): Long = tileCount(b) * AVG_TILE_BYTES
+
+        private fun tileXY(lat: Double, lon: Double, z: Int): Pair<Int, Int> {
+            val n = 1 shl z
+            val la = lat.coerceIn(-85.0, 85.0)
+            val x = ((lon + 180) / 360 * n).toInt().coerceIn(0, n - 1)
+            val r = Math.toRadians(la)
+            val y = ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * n).toInt().coerceIn(0, n - 1)
+            return x to y
+        }
     }
 }
