@@ -175,6 +175,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
 
         b.btnSearch.setOnClickListener { showSearch() }
         b.btnExplore.setOnClickListener { showExplore() }
+        setupFabColumn()
         setupNightDash()
         b.btnStopNav.setOnClickListener { stopNavigation(true) }
         b.btnSelectCancel.setOnClickListener { endAreaSelection(download = false) }
@@ -192,7 +193,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         b.music.root.isVisible = prefs.showMusic
         // 所有可点的按钮和卡片使用统一的按压动效
         Motion.pressable(
-            b.btnSearch, b.btnRecenter, b.btnInfo, b.btnMusic, b.btnExplore, b.btnSettings, b.btnStopNav,
+            b.btnCompass, b.btnSearch, b.btnRecenter, b.btnInfo, b.btnMusic, b.btnExplore, b.btnSettings, b.btnStopNav,
             b.btnModeLeft, b.btnModeRight,
             b.music.btnPrev, b.music.btnPlay, b.music.btnNext, b.btnSelectCancel, b.btnSelectOk,
         )
@@ -204,7 +205,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         updateStatus()
         // 启动时状态栏、按钮、底部卡片依次浮现
         Motion.enter(
-            listOf(b.statusRow, b.btnSearch, b.btnRecenter, b.btnInfo, b.btnMusic, b.btnExplore, b.btnSettings) +
+            listOf(b.statusRow, b.btnCompass, b.btnSearch, b.btnRecenter, b.btnInfo, b.btnMusic, b.btnExplore, b.btnSettings) +
                 listOf(b.infoPanel, b.music.root, b.speed.root).filter { it.isVisible }
         )
 
@@ -308,12 +309,8 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         val d = resources.displayMetrics.density
         m.uiSettings.apply {
             isLogoEnabled = false
-            // 指南针放在右侧按钮列的最上方，与圆形按钮同尺寸、同配色
-            isCompassEnabled = true
-            compassGravity = Gravity.TOP or Gravity.END
-            // 图标 50dp（46dp 圆 + 2dp 投影），中心与下方 46dp 按钮对齐
-            setCompassMargins(0, (106 * d).toInt(), (16 * d).toInt(), 0)
-            setCompassImage(compassDrawable())
+            // 用右侧按钮列里自己的指南针按钮，地图自带的不显示
+            isCompassEnabled = false
             // 地图版权信息放在菜单底部，不在地图上显示 (i) 按钮
             isAttributionEnabled = false
         }
@@ -325,13 +322,65 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             if (!selecting) onMapLongPress(p.latitude, p.longitude)
             !selecting
         }
-        m.addOnCameraMoveListener { if (selecting) updateSelectionInfo() }
+        m.addOnCameraMoveListener {
+            if (selecting) updateSelectionInfo()
+            updateCompass()
+        }
         loadStyle(force = true)
     }
 
-    private fun compassDrawable() = ContextCompat.getDrawable(
-        this, if (pal === Palette.DARK) R.drawable.ic_compass_dark else R.drawable.ic_compass_light,
-    )!!
+    // ---------------------------------------------------------------- 右侧按钮列与指南针
+
+    private var northUp = false
+    private var fabPlaced = false
+
+    /** 按钮列停在底部卡片上方 12dp；空间不够时不越过顶部状态行 */
+    private fun placeFabColumn(animate: Boolean) {
+        val d = resources.displayMetrics.density
+        val area = b.bottomArea
+        if (area.height == 0 || b.fabColumn.height == 0) return
+        val stack = area.height + (area.layoutParams as FrameLayout.LayoutParams).bottomMargin
+        var ty = -(stack + 12 * d)
+        val top = b.overlay.height - b.overlay.paddingBottom - b.fabColumn.height + ty
+        val minTop = b.topArea.bottom + 12 * d
+        if (top < minTop) ty += minTop - top
+        b.fabColumn.animate().cancel()
+        if (animate) {
+            b.fabColumn.animate().translationY(ty).setDuration(Motion.STANDARD).setInterpolator(Motion.EASE).start()
+        } else {
+            b.fabColumn.translationY = ty
+        }
+    }
+
+    private fun setupFabColumn() {
+        b.bottomArea.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
+            if (bottom - top != oldBottom - oldTop) {
+                placeFabColumn(animate = fabPlaced)
+                fabPlaced = true
+            }
+        }
+        b.fabColumn.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
+            if (bottom - top != oldBottom - oldTop) placeFabColumn(animate = false)
+        }
+        b.btnCompass.setOnClickListener { onCompassClick() }
+    }
+
+    /** 跟随时：在“车头朝上 / 北朝上”之间切换；没跟随时：把地图转回正北 */
+    private fun onCompassClick() {
+        val m = map ?: return
+        if (following) {
+            northUp = !northUp
+            follow()
+            toast(if (northUp) "北朝上" else "车头朝上")
+        } else {
+            m.animateCamera(CameraUpdateFactory.bearingTo(0.0), Motion.STANDARD.toInt() * 2)
+        }
+    }
+
+    private fun updateCompass() {
+        val m = map ?: return
+        b.btnCompass.rotation = -m.cameraPosition.bearing.toFloat()
+    }
 
     private fun isNight(): Boolean = when (prefs.theme) {
         1 -> false
@@ -578,7 +627,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         if (!lc.isLocationComponentActivated) return
         following = true
         b.btnRecenter.alpha = 1f
-        lc.cameraMode = CameraMode.TRACKING_GPS
+        lc.cameraMode = if (northUp) CameraMode.TRACKING_GPS_NORTH else CameraMode.TRACKING_GPS
         lc.zoomWhileTracking(if (nav.active) 17.0 else 16.5, 900)
         lc.tiltWhileTracking(if (nav.active) 50.0 else 40.0, 900)
         updateTrackingPadding()
@@ -618,6 +667,9 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         b.btnModeRight.backgroundTintList = ColorStateList.valueOf(p.onSurface)
         b.modeBar.setColors(p.onSurface, p.chip)
         b.nightEnergy.setColors(Color.WHITE, Color.argb(46, 255, 255, 255))
+        // 指南针指针本身是双色图，只给底色着色
+        b.btnCompass.backgroundTintList = surface
+        b.btnCompass.imageTintList = null
         for (btn in listOf(b.btnSearch, b.btnRecenter, b.btnInfo, b.btnMusic, b.btnExplore, b.btnSettings)) {
             btn.backgroundTintList = surface
             btn.imageTintList = ColorStateList.valueOf(p.onSurface)
@@ -639,7 +691,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         b.btnSelectCancel.setTextColor(p.onSurface)
         b.btnSelectOk.setTextColor(p.surface)
         onMusicChanged(if (::music.isInitialized) music.now else null)
-        map?.uiSettings?.setCompassImage(compassDrawable())
+        b.btnCompass.setImageResource(if (p === Palette.DARK) R.drawable.ic_needle_dark else R.drawable.ic_needle_light)
         updateInfoButton(b.infoPanel.isVisible, animate = false)
         updateMusicButton(b.music.root.isVisible, animate = false)
         b.topScrim.background = GradientDrawable(
@@ -942,7 +994,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
     // ---------------------------------------------------------------- 探索（点亮城市 / 盲盒 / 回放 / 报告 / 夜骑）
 
     private fun showExplore() {
-        FloatingPanel.actions(this, "探索", listOf("点亮城市", "今晚骑去哪", "骑行回放", "月度报告", "夜骑仪表")) { i ->
+        FloatingPanel.actions(this, "探索", listOf("点亮城市", "骑向未知", "骑行回放", "月度报告", "夜骑仪表")) { i ->
             when (i) {
                 0 -> startLitCity()
                 1 -> showBlindBox()
@@ -958,7 +1010,6 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         mode = name
         following = false
         map?.locationComponent?.takeIf { it.isLocationComponentActivated }?.cameraMode = CameraMode.NONE
-        map?.uiSettings?.isCompassEnabled = false
         for (v in listOf(b.topArea, b.fabColumn, b.bottomArea)) {
             v.animate().alpha(0f).setDuration(Motion.SHORT).setInterpolator(Motion.EASE)
                 .withEndAction { v.visibility = View.INVISIBLE }.start()
@@ -991,7 +1042,6 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             v.visibility = View.VISIBLE
             v.animate().alpha(1f).setDuration(Motion.STANDARD).setInterpolator(Motion.EASE).start()
         }
-        map?.uiSettings?.isCompassEnabled = true
         if (lastLoc != null) follow()
     }
 
@@ -1144,7 +1194,7 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         }
     }
 
-    // ---- 今晚骑去哪
+    // ---- 骑向未知
 
     private fun showBlindBox() {
         val here = currentPos()
@@ -1693,7 +1743,6 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
         selecting = true
         following = false
         m.locationComponent.takeIf { it.isLocationComponentActivated }?.cameraMode = CameraMode.NONE
-        m.uiSettings.isCompassEnabled = false
         for (v in listOf(b.topArea, b.fabColumn, b.bottomArea)) {
             v.animate().alpha(0f).setDuration(Motion.SHORT).setInterpolator(Motion.EASE)
                 .withEndAction { v.visibility = View.INVISIBLE }.start()
@@ -1777,7 +1826,6 @@ class MainActivity : AppCompatActivity(), LocationSink, NavListener {
             v.visibility = View.VISIBLE
             v.animate().alpha(1f).setDuration(Motion.STANDARD).setInterpolator(Motion.EASE).start()
         }
-        map?.uiSettings?.isCompassEnabled = true
         if (bounds != null) {
             offline.download(bounds)
             showDownloadPanel()

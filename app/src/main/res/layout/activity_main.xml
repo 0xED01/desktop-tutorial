@@ -71,17 +71,19 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- 右侧按钮 -->
+        <!-- 右侧按钮：始终停在底部卡片的上方，卡片展开 / 收起时平滑让位 -->
         <LinearLayout
             android:id="@+id/fabColumn"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="top|end"
-            android:layout_marginTop="150dp"
+            android:layout_gravity="bottom|end"
             android:layout_marginEnd="14dp"
             android:clipToPadding="false"
             android:orientation="vertical"
             android:padding="4dp">
+
+            <!-- 指南针：随地图旋转；点一下切换“北朝上 / 车头朝上” -->
+            <ImageButton android:id="@+id/btnCompass" style="@style/RoundButton" android:padding="11dp" android:src="@drawable/ic_needle_light" android:contentDescription="指南针" />
 
             <ImageButton android:id="@+id/btnSearch" style="@style/RoundButton" android:src="@drawable/ic_search" android:contentDescription="搜索目的地" />
             <ImageButton android:id="@+id/btnRecenter" style="@style/RoundButton" android:src="@drawable/ic_my_location" android:contentDescription="回到当前位置" />

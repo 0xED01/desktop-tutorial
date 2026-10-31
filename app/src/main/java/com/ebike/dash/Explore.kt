@@ -80,7 +80,7 @@ object LitCity {
     }
 }
 
-/** 今晚骑去哪：在一定距离上，挑一个离你所有足迹最远（没去过）的地方 */
+/** 骑向未知：在一定距离上，挑一个离你所有足迹最远（没去过）的地方 */
 object BlindBox {
     fun pick(here: DoubleArray, distanceKm: Double, segments: List<List<DoubleArray>>, rnd: Random = Random.Default): DoubleArray {
         val pts = segments.flatMap { s -> s.filterIndexed { i, _ -> i % 5 == 0 } }
