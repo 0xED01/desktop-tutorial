@@ -4,6 +4,9 @@ import java.util.Locale
 
 /** 统一处理公制 / 英制显示 */
 class Units(var imperial: Boolean = false) {
+    /** 台湾说法：米 → 公尺 */
+    var taiwanese = false
+
     val speedUnit get() = if (imperial) "mph" else "km/h"
     val distUnit get() = if (imperial) "mi" else "km"
 
@@ -28,7 +31,7 @@ class Units(var imperial: Boolean = false) {
 
     /** 语音播报用的距离 */
     fun spokenDist(meters: Double): String = when {
-        meters < 1000 -> "${((meters / 10).toInt() * 10).coerceAtLeast(10)}米"
+        meters < 1000 -> "${((meters / 10).toInt() * 10).coerceAtLeast(10)}${if (taiwanese) "公尺" else "米"}"
         else -> String.format(Locale.US, "%.1f公里", meters / 1000)
     }
 }

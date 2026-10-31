@@ -53,6 +53,11 @@
             style="@style/Menu.Switch"
             android:text="语音播报" />
 
+        <Button
+            android:id="@+id/btnVoicePick"
+            style="@style/Menu.Action"
+            android:text="播报声音" />
+
         <!-- 足迹 -->
         <TextView
             style="@style/Menu.Section"

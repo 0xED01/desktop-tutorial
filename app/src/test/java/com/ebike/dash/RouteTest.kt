@@ -51,5 +51,7 @@ class RouteTest {
         assertEquals("1.2 公里", u.navDist(1240.0))
         assertTrue(Units(true).navDist(5000.0).endsWith("mi"))
         assertEquals("东北", Geo.compass(44f))
+        assertEquals("300米", Units().spokenDist(300.0))
+        assertEquals("300公尺", Units().apply { taiwanese = true }.spokenDist(300.0))
     }
 }
