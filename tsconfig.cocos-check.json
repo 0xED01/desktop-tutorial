@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "experimentalDecorators": true },
+  "include": ["TrustNothing/assets/scripts/**/*.ts", "tools/cc-stub/cc.d.ts", "tools/node-shim.d.ts"]
+}

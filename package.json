@@ -1,0 +1,23 @@
+{
+  "name": "trust-nothing-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "description": "别信这关 Trust Nothing - build & test workspace",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build:web": "node tools/build-web.mjs",
+    "audio": "python3 tools/gen_audio.py",
+    "validate": "node tools/run-ts.mjs tests/validate.ts",
+    "solve": "node tools/run-ts.mjs tools/solve.ts",
+    "test": "node tools/run-ts.mjs tests/run-all.ts",
+    "build:apk": "bash tools/build-apk.sh",
+    "typecheck:cocos": "tsc -p tsconfig.cocos-check.json --noEmit",
+    "e2e": "node tools/build-web.mjs && node tests/e2e.mjs",
+    "cocos:meta": "python3 tools/gen_cocos_project.py",
+    "icons": "python3 tools/gen_icons.py"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.3"
+  }
+}

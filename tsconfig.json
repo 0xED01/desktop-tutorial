@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    "types": [],
+    "noEmit": true
+  },
+  "include": ["TrustNothing/assets/scripts/core/**/*.ts", "TrustNothing/assets/scripts/levels/**/*.ts", "web/src/**/*.ts", "tools/**/*.ts", "tests/**/*.ts", "tools/node-shim.d.ts"]
+}

@@ -1,0 +1,4 @@
+node_modules/
+web/dist/
+dist/*.idsig
+tests/e2e-shots/
