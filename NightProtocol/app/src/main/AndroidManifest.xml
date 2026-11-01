@@ -78,7 +78,6 @@
             android:label="@string/kiosk_label"
             android:launchMode="singleTask"
             android:lockTaskMode="if_whitelisted"
-            android:screenOrientation="portrait"
             android:taskAffinity="com.yuandian.nightprotocol.kiosk" />
 
         <!-- 仅在睡眠期间启用，并通过 addPersistentPreferredActivity() 设为默认 HOME；早晨禁用并清除 -->

@@ -4,6 +4,7 @@ import android.app.ActivityManager
 import android.app.ActivityOptions
 import android.content.Context
 import android.content.Intent
+import android.os.UserManager
 import com.yuandian.nightprotocol.data.CheckKey
 import com.yuandian.nightprotocol.data.CheckStatus
 import com.yuandian.nightprotocol.data.EventLogger
@@ -65,6 +66,13 @@ class Enforcer(
 
     private suspend fun applyLock(state: ProtocolState, d: Decision, trigger: String, launchKiosk: Boolean) {
         val firstEntry = !state.enforcedLock
+        if (!ctx.getSystemService(UserManager::class.java).isUserUnlocked) {
+            // 直接启动阶段：包查询结果不完整，重写白名单可能误删拨号器。
+            // 应用暂停、Lock Task 白名单与持久化 HOME 均跨重启保持，此时只更新状态，待 BOOT_COMPLETED 再完整核对。
+            store.setEnforced(true, d.lockUntil?.toEpochMilli() ?: 0L, d.isTest, state.homeOverrideActive)
+            if (firstEntry) logger.log("RECONCILE", true, "trigger=$trigger 用户尚未解锁：沿用重启前的持久化策略")
+            return
+        }
         val ess = resolver.resolve(state.extraAllowed)
 
         // 1) 系统级应用暂停 —— 不依赖任何界面，最先执行。
@@ -152,6 +160,8 @@ class Enforcer(
 
     /** 直接启动 Kiosk 并请求进入 Lock Task。Device Owner 属于后台 Activity 启动豁免范围，但厂商系统可能另有限制。 */
     suspend fun launchKiosk(trigger: String): Boolean {
+        // 已在 Lock Task 中（可能正处于白名单内的通话/闹钟界面）时不再拉起，避免遮挡来电界面。
+        if (ctx.getSystemService(ActivityManager::class.java).lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE) return true
         val intent = Intent(ctx, SleepKioskActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         val withLockTask = runCatching {

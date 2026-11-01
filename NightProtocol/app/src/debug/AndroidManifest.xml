@@ -5,5 +5,15 @@
     xmlns:tools="http://schemas.android.com/tools">
     <application
         android:testOnly="true"
-        tools:replace="android:testOnly" />
+        tools:replace="android:testOnly">
+        <receiver
+            android:name=".debug.DebugCommandReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="com.yuandian.nightprotocol.debug.START_TEST" />
+                <action android:name="com.yuandian.nightprotocol.debug.RECONCILE" />
+            </intent-filter>
+        </receiver>
+    </application>
 </manifest>

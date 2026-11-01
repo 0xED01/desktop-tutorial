@@ -30,7 +30,7 @@ class EssentialPackageResolver(context: Context) {
         val telecom = ctx.getSystemService(TelecomManager::class.java)
         val defaultDialer = runCatching { telecom?.defaultDialerPackage }.getOrNull()
         lt(defaultDialer, "默认拨号器")
-        lt(runCatching { telecom?.systemDialerPackage }.getOrNull(), "系统拨号器")
+        if (android.os.Build.VERSION.SDK_INT >= 29) lt(runCatching { telecom?.systemDialerPackage }.getOrNull(), "系统拨号器")
         activities(Intent(Intent.ACTION_DIAL)).forEach { lt(it, "处理 ACTION_DIAL") }
         activities(Intent(Intent.ACTION_DIAL, Uri.parse("tel:"))).forEach { lt(it, "处理 tel: 拨号") }
         activities(Intent(ACTION_EMERGENCY_DIAL)).forEach { lt(it, "紧急拨号界面") }
@@ -67,15 +67,18 @@ class EssentialPackageResolver(context: Context) {
         activities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)).toSet()
 
     private fun activities(i: Intent): List<String> =
-        pm.queryIntentActivities(i, PackageManager.MATCH_ALL).map { it.activityInfo.packageName }.distinct()
+        pm.queryIntentActivities(i, QUERY_FLAGS).map { it.activityInfo.packageName }.distinct()
 
     private fun services(i: Intent): List<String> =
-        pm.queryIntentServices(i, PackageManager.MATCH_ALL).map { it.serviceInfo.packageName }.distinct()
+        pm.queryIntentServices(i, QUERY_FLAGS).map { it.serviceInfo.packageName }.distinct()
 
     private fun installed(pkg: String): Boolean =
         runCatching { pm.getPackageInfo(pkg, 0); true }.getOrDefault(false)
 
     companion object {
+        private const val QUERY_FLAGS = PackageManager.MATCH_ALL or
+            PackageManager.MATCH_DIRECT_BOOT_AWARE or PackageManager.MATCH_DIRECT_BOOT_UNAWARE
+
         /** AOSP 锁屏“紧急呼叫”按钮使用的 Action（com.android.phone/.EmergencyDialer）。 */
         const val ACTION_EMERGENCY_DIAL = "com.android.phone.EmergencyDialer.DIAL"
 
