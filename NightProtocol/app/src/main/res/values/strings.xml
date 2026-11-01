@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">晚安协议</string>
+    <string name="admin_label">晚安协议 设备管理</string>
+    <string name="admin_description">在睡眠时段暂停非必要应用并进入锁定任务模式；仅保留电话、紧急呼叫与闹钟。</string>
+    <string name="kiosk_label">晚安协议·睡眠中</string>
+</resources>

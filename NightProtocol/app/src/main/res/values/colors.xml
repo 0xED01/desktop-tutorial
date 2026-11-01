@@ -1,0 +1,5 @@
+<resources>
+    <color name="night_bg">#FF0B1020</color>
+    <color name="night_fg">#FFE9E2D3</color>
+    <color name="night_accent">#FF6F7FA8</color>
+</resources>

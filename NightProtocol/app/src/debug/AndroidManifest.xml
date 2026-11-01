@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug 构建：testOnly=true。安装需要 `adb install -t`，并允许
+     `adb shell dpm remove-active-admin` 撤销 Device Owner。 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application
+        android:testOnly="true"
+        tools:replace="android:testOnly" />
+</manifest>
