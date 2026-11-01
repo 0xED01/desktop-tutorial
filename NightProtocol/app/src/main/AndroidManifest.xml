@@ -1,7 +1,59 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 调度 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <!-- API 33+：安装即授予。注意：若上架 Google Play 需符合闹钟/日历类政策；本应用为侧载的 Device Owner 应用。 -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- 锁定兜底通知 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- Android 11+ 包可见性：仅声明所需的 Intent 查询，而不是 QUERY_ALL_PACKAGES -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+        <intent><action android:name="android.intent.action.DIAL" /></intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent><action android:name="com.android.phone.EmergencyDialer.DIAL" /></intent>
+        <intent><action android:name="android.telecom.InCallService" /></intent>
+        <intent><action android:name="android.intent.action.SHOW_ALARMS" /></intent>
+        <intent><action android:name="android.intent.action.SET_ALARM" /></intent>
+        <intent><action android:name="android.intent.action.DISMISS_ALARM" /></intent>
+        <intent><action android:name="android.intent.action.SNOOZE_ALARM" /></intent>
+        <intent><action android:name="android.settings.SETTINGS" /></intent>
+        <intent><action android:name="android.view.InputMethod" /></intent>
+        <package android:name="com.android.server.telecom" />
+        <package android:name="com.android.phone" />
+        <package android:name="com.android.incallui" />
+        <package android:name="com.android.emergency" />
+        <package android:name="com.google.android.apps.safetyhub" />
+        <package android:name="com.android.cellbroadcastreceiver" />
+        <package android:name="com.google.android.cellbroadcastreceiver" />
+        <package android:name="com.android.cellbroadcastreceiver.module" />
+        <package android:name="com.android.systemui" />
+        <package android:name="com.android.settings" />
+        <package android:name="com.android.permissioncontroller" />
+        <package android:name="com.google.android.permissioncontroller" />
+        <package android:name="com.android.packageinstaller" />
+        <package android:name="com.google.android.packageinstaller" />
+        <package android:name="com.android.shell" />
+        <package android:name="com.android.providers.settings" />
+    </queries>
+
     <application
+        android:name=".core.NightApp"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -10,16 +62,42 @@
 
         <activity
             android:name=".ui.MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <!-- 睡眠 Kiosk：在白名单中时一启动即进入真正的 Lock Task Mode -->
+        <activity
+            android:name=".kiosk.SleepKioskActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="@string/kiosk_label"
+            android:launchMode="singleTask"
+            android:lockTaskMode="if_whitelisted"
+            android:screenOrientation="portrait"
+            android:taskAffinity="com.yuandian.nightprotocol.kiosk" />
+
+        <!-- 仅在睡眠期间启用，并通过 addPersistentPreferredActivity() 设为默认 HOME；早晨禁用并清除 -->
+        <activity-alias
+            android:name=".kiosk.KioskHomeAlias"
+            android:enabled="false"
+            android:exported="true"
+            android:targetActivity=".kiosk.SleepKioskActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
+
         <receiver
             android:name=".admin.SleepAdminReceiver"
             android:description="@string/admin_description"
+            android:directBootAware="true"
             android:exported="true"
             android:label="@string/admin_label"
             android:permission="android.permission.BIND_DEVICE_ADMIN">
@@ -29,6 +107,38 @@
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
                 <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE" />
+                <action android:name="android.app.action.LOCK_TASK_ENTERING" />
+                <action android:name="android.app.action.LOCK_TASK_EXITING" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".schedule.TransitionReceiver"
+            android:directBootAware="true"
+            android:exported="false" />
+
+        <receiver
+            android:name=".schedule.SystemEventReceiver"
+            android:directBootAware="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- ADB 恢复：DUMP 权限只授予 shell / 系统，普通应用无法发送 -->
+        <receiver
+            android:name=".recovery.AdbRecoveryReceiver"
+            android:directBootAware="true"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="com.yuandian.nightprotocol.action.ADB_RECOVER" />
             </intent-filter>
         </receiver>
     </application>
