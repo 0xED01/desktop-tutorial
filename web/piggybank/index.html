@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>存钱罐</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="存钱罐">
+<meta name="theme-color" content="#ff7a59">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-512.png">
+<style>
+/* Layout: one-column phone app — coral balance header, list of monthly deposits, fixed bottom actions */
+:root {
+  --bg: #f6f4f3;
+  --surface: #ffffff;
+  --fg: #2b2b2b;
+  --muted: #8f8a87;
+  --line: #ece8e6;
+  --coral: #ff7a59;
+  --coral-dark: #e0664a;
+  --on-coral: #ffffff;
+  --on-coral-2: rgba(255,255,255,.8);
+  --green: #2e9d5b;
+  --scrim: rgba(40,20,10,.45);
+  --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141110; --surface: #1f1b19; --fg: #eee8e5; --muted: #9c938e; --line: #2e2825;
+    --coral: #e8694a; --coral-dark: #ff8f72; --green: #4cc27d; --scrim: rgba(0,0,0,.6); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141110; --surface: #1f1b19; --fg: #eee8e5; --muted: #9c938e; --line: #2e2825;
+  --coral: #e8694a; --coral-dark: #ff8f72; --green: #4cc27d; --scrim: rgba(0,0,0,.6); color-scheme: dark;
+}
+[hidden] { display: none !important; }
+:root { padding-top: env(safe-area-inset-top, 0px); color-scheme: light; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 15px; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--coral); }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+.gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+header { background: var(--coral); color: var(--on-coral); padding-block: 14px 22px; }
+.title-row { display: flex; align-items: center; gap: 8px; }
+.title-row h1 { margin: 0 auto 0 0; font-size: 18px; font-weight: 600; }
+.pill { color: var(--on-coral); background: rgba(255,255,255,.2); border-radius: 16px; padding: 6px 14px; font-size: 14px; }
+.bal-label { margin-top: 18px; font-size: 14px; color: var(--on-coral-2); }
+.balance { font-size: 40px; font-weight: 700; letter-spacing: -.5px; line-height: 1.15; overflow-wrap: anywhere; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin-top: 14px; }
+.stats small { display: block; font-size: 12px; color: var(--on-coral-2); }
+.stats b { display: block; margin-top: 2px; font-size: 15px; overflow-wrap: anywhere; }
+
+main { padding-block: 6px 110px; display: flex; flex-direction: column; gap: 8px; max-width: 640px; margin: 0 auto; }
+.list-title { color: var(--muted); font-size: 14px; padding: 8px 4px 0; }
+.rec { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--surface); border-radius: 12px; padding: 14px 16px; }
+.rec:active { background: var(--line); }
+.rec .left { flex: 1; min-width: 0; }
+.rec .month { font-weight: 700; }
+.rec .sub { color: var(--muted); font-size: 12px; margin-top: 3px; line-height: 1.5; }
+.rec .val { font-weight: 700; font-size: 17px; white-space: nowrap; }
+.empty { text-align: center; color: var(--muted); line-height: 1.8; padding: 60px 20px 0; font-size: 14px; }
+
+.bottom { position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); padding-block: 10px calc(14px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); z-index: 6; }
+.bottom-inner { display: flex; gap: 12px; max-width: 640px; margin: 0 auto; }
+.btn { height: 52px; border-radius: 26px; font-size: 16px; font-weight: 600; }
+.btn:active { filter: brightness(.92); }
+.btn.primary { flex: 1; background: var(--coral); color: #fff; }
+.btn.outline { width: 96px; border: 1.5px solid var(--coral); color: var(--coral); }
+
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 20; display: flex; align-items: flex-end; justify-content: center; }
+.dialog { background: var(--surface); width: 100%; max-width: 520px; border-radius: 18px 18px 0 0; padding-block: 18px calc(16px + env(safe-area-inset-bottom, 0px)); max-height: 92%; overflow-y: auto; animation: up .2s ease-out; }
+@keyframes up { from { transform: translateY(30px); opacity: .6; } }
+@media (prefers-reduced-motion: reduce) { .dialog { animation: none; } }
+.dialog h2 { margin: 0 0 4px; font-size: 18px; }
+.dialog p.hint { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 4px 0 0; }
+.field-label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+.dialog input { width: 100%; font: inherit; font-size: 18px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; }
+.month-pick { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 10px; }
+.month-pick button { font-size: 26px; font-weight: 700; color: var(--coral); padding: 0 18px 4px; }
+.month-pick span { min-width: 140px; text-align: center; font-size: 17px; font-weight: 700; }
+.ratio { color: var(--muted); font-size: 13px; margin-top: 8px; }
+.preview { color: var(--coral-dark); font-weight: 700; font-size: 17px; line-height: 1.6; margin-top: 10px; }
+.small { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.error { color: var(--coral-dark); font-size: 13px; min-height: 18px; margin-top: 6px; }
+.actions { display: flex; gap: 10px; margin-top: 10px; }
+.actions button { flex: 1; height: 46px; border-radius: 23px; font-weight: 600; }
+.actions .ghost { background: var(--bg); }
+.actions .go { background: var(--coral); color: #fff; }
+.actions .danger { flex: 0 0 auto; padding: 0 16px; color: var(--coral-dark); background: var(--bg); }
+.actions .danger.armed { background: var(--coral-dark); color: #fff; }
+.menu-btn { display: block; width: 100%; text-align: left; padding: 14px 4px; border-bottom: 1px solid var(--line); font-size: 16px; }
+.menu-btn small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.notice { font-size: 12px; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="gutter">
+    <div class="title-row">
+      <h1>我的存钱罐</h1>
+      <button class="pill" id="backupBtn">备份</button>
+      <button class="pill" id="settingsBtn">设置</button>
+    </div>
+    <div class="bal-label">当前余额（元）</div>
+    <div class="balance num" id="balance">0.00</div>
+    <div class="stats">
+      <div><small>原有存款</small><b class="num" id="initial">0.00</b></div>
+      <div><small>累计存入</small><b class="num" id="total">0.00</b></div>
+      <div><small>本月存入</small><b class="num" id="month">0.00</b></div>
+    </div>
+  </div>
+</header>
+
+<main class="gutter" id="content"></main>
+
+<div class="bottom gutter">
+  <div class="bottom-inner">
+    <button class="btn outline" id="withdrawBtn">取出</button>
+    <button class="btn primary" id="incomeBtn">＋ 记录收入</button>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+
+<script>
+const INCOME = 0, WITHDRAW = 1;
+const KEY = "piggybank-v1";
+
+// Amounts in cents. Each income record keeps the ratios in force when it was made,
+// so changing the ratios later never rewrites history.
+let state = { configured: false, initial: 0, mainPct: 30, sidePct: 50, records: [] };
+let note = "";
+
+const $ = (id) => document.getElementById(id);
+const fmt = new Intl.NumberFormat("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = (c) => fmt.format(c / 100);
+const plain = (c) => String(Math.round(c) / 100);
+const pct = (p) => String(Math.round(p * 100) / 100);
+const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+function currentYm() { const d = new Date(); return d.getFullYear() * 100 + d.getMonth() + 1; }
+const ymText = (ym) => `${Math.floor(ym / 100)}年${ym % 100}月`;
+function shift(ym, delta) { const i = Math.floor(ym / 100) * 12 + (ym % 100 - 1) + delta; return Math.floor(i / 12) * 100 + (i % 12) + 1; }
+function parseYuan(s) {
+  const raw = String(s).trim().replace(/[,，\s]/g, "");
+  if (!raw) return 0;
+  const v = Number(raw);
+  return isFinite(v) ? Math.round(v * 100) : NaN;
+}
+function saved(r) {
+  if (r.type === WITHDRAW) return -r.main;
+  return Math.round(r.main * r.mainPct / 100) + Math.round(r.side * r.sidePct / 100);
+}
+const totalSaved = () => state.records.filter((r) => r.type === INCOME).reduce((s, r) => s + saved(r), 0);
+const balance = () => state.initial + state.records.reduce((s, r) => s + saved(r), 0);
+const savedIn = (ym) => state.records.filter((r) => r.type === INCOME && r.ym === ym).reduce((s, r) => s + saved(r), 0);
+
+// ---------- persistence ----------
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (d && Array.isArray(d.records)) state = { ...state, ...d };
+  } catch (e) {}
+}
+function save() {
+  state.records.sort((a, b) => b.ym - a.ym || b.id - a.id);
+  try { localStorage.setItem(KEY, JSON.stringify(state)); note = ""; }
+  catch (e) { note = "保存失败：浏览器禁止了本地存储（请关闭无痕浏览）"; }
+}
+
+// ---------- render ----------
+function render() {
+  $("balance").textContent = money(balance());
+  $("initial").textContent = money(state.initial);
+  $("total").textContent = money(totalSaved());
+  $("month").textContent = money(savedIn(currentYm()));
+  const c = $("content");
+  if (!state.records.length) {
+    c.innerHTML = `<div class="empty">还没有记录<br>点击下方按钮，记下这个月的收入吧</div>`;
+  } else {
+    c.innerHTML = `<div class="list-title">存入记录</div>` + state.records.map((r) => {
+      const out = r.type === WITHDRAW;
+      let sub;
+      if (out) sub = r.note ? esc(r.note) : "从存钱罐取出";
+      else {
+        const parts = [];
+        if (r.main) parts.push(`主业 ${money(r.main)} × ${pct(r.mainPct)}%`);
+        if (r.side) parts.push(`副业 ${money(r.side)} × ${pct(r.sidePct)}%`);
+        sub = parts.join("<br>");
+      }
+      const v = saved(r);
+      return `<button class="rec" data-id="${r.id}"><div class="left"><div class="month">${ymText(r.ym)}${out ? "　取出" : ""}</div><div class="sub num">${sub}</div></div>
+        <div class="val num" style="color:${out ? "var(--muted)" : "var(--green)"}">${v >= 0 ? "+" : "-"}${money(Math.abs(v))}</div></button>`;
+    }).join("");
+  }
+  if (note) c.insertAdjacentHTML("beforeend", `<p class="notice">${esc(note)}</p>`);
+}
+
+// ---------- dialogs ----------
+function openSheet(html, onClose) {
+  const scrim = $("scrim");
+  scrim.innerHTML = `<form class="dialog gutter" id="dlg" novalidate>${html}</form>`;
+  scrim.hidden = false;
+  const close = () => { scrim.hidden = true; scrim.innerHTML = ""; onClose && onClose(); };
+  scrim.onclick = (e) => { if (e.target === scrim && state.configured) close(); };
+  const cancel = $("d-cancel");
+  if (cancel) cancel.onclick = close;
+  return close;
+}
+
+function monthPickerHtml(ym) {
+  return `<div class="month-pick"><button type="button" id="m-prev" aria-label="上个月">‹</button><span id="m-label">${ymText(ym)}</span><button type="button" id="m-next" aria-label="下个月">›</button></div>`;
+}
+function wireMonthPicker(holder) {
+  $("m-prev").onclick = () => { holder.ym = shift(holder.ym, -1); $("m-label").textContent = ymText(holder.ym); };
+  $("m-next").onclick = () => { holder.ym = shift(holder.ym, 1); $("m-label").textContent = ymText(holder.ym); };
+}
+
+function openSettings() {
+  const first = !state.configured;
+  const close = openSheet(`
+    <h2>${first ? "欢迎使用存钱罐" : "设置"}</h2>
+    ${first ? `<p class="hint">先填你现在已有的存款，以及主业、副业收入各存多少比例。之后每月只需填收入即可。</p>` : ""}
+    <label class="field-label" for="s-initial">现在已有存款（元）</label>
+    <input id="s-initial" class="num" inputmode="decimal" autocomplete="off" value="${state.configured ? plain(state.initial) : ""}">
+    <label class="field-label" for="s-main">主业收入存入比例（%）</label>
+    <input id="s-main" class="num" inputmode="decimal" autocomplete="off" value="${pct(state.mainPct)}">
+    <label class="field-label" for="s-side">副业收入存入比例（%）</label>
+    <input id="s-side" class="num" inputmode="decimal" autocomplete="off" value="${pct(state.sidePct)}">
+    <div class="small">修改比例只影响之后新记录，不会改变历史记录。</div>
+    <div class="error" id="d-err"></div>
+    <div class="actions">${first ? "" : `<button type="button" class="ghost" id="d-cancel">取消</button>`}<button type="submit" class="go">保存</button></div>
+    ${first ? `<button type="button" class="menu-btn" id="s-restore" style="border:0;text-align:center;color:var(--coral-dark);font-size:14px">已有备份？从文件恢复</button>` : ""}`);
+  if (first) $("s-restore").onclick = openBackup;
+  $("dlg").onsubmit = (e) => {
+    e.preventDefault();
+    const init = parseYuan($("s-initial").value);
+    const mp = Number($("s-main").value.trim() || 0), sp = Number($("s-side").value.trim() || 0);
+    if (isNaN(init)) { $("d-err").textContent = "已有存款请填数字，例如 50000"; return; }
+    if (!(mp >= 0 && mp <= 100 && sp >= 0 && sp <= 100)) { $("d-err").textContent = "比例需在 0 ~ 100 之间"; return; }
+    Object.assign(state, { configured: true, initial: init, mainPct: mp, sidePct: sp });
+    save(); close(); render();
+  };
+}
+
+function openIncome(existing) {
+  const r = existing || { type: INCOME, ym: currentYm(), main: 0, side: 0, mainPct: state.mainPct, sidePct: state.sidePct };
+  const holder = { ym: r.ym };
+  const close = openSheet(`
+    <h2>${existing ? "修改记录" : "记录收入"}</h2>
+    ${monthPickerHtml(holder.ym)}
+    <label class="field-label" for="i-main">主业收入（元）</label>
+    <input id="i-main" class="num" inputmode="decimal" autocomplete="off" value="${existing && r.main ? plain(r.main) : ""}">
+    <label class="field-label" for="i-side">副业收入（元）</label>
+    <input id="i-side" class="num" inputmode="decimal" autocomplete="off" value="${existing && r.side ? plain(r.side) : ""}">
+    <div class="ratio">主业存 ${pct(r.mainPct)}%　·　副业存 ${pct(r.sidePct)}%</div>
+    <div class="preview num" id="i-preview"></div>
+    <div class="error" id="d-err"></div>
+    <div class="actions">${existing ? `<button type="button" class="danger" id="d-del">删除</button>` : ""}<button type="button" class="ghost" id="d-cancel">取消</button><button type="submit" class="go">存入</button></div>`);
+  wireMonthPicker(holder);
+  const update = () => {
+    const m = parseYuan($("i-main").value), s = parseYuan($("i-side").value);
+    const tmp = { type: INCOME, main: m || 0, side: s || 0, mainPct: r.mainPct, sidePct: r.sidePct };
+    const after = balance() - (existing ? saved(existing) : 0) + saved(tmp);
+    $("i-preview").innerHTML = `本次存入 ¥${money(saved(tmp))}<br>存入后余额 ¥${money(after)}`;
+  };
+  $("i-main").oninput = update; $("i-side").oninput = update; update();
+  setTimeout(() => $("i-main").focus(), 50);
+  $("dlg").onsubmit = (e) => {
+    e.preventDefault();
+    const m = parseYuan($("i-main").value), s = parseYuan($("i-side").value);
+    if (isNaN(m) || isNaN(s)) { $("d-err").textContent = "收入请填数字，例如 8000 或 2500.50"; return; }
+    if (m < 0 || s < 0) { $("d-err").textContent = "收入不能为负数"; return; }
+    if (m === 0 && s === 0) { $("d-err").textContent = "请至少填写一项收入"; return; }
+    Object.assign(r, { main: m, side: s, ym: holder.ym });
+    if (!existing) { r.id = Date.now(); state.records.push(r); }
+    save(); close(); render();
+  };
+  if (existing) wireDelete(existing, close);
+}
+
+function openWithdraw(existing) {
+  const r = existing || { type: WITHDRAW, ym: currentYm(), main: 0, side: 0, note: "" };
+  const holder = { ym: r.ym };
+  const close = openSheet(`
+    <h2>${existing ? "修改取出记录" : "从存钱罐取出"}</h2>
+    ${monthPickerHtml(holder.ym)}
+    <label class="field-label" for="w-amt">取出金额（元）</label>
+    <input id="w-amt" class="num" inputmode="decimal" autocomplete="off" value="${existing ? plain(r.main) : ""}">
+    <label class="field-label" for="w-note">用途（选填）</label>
+    <input id="w-note" maxlength="40" value="${esc(r.note || "")}">
+    <div class="error" id="d-err"></div>
+    <div class="actions">${existing ? `<button type="button" class="danger" id="d-del">删除</button>` : ""}<button type="button" class="ghost" id="d-cancel">取消</button><button type="submit" class="go">确定</button></div>`);
+  wireMonthPicker(holder);
+  setTimeout(() => $("w-amt").focus(), 50);
+  $("dlg").onsubmit = (e) => {
+    e.preventDefault();
+    const a = parseYuan($("w-amt").value);
+    if (isNaN(a) || a <= 0) { $("d-err").textContent = "请输入取出金额，例如 500"; return; }
+    Object.assign(r, { main: a, note: $("w-note").value.trim(), ym: holder.ym });
+    if (!existing) { r.id = Date.now(); state.records.push(r); }
+    save(); close(); render();
+  };
+  if (existing) wireDelete(existing, close);
+}
+
+function wireDelete(rec, close) {
+  const del = $("d-del");
+  del.onclick = () => {
+    if (!del.classList.contains("armed")) { del.classList.add("armed"); del.textContent = "确认删除"; return; }
+    state.records = state.records.filter((x) => x !== rec);
+    save(); close(); render();
+  };
+}
+
+function openBackup() {
+  const close = openSheet(`
+    <h2>备份与恢复</h2>
+    <p class="hint">数据只保存在这台手机的浏览器里。建议定期导出备份，换手机或清除 Safari 数据前一定要先导出。</p>
+    <button type="button" class="menu-btn" id="b-export">导出备份文件<small>保存为 .json 文件，可存到“文件”App 或发给自己</small></button>
+    <button type="button" class="menu-btn" id="b-import">从备份文件恢复<small>会用备份内容替换当前全部数据</small></button>
+    <input type="file" id="b-file" accept=".json,application/json" hidden>
+    <div class="error" id="d-err"></div>
+    <div class="actions"><button type="button" class="ghost" id="d-cancel">关闭</button></div>`,
+    () => { if (!state.configured) openSettings(); });
+  $("b-export").onclick = () => {
+    const d = new Date(), p2 = (n) => String(n).padStart(2, "0");
+    const name = `piggybank-backup-${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}.json`;
+    const blob = new Blob([JSON.stringify({ app: "piggybank", version: 1, ...state }, null, 1)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    $("d-err").style.color = "var(--green)";
+    $("d-err").textContent = "已生成备份文件：" + name;
+  };
+  $("b-import").onclick = () => $("b-file").click();
+  $("b-file").onchange = async () => {
+    const f = $("b-file").files[0];
+    if (!f) return;
+    try {
+      const d = JSON.parse(await f.text());
+      if (d.app !== "piggybank" || !Array.isArray(d.records)) throw new Error();
+      state = { configured: true, initial: d.initial || 0, mainPct: d.mainPct ?? 30, sidePct: d.sidePct ?? 50, records: d.records };
+      save(); close(); render();
+    } catch (e) {
+      $("d-err").style.color = "";
+      $("d-err").textContent = "这个文件不是存钱罐的备份，请重新选择";
+    }
+  };
+}
+
+// ---------- events ----------
+$("settingsBtn").onclick = openSettings;
+$("backupBtn").onclick = openBackup;
+$("incomeBtn").onclick = () => openIncome(null);
+$("withdrawBtn").onclick = () => openWithdraw(null);
+$("content").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-id]");
+  if (!b) return;
+  const r = state.records.find((x) => String(x.id) === b.dataset.id);
+  if (r) (r.type === WITHDRAW ? openWithdraw : openIncome)(r);
+});
+
+load();
+render();
+if (!state.configured) openSettings();
+try { navigator.storage?.persist?.(); } catch (e) {}
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>

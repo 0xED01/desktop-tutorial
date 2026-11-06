@@ -1,0 +1,13 @@
+{
+  "name": "存钱罐",
+  "short_name": "存钱罐",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f4f3",
+  "theme_color": "#ff7a59",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
