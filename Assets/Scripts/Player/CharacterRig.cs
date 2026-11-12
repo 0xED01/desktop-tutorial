@@ -27,8 +27,8 @@ namespace OfficeExplorer
         static readonly Vector3[] RestPos =
         {
             new Vector3(0, HipsHeight, 0), new Vector3(0, 0.06f, 0), new Vector3(0, 0.50f, 0),
-            new Vector3(-0.195f, 0.44f, 0), new Vector3(0, -0.28f, 0),
-            new Vector3(0.195f, 0.44f, 0), new Vector3(0, -0.28f, 0),
+            new Vector3(-0.185f, 0.43f, 0), new Vector3(0, -0.28f, 0),
+            new Vector3(0.185f, 0.43f, 0), new Vector3(0, -0.28f, 0),
             new Vector3(-0.095f, -0.02f, 0), new Vector3(0, -0.43f, 0), new Vector3(0, -0.42f, 0),
             new Vector3(0.095f, -0.02f, 0), new Vector3(0, -0.43f, 0), new Vector3(0, -0.42f, 0)
         };
@@ -62,14 +62,14 @@ namespace OfficeExplorer
             Quaternion id = Quaternion.identity;
             // 骨盆
             var g = new GeoBatch();
-            g[Mats.Pants].Ellipsoid(new Vector3(0, 0.02f, 0), new Vector3(0.165f, 0.115f, 0.115f), 16, 10, id);
+            g[Mats.Pants].Ellipsoid(new Vector3(0, 0.02f, 0), new Vector3(0.150f, 0.110f, 0.105f), 16, 10, id);
             Attach(g, Joint.Hips);
 
             // 躯干：腹部、胸腔、肩线、脖子
             g = new GeoBatch();
-            g[Mats.Shirt].Ellipsoid(new Vector3(0, 0.12f, 0), new Vector3(0.150f, 0.17f, 0.105f), 16, 10, id);
-            g[Mats.Shirt].Ellipsoid(new Vector3(0, 0.33f, 0.005f), new Vector3(0.185f, 0.17f, 0.122f), 16, 10, id);
-            g[Mats.Shirt].Ellipsoid(new Vector3(0, 0.44f, 0), new Vector3(0.20f, 0.065f, 0.085f), 14, 8, id);
+            g[Mats.Shirt].Ellipsoid(new Vector3(0, 0.13f, 0), new Vector3(0.132f, 0.19f, 0.092f), 16, 10, id);
+            g[Mats.Shirt].Ellipsoid(new Vector3(0, 0.33f, 0.004f), new Vector3(0.160f, 0.165f, 0.102f), 16, 10, id);
+            g[Mats.Shirt].Ellipsoid(new Vector3(0, 0.435f, 0), new Vector3(0.190f, 0.058f, 0.078f), 14, 8, id);
             g[Mats.Skin].Cylinder(new Vector3(0, 0.46f, 0), 0.052f, 0.046f, 0.10f, 12, id, false);
             Attach(g, Joint.Spine);
 
@@ -87,13 +87,13 @@ namespace OfficeExplorer
             foreach (var side in new[] { Joint.ArmL, Joint.ArmR })
             {
                 g = new GeoBatch();
-                g[Mats.Shirt].Sphere(Vector3.zero, 0.064f, 12, 8);
-                g[Mats.Shirt].Limb(Vector3.zero, new Vector3(0, -0.28f, 0), 0.056f, 0.046f, 12, false);
-                g[Mats.Shirt].Sphere(new Vector3(0, -0.28f, 0), 0.046f, 10, 8);
+                g[Mats.Shirt].Sphere(Vector3.zero, 0.058f, 12, 8);
+                g[Mats.Shirt].Limb(Vector3.zero, new Vector3(0, -0.28f, 0), 0.052f, 0.043f, 12, false);
+                g[Mats.Shirt].Sphere(new Vector3(0, -0.28f, 0), 0.043f, 10, 8);
                 Attach(g, side);
 
                 g = new GeoBatch();
-                g[Mats.Skin].Limb(new Vector3(0, -0.02f, 0), new Vector3(0, -0.25f, 0), 0.042f, 0.032f, 12, false);
+                g[Mats.Skin].Limb(new Vector3(0, -0.02f, 0), new Vector3(0, -0.25f, 0), 0.039f, 0.030f, 12, false);
                 g[Mats.Skin].Ellipsoid(new Vector3(0, -0.305f, 0.004f), new Vector3(0.024f, 0.066f, 0.038f), 10, 8, id);
                 Attach(g, side + 1);
             }
@@ -101,13 +101,13 @@ namespace OfficeExplorer
             foreach (var side in new[] { Joint.LegL, Joint.LegR })
             {
                 g = new GeoBatch();
-                g[Mats.Pants].Sphere(Vector3.zero, 0.088f, 12, 8);
-                g[Mats.Pants].Limb(Vector3.zero, new Vector3(0, -0.43f, 0), 0.086f, 0.062f, 12, false);
-                g[Mats.Pants].Sphere(new Vector3(0, -0.43f, 0), 0.062f, 10, 8);
+                g[Mats.Pants].Sphere(Vector3.zero, 0.082f, 12, 8);
+                g[Mats.Pants].Limb(Vector3.zero, new Vector3(0, -0.43f, 0), 0.080f, 0.058f, 12, false);
+                g[Mats.Pants].Sphere(new Vector3(0, -0.43f, 0), 0.058f, 10, 8);
                 Attach(g, side);
 
                 g = new GeoBatch();
-                g[Mats.Pants].Limb(Vector3.zero, new Vector3(0, -0.42f, 0), 0.060f, 0.044f, 12, false);
+                g[Mats.Pants].Limb(Vector3.zero, new Vector3(0, -0.42f, 0), 0.056f, 0.042f, 12, false);
                 Attach(g, side + 1);
 
                 g = new GeoBatch();

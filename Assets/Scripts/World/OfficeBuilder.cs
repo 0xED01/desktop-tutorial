@@ -126,10 +126,10 @@ namespace OfficeExplorer
             for (int i = 0; i < 6; i++)
                 for (int j = 0; j < 3; j++)
                 {
-                    Vector3 p = new Vector3(3.2f + i * 4.8f - 1.2f, H - 0.006f, 4.2f + j * 4.8f);
+                    Vector3 p = new Vector3(2.95f + i * 4.8f, H - 0.006f, 3.1f + j * 4.8f);
                     c.Box(Mats.VentDark, p, new Vector3(0.58f, 0.012f, 0.58f));
                     c.Box(Mats.WhiteMetal, p + new Vector3(0, -0.004f, 0), new Vector3(0.62f, 0.008f, 0.04f));
-                    c[Mats.Chrome].Cylinder(new Vector3(p.x + 1.2f, H - 0.05f, p.z + 1.2f), 0.02f, 0.012f, 0.05f, 8, Quaternion.identity);
+                    c[Mats.Chrome].Cylinder(new Vector3(p.x + 1.2f, H - 0.05f, p.z), 0.02f, 0.012f, 0.05f, 8, Quaternion.identity);
                 }
             c[Mats.BlackPlastic].Ellipsoid(new Vector3(9.2f, H, 6.0f), new Vector3(0.07f, 0.07f, 0.07f), 12, 6, Quaternion.identity);
             c[Mats.BlackPlastic].Ellipsoid(new Vector3(18.4f, H, 13.0f), new Vector3(0.07f, 0.07f, 0.07f), 12, 6, Quaternion.identity);

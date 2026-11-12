@@ -25,7 +25,7 @@ namespace OfficeExplorer
 
         int moveFinger = -1, lookFinger = -1;
         Vector2 lookLast;
-        bool runToggle;
+        bool runToggle, movedWhileRunning;
         bool mouseLooking;
         Vector2 mouseLast;
         static readonly List<RaycastResult> hits = new List<RaycastResult>();
@@ -33,7 +33,7 @@ namespace OfficeExplorer
         public static void QueueJump() { jumpQueued = true; }
         public static bool ConsumeJump() { bool j = jumpQueued; jumpQueued = false; return j; }
 
-        public void ToggleRun() { runToggle = !runToggle; }
+        public void ToggleRun() { runToggle = !runToggle; movedWhileRunning = false; }
         public bool RunToggled => runToggle;
 
         float JoystickRadius => Screen.height * 0.13f;
@@ -137,7 +137,9 @@ namespace OfficeExplorer
             if (Input.GetKeyDown(KeyCode.Escape)) OnPauseKey?.Invoke();
 
             Move = move;
-            if (move.sqrMagnitude < 0.01f && runToggle && !JoystickActive) runToggle = false;   // 停下后自动取消奔跑
+            // 奔跑键可在静止时预先按下；跑起来之后一旦停下则自动取消
+            if (runToggle && move.sqrMagnitude > 0.01f) movedWhileRunning = true;
+            if (runToggle && movedWhileRunning && move.sqrMagnitude < 0.01f && !JoystickActive) { runToggle = false; movedWhileRunning = false; }
             Run = runToggle || Input.GetKey(KeyCode.LeftShift);
         }
     }
