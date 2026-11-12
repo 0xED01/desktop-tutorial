@@ -67,9 +67,9 @@ namespace OfficeExplorer
 
             // 躯干：腹部、胸腔、肩线、脖子
             g = new GeoBatch();
-            g[Mats.Shirt].Ellipsoid(new Vector3(0, 0.13f, 0), new Vector3(0.132f, 0.19f, 0.092f), 16, 10, id);
-            g[Mats.Shirt].Ellipsoid(new Vector3(0, 0.33f, 0.004f), new Vector3(0.160f, 0.165f, 0.102f), 16, 10, id);
-            g[Mats.Shirt].Ellipsoid(new Vector3(0, 0.435f, 0), new Vector3(0.190f, 0.058f, 0.078f), 14, 8, id);
+            g[Mats.Shirt].Ellipsoid(new Vector3(0, 0.14f, 0), new Vector3(0.142f, 0.21f, 0.094f), 16, 10, id);
+            g[Mats.Shirt].Ellipsoid(new Vector3(0, 0.31f, 0.004f), new Vector3(0.156f, 0.17f, 0.100f), 16, 10, id);
+            g[Mats.Shirt].Ellipsoid(new Vector3(0, 0.425f, 0), new Vector3(0.186f, 0.060f, 0.080f), 14, 8, id);
             g[Mats.Skin].Cylinder(new Vector3(0, 0.46f, 0), 0.052f, 0.046f, 0.10f, 12, id, false);
             Attach(g, Joint.Spine);
 
@@ -87,7 +87,7 @@ namespace OfficeExplorer
             foreach (var side in new[] { Joint.ArmL, Joint.ArmR })
             {
                 g = new GeoBatch();
-                g[Mats.Shirt].Sphere(Vector3.zero, 0.058f, 12, 8);
+                g[Mats.Shirt].Sphere(Vector3.zero, 0.053f, 12, 8);
                 g[Mats.Shirt].Limb(Vector3.zero, new Vector3(0, -0.28f, 0), 0.052f, 0.043f, 12, false);
                 g[Mats.Shirt].Sphere(new Vector3(0, -0.28f, 0), 0.043f, 10, 8);
                 Attach(g, side);

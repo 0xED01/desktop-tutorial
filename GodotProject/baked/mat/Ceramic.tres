@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "Ceramic"
+albedo_color = Color(0.92, 0.92, 0.94, 1)
+roughness = 0.2
+texture_filter = 5
+texture_repeat = false

@@ -1,0 +1,14 @@
+[gd_resource type="StandardMaterial3D" load_steps=2 format=3]
+
+[ext_resource type="Texture2D" path="res://baked/mat/tex_LightShaft.res" id="1_4cpwg"]
+
+[resource]
+resource_name = "Shaft"
+transparency = 1
+blend_mode = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.96, 0.86, 0)
+albedo_texture = ExtResource("1_4cpwg")
+texture_filter = 5
+texture_repeat = false

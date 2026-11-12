@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "DoorDark"
+albedo_color = Color(0.2, 0.2, 0.21, 1)
+metallic = 0.1
+roughness = 0.55
+texture_filter = 5
+texture_repeat = false

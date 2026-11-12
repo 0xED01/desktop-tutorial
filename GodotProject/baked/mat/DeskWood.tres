@@ -1,0 +1,13 @@
+[gd_resource type="StandardMaterial3D" load_steps=3 format=3]
+
+[ext_resource type="Texture2D" path="res://baked/mat/tex_WoodAlbedo1.res" id="1_lpqwq"]
+[ext_resource type="Texture2D" path="res://baked/mat/tex_WoodNormal1.res" id="2_dqecl"]
+
+[resource]
+resource_name = "DeskWood"
+albedo_texture = ExtResource("1_lpqwq")
+roughness = 0.52
+normal_enabled = true
+normal_scale = 0.5
+normal_texture = ExtResource("2_dqecl")
+texture_filter = 5

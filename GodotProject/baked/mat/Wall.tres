@@ -1,0 +1,10 @@
+[gd_resource type="StandardMaterial3D" load_steps=2 format=3]
+
+[ext_resource type="Texture2D" path="res://baked/mat/tex_Plaster.res" id="1_c7awj"]
+
+[resource]
+resource_name = "Wall"
+albedo_color = Color(0.93, 0.93, 0.92, 1)
+albedo_texture = ExtResource("1_c7awj")
+roughness = 0.82
+texture_filter = 5

@@ -1,0 +1,13 @@
+[gd_resource type="StandardMaterial3D" load_steps=3 format=3]
+
+[ext_resource type="Texture2D" path="res://baked/mat/tex_FabricAlbedo3.res" id="1_u6tki"]
+[ext_resource type="Texture2D" path="res://baked/mat/tex_FabricNormal3.res" id="2_oh6b7"]
+
+[resource]
+resource_name = "ChairMesh"
+albedo_texture = ExtResource("1_u6tki")
+roughness = 0.78
+normal_enabled = true
+normal_scale = 1.4
+normal_texture = ExtResource("2_oh6b7")
+texture_filter = 5

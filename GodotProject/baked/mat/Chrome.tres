@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "Chrome"
+albedo_color = Color(0.78, 0.79, 0.8, 1)
+metallic = 1.0
+roughness = 0.14
+texture_filter = 5
+texture_repeat = false

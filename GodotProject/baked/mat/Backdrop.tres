@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" load_steps=2 format=3]
+
+[ext_resource type="Texture2D" path="res://baked/mat/tex_SkylineDay.res" id="1_udi56"]
+
+[resource]
+resource_name = "Backdrop"
+shading_mode = 0
+albedo_texture = ExtResource("1_udi56")
+texture_filter = 5

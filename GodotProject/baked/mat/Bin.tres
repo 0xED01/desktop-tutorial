@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "Bin"
+albedo_color = Color(0.03, 0.03, 0.03, 1)
+metallic = 0.3
+roughness = 0.7
+texture_filter = 5
+texture_repeat = false

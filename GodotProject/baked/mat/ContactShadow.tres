@@ -1,0 +1,12 @@
+[gd_resource type="StandardMaterial3D" load_steps=2 format=3]
+
+[ext_resource type="Texture2D" path="res://baked/mat/tex_SoftRect.res" id="1_sbpbk"]
+
+[resource]
+resource_name = "ContactShadow"
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0, 0, 0, 0.34)
+albedo_texture = ExtResource("1_sbpbk")
+texture_filter = 5
+texture_repeat = false

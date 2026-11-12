@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "Baseboard"
+albedo_color = Color(0.16, 0.16, 0.17, 1)
+roughness = 0.65
+texture_filter = 5
+texture_repeat = false

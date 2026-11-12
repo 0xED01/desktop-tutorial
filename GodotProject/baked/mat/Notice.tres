@@ -1,0 +1,10 @@
+[gd_resource type="StandardMaterial3D" load_steps=2 format=3]
+
+[ext_resource type="Texture2D" path="res://baked/mat/tex_Notice.res" id="1_x7rgr"]
+
+[resource]
+resource_name = "Notice"
+albedo_texture = ExtResource("1_x7rgr")
+roughness = 0.65
+texture_filter = 5
+texture_repeat = false

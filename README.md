@@ -1,28 +1,58 @@
-# 办公室自由探索（Unity 6 · URP · Android）
+# 办公室自由探索（Android 3D 自由探索游戏）
 
 根据一段约 5 秒的真实办公室视频重建的 3D 开放式办公室。玩家控制一名人物在其中自由行走、奔跑、跳跃、
 坐下、查看电脑、开关灯、切换昼夜。无任务、无倒计时、完全离线。
 
-> **当前交付状态（请先读）**
->
-> | 项目 | 状态 |
-> | --- | --- |
-> | 完整 Unity 工程（场景、代码、设置、字体） | ✅ 已交付，全部脚本已对照 Unity 6000.0.85f2 的真实 UnityEngine / URP 17 / uGUI 程序集**编译通过** |
-> | 场景几何（办公室、家具、人物） | ✅ 已用同一套生成代码离线渲染验证（见下方预览图） |
-> | **安卓 APK** | ❌ **未能在开发环境中构建**。该环境的网络策略禁止访问 Unity 授权服务器与 Android SDK 下载源，Unity 编辑器无法激活，因此没有、也没有声称有任何 APK。请按「三、构建 APK」自行构建（约 10~20 分钟） |
-> | 在 Unity 编辑器 / 真机上的运行测试 | ❌ 未进行（同上原因）。光照数值、触控手感、帧率均**未经真机验证**，首次运行后可能需要微调 |
+## 直接安装
 
-预览图是**软件光栅器渲染的几何校验图**（无阴影、无后期、无反射），不是游戏截图；真实画面由 URP 渲染，效果会更好。
+**APK：[`Release/OfficeExplorer-v1.0.0.apk`](Release/OfficeExplorer-v1.0.0.apk)**（约 46 MB，Android 5.0+，仅 ARM64，需要支持 Vulkan 的手机）
 
-| 第三人称视角 | 视频末尾视角（立柱 + 休闲桌 + 窗） |
+1. 用手机浏览器打开上面的文件页面，点 **Download / 下载原始文件**
+2. 下载完成后点开安装；系统提示时允许「安装未知来源应用」
+3. 打开「办公室自由探索」，横屏游玩
+
+> **这个 APK 是用 Godot 4.4 引擎构建的，不是 Unity。**
+> 原计划使用 Unity 6，但开发环境无法连接 Unity 授权服务器，Unity 编辑器不能激活，也就打不出包。
+> 为了能真正交付可安装的 APK，游戏用 Godot 重做了一版（工程在 [`GodotProject/`](GodotProject/)），
+> 场景几何、人物、动画数据与 Unity 版出自同一套生成代码。Unity 工程（仓库根目录）仍然保留，可自行用 Unity 6 打开构建。
+
+| 项目 | 状态 |
 | --- | --- |
-| ![](Docs/preview/third.jpg) | ![](Docs/preview/video_3.jpg) |
-| 工位细节 | 坐下 |
-| ![](Docs/preview/desk.jpg) | ![](Docs/preview/sit.jpg) |
-| 北墙（电视、出口门、挂画） | 俯视布局 |
-| ![](Docs/preview/north.jpg) | ![](Docs/preview/top.jpg) |
+| 安卓 APK（Godot 版） | ✅ 已构建并签名（调试证书），包结构与清单已校验 |
+| 在 PC 软件渲染环境下真实运行 Godot 版 | ✅ 自动化测试 13 项全部通过（见「六」），下方截图即该环境下的真实游戏画面 |
+| **在真实安卓手机上运行** | ❌ **未测试**。开发环境没有手机也没有模拟器；真机上的帧率、发热、触控手感、是否有机型兼容问题都还不知道 |
+| Unity 工程 | ✅ 脚本对照 Unity 6000.0.85f2 真实程序集编译通过；❌ 从未在 Unity 编辑器里运行过 |
+
+如果在你的手机上闪退、黑屏或很卡，请告诉我机型和现象。卡顿时可先在「画质设置」里把预设调到「中」或「低」。
+
+### 游戏截图（Godot 版，真实运行画面）
+
+| 主菜单 | 第三人称 |
+| --- | --- |
+| ![](Docs/screenshots/01_menu.jpg) | ![](Docs/screenshots/08_shadow_closeup.jpg) |
+| 坐下 | 第一人称 |
+| ![](Docs/screenshots/05_sitting.jpg) | ![](Docs/screenshots/07_first_person.jpg) |
+| 傍晚关灯（夕阳从窗户射入） | 夜间关灯 |
+| ![](Docs/screenshots/10_evening_lights_off.jpg) | ![](Docs/screenshots/11_night_lights_off.jpg) |
+| 查看屏幕 | 画质设置 |
+| ![](Docs/screenshots/06_view_screen.jpg) | ![](Docs/screenshots/14_graphics_settings.jpg) |
+
+### Godot 版与原始需求的差异
+
+- 引擎是 Godot 4.4（Forward+ / Vulkan），不是 Unity URP
+- 抗锯齿选项为 FXAA / MSAA 2x / MSAA 4x / TAA（没有 SMAA）
+- 同样是全实时光照 + SSAO + 实时反射探针，没有烘焙光照贴图和遮挡剔除
+- 贴图未做 GPU 压缩；人物是程序化分段人偶；没有 NPC
+- APK 用调试证书签名，可以直接安装，但不能上架应用商店
+
+重新构建 Godot 版：安装 Godot 4.4.1 及安卓导出模板，打开 `GodotProject/`，「项目 → 导出 → Android」。
+场景资源由 `godot --headless -s tools/bake.gd` 从 `bake_source/` 烘焙；自动测试为 `godot -- --autotest`。
 
 ---
+
+# 以下为 Unity 版工程说明
+
+> 下面的预览图是 Unity 版场景生成代码的**软件光栅器几何校验图**，不是游戏截图。
 
 ## 一、视频分析与场景重建
 
@@ -155,8 +185,11 @@ Tools/OfflinePreview/             离线几何校验工具（不参与构建）
 | 场景生成 | 离线运行真实的 `OfficeBuilder` 代码 | ✅ 132,008 三角面、93 个可坐座位、26 台可查看的显示器、3 个灯光开关、142 个碰撞体 |
 | 网格朝向 / 布局 / 比例 / 贴图方向 | 软件光栅器（开启背面剔除）多角度渲染 | ✅ 无破面，布局与视频关键帧对应 |
 | 人物骨架与走 / 跑 / 跳 / 坐姿态 | 同上 | ✅ 姿态正确，坐姿与椅子对位 |
+| **Godot 版**真实运行自动测试（行走 2.31m/1.5s、奔跑 6.80m/1.5s、跳高 0.85m、撞桌 / 撞墙被挡住、坐下 / 站起、查看屏幕、暂停、六种光照状态截图） | Godot 4.4.1 + 软件 Vulkan（llvmpipe），`godot -- --autotest` | ✅ 13 项检查全部通过 |
+| **Godot 版** APK 导出、签名、清单与内容校验 | apksigner / aapt2 | ✅ |
+| **Godot 版**真机安装与运行 | — | ❌ 未测试 |
 | Unity 编辑器内运行 | — | ❌ 未测试 |
-| APK 构建、安装、启动 | — | ❌ 未测试 |
+| Unity 版 APK 构建 | — | ❌ 未进行（无法激活 Unity） |
 | 真机帧率、发热、内存、触控手感 | — | ❌ 未测试 |
 | GitHub Actions 构建流程 | — | ❌ 未测试 |
 
@@ -179,5 +212,7 @@ Tools/OfflinePreview/             离线几何校验工具（不参与构建）
 | --- | --- | --- |
 | Noto Sans SC Regular（界面中文字体） | https://github.com/notofonts/noto-cjk | SIL Open Font License 1.1（见 `Assets/Resources/Fonts/OFL-LICENSE.txt`） |
 | `ProjectSettings/`、`Assets/Settings/` 中的 URP 配置 | Unity 官方 Universal 3D 项目模板，已按本项目修改 | Unity Companion License |
+
+| Godot Engine 4.4.1 及其安卓导出模板（Godot 版 APK 的运行时） | https://godotengine.org | MIT |
 
 除此之外没有使用任何第三方模型、贴图、动画或音频。

@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "YellowBox"
+albedo_color = Color(0.92, 0.8, 0.2, 1)
+roughness = 0.6
+texture_filter = 5
+texture_repeat = false

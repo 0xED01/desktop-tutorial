@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "Bronze"
+albedo_color = Color(0.5, 0.44, 0.3, 1)
+metallic = 0.9
+roughness = 0.38
+texture_filter = 5
+texture_repeat = false

@@ -1,0 +1,14 @@
+[gd_resource type="StandardMaterial3D" load_steps=3 format=3]
+
+[ext_resource type="Texture2D" path="res://baked/mat/tex_WoodAlbedo3.res" id="1_euvhy"]
+[ext_resource type="Texture2D" path="res://baked/mat/tex_WoodNormal3.res" id="2_fa0o7"]
+
+[resource]
+resource_name = "DoorWood"
+albedo_color = Color(0.92, 0.86, 0.78, 1)
+albedo_texture = ExtResource("1_euvhy")
+roughness = 0.58
+normal_enabled = true
+normal_scale = 0.4
+normal_texture = ExtResource("2_fa0o7")
+texture_filter = 5

@@ -1,0 +1,16 @@
+[gd_resource type="StandardMaterial3D" load_steps=2 format=3]
+
+[ext_resource type="Texture2D" path="res://baked/mat/tex_Screen3.res" id="1_vb3pg"]
+
+[resource]
+resource_name = "ScreenOn3"
+albedo_color = Color(0.03, 0.03, 0.03, 1)
+albedo_texture = ExtResource("1_vb3pg")
+roughness = 0.12
+emission_enabled = true
+emission = Color(1, 1, 1, 1)
+emission_energy_multiplier = 1.15
+emission_operator = 1
+emission_texture = ExtResource("1_vb3pg")
+texture_filter = 5
+texture_repeat = false

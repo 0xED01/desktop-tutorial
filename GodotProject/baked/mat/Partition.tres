@@ -1,0 +1,13 @@
+[gd_resource type="StandardMaterial3D" load_steps=3 format=3]
+
+[ext_resource type="Texture2D" path="res://baked/mat/tex_FabricAlbedo1.res" id="1_mj2ry"]
+[ext_resource type="Texture2D" path="res://baked/mat/tex_FabricNormal1.res" id="2_81jqi"]
+
+[resource]
+resource_name = "Partition"
+albedo_texture = ExtResource("1_mj2ry")
+roughness = 0.9
+normal_enabled = true
+normal_scale = 0.8
+normal_texture = ExtResource("2_81jqi")
+texture_filter = 5

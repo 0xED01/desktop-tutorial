@@ -1,0 +1,14 @@
+[gd_resource type="StandardMaterial3D" load_steps=3 format=3]
+
+[ext_resource type="Texture2D" path="res://baked/mat/tex_FabricAlbedo4.res" id="1_nakto"]
+[ext_resource type="Texture2D" path="res://baked/mat/tex_FabricNormal4.res" id="2_3pnyw"]
+
+[resource]
+resource_name = "Pants"
+albedo_color = Color(0.16, 0.17, 0.21, 1)
+albedo_texture = ExtResource("1_nakto")
+roughness = 0.85
+normal_enabled = true
+normal_scale = 0.6
+normal_texture = ExtResource("2_3pnyw")
+texture_filter = 5
