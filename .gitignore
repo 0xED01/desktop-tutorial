@@ -1,0 +1,27 @@
+# Unity 生成目录
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.unityproj
+.vs/
+.vscode/
+.idea/
+*.apk
+*.aab
+*.pdb
+*.mdb
+sysinfo.txt
+crashlytics-build.properties
+.DS_Store
