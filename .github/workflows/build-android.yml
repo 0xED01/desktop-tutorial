@@ -6,6 +6,10 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
+  # 修改 .github/build-trigger 并推送即可触发一次构建（无需先合并到默认分支）
+  push:
+    paths:
+      - '.github/build-trigger'
 
 jobs:
   build:
