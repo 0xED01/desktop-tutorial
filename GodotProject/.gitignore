@@ -2,3 +2,5 @@
 build/
 *.apk
 .shots/
+tv/*.jpg
+tv/*.import

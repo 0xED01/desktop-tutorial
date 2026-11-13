@@ -35,6 +35,11 @@ func _go() -> void:
 	await _frames(10)
 	await _shot("02_third_person")
 	if "--quick" in OS.get_cmdline_user_args():
+		p.teleport(Vector3(9.0, 0.05, -15.2), 0.0); game.cam.snap_behind_player()
+		game.toggle_view(); game.cam.pitch = deg_to_rad(4)
+		await _wait(0.6)
+		await _shot("q0_tv")
+		game.toggle_view()
 		p.teleport(Vector3(5.2, 0.05, -3.2), -PI * 0.25); game.cam.snap_behind_player()
 		game.cam.pitch = deg_to_rad(-28)
 		await _wait(0.6)

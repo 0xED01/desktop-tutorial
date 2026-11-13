@@ -35,6 +35,7 @@ func _ready() -> void:
 	var center := Vector3(room.x * 0.5, room.y * 0.5, -room.z * 0.5)
 	var area := AABB(Vector3(0, 0, -room.z), room)
 
+	_add_tv_photos(room)
 	var audio := GameAudio.new(); add_child(audio)
 	input = TouchInput.new(); add_child(input)
 	lighting = Lighting.new(); add_child(lighting); lighting.setup(office)
@@ -59,6 +60,32 @@ func _ready() -> void:
 		var t = load("res://tools/autotest.gd").new()
 		add_child(t)
 		t.run(self)
+
+## 北墙双联电视上的自定义图片：把图片放到 res://tv/tv_left.jpg、tv_right.jpg（16:9）即可；没有则保持默认看板画面
+func _add_tv_photos(room: Vector3) -> void:
+	var files := ["res://tv/tv_left.jpg", "res://tv/tv_right.jpg"]
+	var xs := [8.25, 9.78]
+	for i in 2:
+		if not ResourceLoader.exists(files[i]): continue
+		var tex: Texture2D = load(files[i])
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(0.03, 0.03, 0.03)
+		mat.roughness = 0.15
+		mat.emission_enabled = true
+		mat.emission = Color.WHITE
+		mat.emission_texture = tex
+		mat.emission_operator = BaseMaterial3D.EMISSION_OP_MULTIPLY
+		mat.emission_energy_multiplier = 0.95
+		mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+		var quad := QuadMesh.new()
+		quad.size = Vector2(1.45, 0.82)
+		quad.material = mat
+		var mi := MeshInstance3D.new()
+		mi.name = "TvPhoto%d" % i
+		mi.mesh = quad
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.position = Vector3(xs[i], 1.72, -room.z + 0.061)     # 贴在电视屏幕前 4 毫米，朝向室内（+Z）
+		add_child(mi)
 
 # ---------------- 状态切换 ----------------
 func _enter_menu() -> void:
