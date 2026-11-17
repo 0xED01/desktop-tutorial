@@ -1,0 +1,174 @@
+<title>老家标点板</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one full-height stage, a top switch between the two years, a point tray at the bottom */
+:root{
+  --bg:#0f1312; --tray:#171d1b; --line:#2a3330; --fg:#e7ece9; --muted:#93a19b;
+  --accent:#e0a84a; --accent-ink:#1a1206; --old:#e0a84a; --new:#6fc2a0; --warn:#e5776b;
+  --font:"Noto Sans SC",-apple-system,"PingFang SC",system-ui,sans-serif;
+  --mono:ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#app{display:flex;flex-direction:column;height:100%}
+header{display:flex;align-items:center;gap:10px;padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0;font-weight:600}
+.grow{flex:1}
+.seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:transparent;padding:9px 14px}
+.seg button.on.o{background:var(--old);color:var(--accent-ink)}
+.seg button.on.n{background:var(--new);color:#06140e}
+button{appearance:none;border:1px solid var(--line);background:#1f2724;color:var(--fg);font:inherit;font-size:14px;padding:9px 12px;border-radius:9px;cursor:pointer;line-height:1.1}
+button:disabled{opacity:.4}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+#stage{position:relative;flex:1;min-height:0;touch-action:none;background:#090b0b}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+#hint{position:absolute;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));top:10px;padding:8px 12px;border-radius:8px;background:rgba(15,19,18,.88);border:1px solid var(--line);font-size:14px;line-height:1.45;pointer-events:none}
+#hint b.o{color:var(--old)} #hint b.n{color:var(--new)}
+.tray{background:var(--tray);border-top:1px solid var(--line);padding-block:10px calc(10px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:10px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;min-width:0;flex:1}
+.chip{flex:none;font-family:var(--mono);font-size:13px;padding:7px 9px;display:flex;gap:4px;align-items:center}
+.chip.on{border-color:var(--fg);background:#2c3632}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--line)}
+.dot.o.y{background:var(--old)} .dot.n.y{background:var(--new)}
+#status{font-size:13px;color:var(--muted)}
+#status.ok{color:var(--new)} #status.bad{color:var(--warn)}
+textarea{width:100%;box-sizing:border-box;height:90px;background:#0b0e0d;color:var(--fg);border:1px solid var(--line);border-radius:8px;font-family:var(--mono);font-size:11px;-webkit-user-select:text;user-select:text}
+</style>
+
+<div id="app">
+  <header>
+    <h1>标点</h1>
+    <div class="seg" role="group" aria-label="显示哪一年">
+      <button id="tOld" class="o on">1974 老图</button><button id="tNew" class="n">2025 新图</button>
+    </div>
+    <span class="grow"></span>
+  </header>
+  <div id="stage"><canvas id="cv"></canvas><div id="hint"></div></div>
+  <div class="tray">
+    <div class="row">
+      <button id="bAdd" class="primary">+ 新点</button>
+      <div id="chips"></div>
+    </div>
+    <div class="row">
+      <button id="bDel">删除这个点</button>
+      <button id="bSwap">切换新旧图</button>
+      <span class="grow"></span>
+      <span id="status">载入中…</span>
+    </div>
+    <div class="row" id="fallback" hidden>
+      <p style="margin:0;font-size:13px;color:var(--muted)">这个页面没能自动保存。点「复制」，再回聊天里粘贴给我。</p>
+      <textarea id="dump" readonly></textarea>
+      <button id="bCopy">复制</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const OLD_SRC="__OLD__", NEW_SRC="__NEW__", FRAME="__FRAME__";
+const $=id=>document.getElementById(id);
+const cv=$('cv'),ctx=cv.getContext('2d'),stage=$('stage'),hint=$('hint');
+const S={imgs:{},side:'old',V:new DOMMatrix(),pts:[],active:null,dpr:Math.min(2,window.devicePixelRatio||1),db:null};
+
+function load(src){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=src})}
+function resize(){const r=stage.getBoundingClientRect();cv.width=Math.round(r.width*S.dpr);cv.height=Math.round(r.height*S.dpr);draw()}
+function fit(){const r=stage.getBoundingClientRect(),im=S.imgs.new,k=Math.min(r.width/im.width,r.height/im.height)*.96;S.V=new DOMMatrix().translate((r.width-im.width*k)/2,(r.height-im.height*k)/2).scale(k)}
+
+function draw(){
+  const im=S.imgs[S.side];if(!im)return;
+  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#090b0b';ctx.fillRect(0,0,cv.width,cv.height);
+  const m=new DOMMatrix([S.dpr,0,0,S.dpr,0,0]).multiply(S.V);
+  ctx.setTransform(m.a,m.b,m.c,m.d,m.e,m.f);ctx.imageSmoothingQuality='high';ctx.drawImage(im,0,0);
+  ctx.setTransform(1,0,0,1,0,0);const D=S.dpr;
+  const key=S.side==='old'?'o':'n',col=S.side==='old'?'#e0a84a':'#6fc2a0';
+  S.pts.forEach(p=>{
+    const own=p[key],other=p[key==='o'?'n':'o'],act=p.id===S.active;
+    if(!own&&other&&act){const q=m.transformPoint(new DOMPoint(other.x,other.y));ctx.setLineDash([4*D,4*D]);ctx.strokeStyle='rgba(231,236,233,.7)';ctx.lineWidth=1.5*D;ctx.beginPath();ctx.arc(q.x,q.y,16*D,0,7);ctx.stroke();ctx.setLineDash([])}
+    if(!own)return;
+    const q=m.transformPoint(new DOMPoint(own.x,own.y)),R=(act?12:8)*D;
+    ctx.strokeStyle=act?'#fff':col;ctx.lineWidth=(act?2.5:2)*D;
+    ctx.beginPath();ctx.arc(q.x,q.y,R,0,7);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(q.x-R-9*D,q.y);ctx.lineTo(q.x-3*D,q.y);ctx.moveTo(q.x+3*D,q.y);ctx.lineTo(q.x+R+9*D,q.y);ctx.moveTo(q.x,q.y-R-9*D);ctx.lineTo(q.x,q.y-3*D);ctx.moveTo(q.x,q.y+3*D);ctx.lineTo(q.x,q.y+R+9*D);ctx.lineWidth=1.2*D;ctx.stroke();
+    ctx.font=`600 ${13*D}px sans-serif`;ctx.lineWidth=3*D;ctx.strokeStyle='rgba(0,0,0,.8)';ctx.strokeText(p.id,q.x+R+4*D,q.y-R);ctx.fillStyle=act?'#fff':col;ctx.fillText(p.id,q.x+R+4*D,q.y-R);
+  });
+}
+function cur(){return S.pts.find(p=>p.id===S.active)}
+function updateHint(){
+  const p=cur(),yr=S.side==='old'?'<b class="o">1974 老图</b>':'<b class="n">2025 新图</b>';
+  if(!p){hint.innerHTML=`点「+ 新点」开始。每个点要在<b class="o">老图</b>和<b class="n">新图</b>上各点一次，标在同一个地方（路口、桥头、房角）。`;return}
+  const has=S.side==='old'?p.o:p.n;
+  hint.innerHTML=`第 <b>${p.id}</b> 号 · 现在是 ${yr}：双指放大，<b>轻点</b>要标的位置${has?'（再点一次可以挪位置）':''}。`+
+   (p.o&&p.n?' 这个点两边都标好了。':(S.side==='old'?(p.o?' 接着切到新图标同一处。':''):(p.n?' 接着切到老图标同一处。':' 虚线圈是老图上标的位置，供参考。')));
+}
+function renderChips(){
+  const c=$('chips');c.textContent='';
+  S.pts.forEach(p=>{const b=document.createElement('button');b.className='chip'+(p.id===S.active?' on':'');
+    b.innerHTML=`${p.id}<span class="dot o ${p.o?'y':''}"></span><span class="dot n ${p.n?'y':''}"></span>`;
+    b.onclick=()=>{S.active=p.id;renderChips();updateHint();centerOn(p);draw()};c.appendChild(b)});
+  $('bDel').disabled=!cur();
+  const on=c.querySelector('.chip.on');if(on&&on.scrollIntoView)on.scrollIntoView({block:'nearest',inline:'nearest'});
+}
+function centerOn(p){const t=(S.side==='old'?p.o:p.n)||p.o||p.n;if(!t)return;const r=stage.getBoundingClientRect(),q=S.V.transformPoint(new DOMPoint(t.x,t.y));S.V=new DOMMatrix().translate(r.width/2-q.x,r.height/2-q.y).multiply(S.V)}
+
+// gestures
+const P=new Map();let tap=null;
+const loc=e=>{const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}};
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);P.set(e.pointerId,loc(e));tap=P.size===1?{...loc(e),t:Date.now(),moved:false}:null});
+cv.addEventListener('pointermove',e=>{if(!P.has(e.pointerId))return;const a=[...P.values()].map(p=>({...p}));P.set(e.pointerId,loc(e));const b=[...P.values()];
+  if(tap&&Math.hypot(b[0].x-tap.x,b[0].y-tap.y)>8)tap.moved=true;
+  if(b.length===1)S.V=new DOMMatrix().translate(b[0].x-a[0].x,b[0].y-a[0].y).multiply(S.V);
+  else{const c0={x:(a[0].x+a[1].x)/2,y:(a[0].y+a[1].y)/2},c1={x:(b[0].x+b[1].x)/2,y:(b[0].y+b[1].y)/2},d0=Math.hypot(a[1].x-a[0].x,a[1].y-a[0].y),d1=Math.hypot(b[1].x-b[0].x,b[1].y-b[0].y);if(d0>1)S.V=new DOMMatrix().translate(c1.x,c1.y).scale(d1/d0).translate(-c0.x,-c0.y).multiply(S.V)}
+  draw()});
+cv.addEventListener('pointerup',e=>{if(!P.has(e.pointerId))return;P.delete(e.pointerId);if(tap&&!tap.moved&&Date.now()-tap.t<600)place(tap);tap=null});
+cv.addEventListener('pointercancel',e=>{P.delete(e.pointerId);tap=null});
+cv.addEventListener('wheel',e=>{e.preventDefault();const p=loc(e),k=Math.exp(-e.deltaY*.0015);S.V=new DOMMatrix().translate(p.x,p.y).scale(k).translate(-p.x,-p.y).multiply(S.V);draw()},{passive:false});
+
+function place(pt){
+  let p=cur();if(!p)return;
+  const w=S.V.inverse().transformPoint(new DOMPoint(pt.x,pt.y)),im=S.imgs[S.side];
+  if(w.x<0||w.y<0||w.x>im.width||w.y>im.height)return;
+  p[S.side==='old'?'o':'n']={x:Math.round(w.x*10)/10,y:Math.round(w.y*10)/10};
+  renderChips();updateHint();draw();save();
+}
+function setSide(s){S.side=s;$('tOld').classList.toggle('on',s==='old');$('tNew').classList.toggle('on',s==='new');updateHint();draw()}
+$('tOld').onclick=()=>setSide('old');$('tNew').onclick=()=>setSide('new');
+$('bSwap').onclick=()=>setSide(S.side==='old'?'new':'old');
+$('bAdd').onclick=()=>{const id=S.pts.reduce((m,p)=>Math.max(m,p.id),0)+1;S.pts.push({id});S.active=id;renderChips();updateHint();draw()};
+$('bDel').onclick=()=>{S.pts=S.pts.filter(p=>p.id!==S.active);S.active=S.pts.length?S.pts[S.pts.length-1].id:null;renderChips();updateHint();draw();save()};
+
+// saving
+const st=(t,c)=>{const s=$('status');s.textContent=t;s.className=c||''};
+function payload(){return{points:S.pts.filter(p=>p.o||p.n).map(p=>({id:p.id,old:p.o||null,new:p.n||null})),frame:FRAME,updatedAt:new Date().toISOString()}}
+let saveT=null,saving=false,again=false;
+function save(){
+  $('dump').value=JSON.stringify(payload());
+  if(!S.db){showFallback();return}
+  clearTimeout(saveT);saveT=setTimeout(async()=>{
+    if(saving){again=true;return}saving=true;st('保存中…');
+    try{await S.db.doc('marks/current').set(payload());const n=S.pts.filter(p=>p.o&&p.n).length;st(`已保存 · ${n} 组完整`,'ok')}
+    catch(e){st('没能保存','bad');showFallback()}
+    saving=false;if(again){again=false;save()}
+  },500);
+}
+function showFallback(){$('fallback').hidden=false;$('dump').value=JSON.stringify(payload())}
+$('bCopy').onclick=()=>{const t=$('dump');navigator.clipboard.writeText(t.value).then(()=>st('已复制，去聊天里粘贴','ok')).catch(()=>{t.focus();t.select();st('请长按文本框选择“拷贝”')})};
+
+window.addEventListener('resize',resize);
+new ResizeObserver(resize).observe(stage);
+Promise.all([load(OLD_SRC),load(NEW_SRC)]).then(async([o,n])=>{
+  S.imgs.old=o;S.imgs.new=n;resize();fit();updateHint();renderChips();draw();
+  let timer=setTimeout(()=>{if(!S.db){st('无法自动保存','bad');showFallback()}},10000);
+  try{
+    const db=window.claude?await window.claude.use('db'):null;
+    if(!db){clearTimeout(timer);st('无法自动保存','bad');showFallback();return}
+    S.db=db;
+    const snap=await db.doc('marks/current').get();clearTimeout(timer);
+    if(snap.exists){const d=snap.data();S.pts=(d.points||[]).map(p=>({id:p.id,o:p.old||null,n:p.new||null}));S.active=S.pts.length?S.pts[S.pts.length-1].id:null;renderChips();updateHint();draw()}
+    st(S.pts.length?`已载入之前标的 ${S.pts.length} 个点`:'会自动保存','ok');
+  }catch(e){clearTimeout(timer);st('无法自动保存','bad');showFallback()}
+});
+</script>
