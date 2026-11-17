@@ -100,10 +100,15 @@ def build_timeline():
         s1 = t + move + 0.15; e1 = s1 + len(a1) / SR
         s2 = e1 + 0.45; e2 = s2 + len(a2) / SR
         clips.append((s1, a1)); clips.append((s2, a2))
-        end = e2 + 0.8
+        if p.get('after'):
+            a3 = voice(f'p{i}_after', p['after'])
+            olds.append((s2 - 0.45, s2 + 0.35, e2 + 0.1, e2 + 0.8))
+            s3 = e2 + 0.9; clips.append((s3, a3)); end = s3 + len(a3) / SR + 0.8
+        else:
+            end = e2 + 0.8
+            olds.append((s2 - 0.45, s2 + 0.35, end - 0.1, end + 0.9))
         keys.append((end, cam, 0))
-        olds.append((s2 - 0.45, s2 + 0.35, end - 0.1, end + 0.9))
-        marks.append((p['cx'], p['cy'], t + move - 0.1, end, p.get('mark_old')))
+        marks.append((p['cx'], p['cy'], t + move - 0.1, (e2 + 0.8) if p.get('after') else end, p.get('mark_old')))
         caps.append((f'p{i}', t + move - 0.3, t + move + 0.2, end - 0.1, end + 0.4))
         prev = cam; t = end
     # outro
