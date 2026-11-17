@@ -57,6 +57,7 @@ def readwav(p):
     return a[max(0, idx[0] - 600): idx[-1] + 1800]
 
 def voice(key, text):
+    for a, b in SC.get('say', {}).items(): text = text.replace(a, b)
     f = P('vo', key + '.wav'); meta = P('vo', key + '.txt')
     if not (os.path.exists(f) and os.path.exists(meta) and open(meta).read() == text):
         tts(text, f); open(meta, 'w').write(text)
@@ -102,7 +103,7 @@ def build_timeline():
         end = e2 + 0.8
         keys.append((end, cam, 0))
         olds.append((s2 - 0.45, s2 + 0.35, end - 0.1, end + 0.9))
-        marks.append((p['cx'], p['cy'], t + move - 0.1, end))
+        marks.append((p['cx'], p['cy'], t + move - 0.1, end, p.get('mark_old')))
         caps.append((f'p{i}', t + move - 0.3, t + move + 0.2, end - 0.1, end + 0.4))
         prev = cam; t = end
     # outro
@@ -213,10 +214,11 @@ def frame(t):
     else: panel = vn * (1 - a) + view(OLD, cx, cy, w) * a
     c[PY:PY + PH] = panel
     # ring marking the place being talked about
-    for mx, my, ta, te in marks:
+    for mx, my, ta, te, mo in marks:
         k = win(t, ta, ta + 0.6, te - 0.5, te)
         if k <= 0.001: continue
         s = PW / min(w, 4096 * 0.98)
+        if mo and a: mx, my = mx + (mo[0] - mx) * a, my + (mo[1] - my) * a
         x = PW / 2 + (mx - cx) * s; y = PY + PH / 2 + (my - cy) * s
         r = 58 + 70 * (1 - ramp(t, ta, ta + 0.7))
         tmp = c.copy()
