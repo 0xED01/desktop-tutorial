@@ -1,0 +1,195 @@
+<title>狮城分镜板</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: map stage with a fixed 4:5 video frame, shot list and shot editor in the bottom tray */
+:root{
+  --bg:#0f1312; --tray:#171d1b; --line:#2a3330; --fg:#e7ece9; --muted:#93a19b;
+  --accent:#e0a84a; --accent-ink:#1a1206; --old:#e0a84a; --new:#6fc2a0; --warn:#e5776b; --field:#0b0e0d;
+  --font:"Noto Sans SC",-apple-system,"PingFang SC",system-ui,sans-serif;
+  --mono:ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#app{display:flex;flex-direction:column;height:100%}
+header{display:flex;align-items:center;gap:10px;padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0;font-weight:600}
+.grow{flex:1}
+.seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:transparent;padding:9px 12px}
+.seg button.on.o{background:var(--old);color:var(--accent-ink)}
+.seg button.on.n{background:var(--new);color:#06140e}
+button{appearance:none;border:1px solid var(--line);background:#1f2724;color:var(--fg);font:inherit;font-size:14px;padding:9px 12px;border-radius:9px;cursor:pointer;line-height:1.1}
+button:disabled{opacity:.4}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button.sm{padding:8px 10px;font-size:13px}
+#stage{position:relative;flex:1;min-height:120px;touch-action:none;background:#090b0b}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+#hint{position:absolute;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));top:8px;padding:7px 11px;border-radius:8px;background:rgba(15,19,18,.88);border:1px solid var(--line);font-size:13px;line-height:1.45;pointer-events:none}
+#hint b{color:var(--accent)}
+.tray{background:var(--tray);border-top:1px solid var(--line);padding-block:10px calc(10px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:9px;max-height:52%;overflow-y:auto}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;min-width:0;flex:1}
+.chip{flex:none;font-size:13px;padding:7px 10px;max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip.on{border-color:var(--fg);background:#2c3632}
+.chip .n{font-family:var(--mono);color:var(--accent);margin-right:5px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);flex:1;min-width:0}
+input[type=text],textarea{width:100%;box-sizing:border-box;background:var(--field);color:var(--fg);border:1px solid var(--line);border-radius:8px;font:inherit;font-size:16px;padding:9px 10px;-webkit-user-select:text;user-select:text}
+textarea{resize:none;height:62px;line-height:1.4}
+#status{font-size:13px;color:var(--muted)}
+#status.ok{color:var(--new)} #status.bad{color:var(--warn)}
+#dump{height:80px;font-family:var(--mono);font-size:11px}
+details summary{font-size:13px;color:var(--muted);cursor:pointer;padding:4px 0}
+details .in{display:flex;flex-direction:column;gap:8px;padding-top:6px}
+</style>
+
+<div id="app">
+  <header>
+    <h1>分镜</h1>
+    <div class="seg" role="group" aria-label="显示哪一年">
+      <button id="tOld" class="o">1974</button><button id="tNew" class="n on">2025</button>
+    </div>
+    <span class="grow"></span>
+    <span id="status">载入中…</span>
+  </header>
+  <div id="stage"><canvas id="cv"></canvas><div id="hint"></div></div>
+  <div class="tray">
+    <div class="row">
+      <button id="bAdd" class="primary">+ 加为镜头</button>
+      <div id="chips"></div>
+    </div>
+    <div id="editor" hidden>
+      <div class="row">
+        <label class="f">字幕（显示在画面上）<input type="text" id="iName" maxlength="24" placeholder="例如：曾经最繁华的十字街" autocomplete="off"></label>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label class="f">旁白（念出来的话，不填就念字幕）<textarea id="iVo" maxlength="80" placeholder="例如：这里，是曾经最繁华的十字街。"></textarea></label>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="sm" id="bGrab">改成当前画面</button>
+        <button class="sm" id="bUp" aria-label="往前移">← 前移</button>
+        <button class="sm" id="bDown" aria-label="往后移">后移 →</button>
+        <span class="grow"></span>
+        <button class="sm" id="bDel">删除</button>
+      </div>
+    </div>
+    <details id="extra">
+      <summary>片头和片尾的文字（可不填，不填就用上一个视频的）</summary>
+      <div class="in">
+        <label class="f">片头旁白<textarea id="iIntro" maxlength="100" placeholder="例如：一九七四年，一颗美国侦察卫星，从太空拍下了我的老家——周宁县狮城镇。"></textarea></label>
+        <label class="f">片尾旁白<textarea id="iOutro" maxlength="100" placeholder="例如：五十一年过去了。周宁人，你还记得狮城以前的样子吗？"></textarea></label>
+      </div>
+    </details>
+    <div class="row" id="fallback" hidden>
+      <p style="margin:0;font-size:13px;color:var(--muted)">这个页面没能自动保存。点「复制」，再回聊天里粘贴给我。</p>
+      <textarea id="dump" readonly></textarea>
+      <button id="bCopy">复制</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const OLD_SRC="__OLD__", NEW_SRC="__NEW__", FRAME="__FRAME__";
+const AR=1080/1350; // video picture area, width / height
+const $=id=>document.getElementById(id);
+const cv=$('cv'),ctx=cv.getContext('2d'),stage=$('stage'),hint=$('hint');
+const S={imgs:{},side:'new',V:new DOMMatrix(),shots:[],active:null,intro:'',outro:'',dpr:Math.min(2,window.devicePixelRatio||1),db:null};
+
+function load(src){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=src})}
+function frameRect(){const r=stage.getBoundingClientRect(),m=14;let h=r.height-2*m,w=h*AR;if(w>r.width-2*m){w=r.width-2*m;h=w/AR}return{x:(r.width-w)/2,y:(r.height-h)/2,w,h}}
+function resize(){const r=stage.getBoundingClientRect();cv.width=Math.round(r.width*S.dpr);cv.height=Math.round(r.height*S.dpr);draw()}
+const vs=()=>Math.hypot(S.V.a,S.V.b);
+function showShot(s){const f=frameRect(),k=f.w/s.w;S.V=new DOMMatrix().translate(f.x+f.w/2,f.y+f.h/2).scale(k).translate(-s.cx,-s.cy)}
+function currentView(){const f=frameRect(),c=S.V.inverse().transformPoint(new DOMPoint(f.x+f.w/2,f.y+f.h/2));return{cx:Math.round(c.x),cy:Math.round(c.y),w:Math.round(f.w/vs())}}
+function fitAll(){const im=S.imgs.new;showShot({cx:im.width/2,cy:im.height/2,w:im.width*.62})}
+
+function draw(){
+  const im=S.imgs[S.side];if(!im)return;const D=S.dpr;
+  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#090b0b';ctx.fillRect(0,0,cv.width,cv.height);
+  const m=new DOMMatrix([D,0,0,D,0,0]).multiply(S.V);
+  ctx.setTransform(m.a,m.b,m.c,m.d,m.e,m.f);ctx.imageSmoothingQuality='high';ctx.drawImage(im,0,0);
+  ctx.setTransform(1,0,0,1,0,0);
+  // shot centres
+  S.shots.forEach((s,i)=>{const q=m.transformPoint(new DOMPoint(s.cx,s.cy)),act=s.id===S.active;
+    ctx.beginPath();ctx.arc(q.x,q.y,(act?11:9)*D,0,7);ctx.fillStyle=act?'#e0a84a':'rgba(15,19,18,.8)';ctx.fill();ctx.strokeStyle='#e0a84a';ctx.lineWidth=1.5*D;ctx.stroke();
+    ctx.fillStyle=act?'#1a1206':'#e0a84a';ctx.font=`600 ${11*D}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(i+1,q.x,q.y+.5*D);ctx.textAlign='left';ctx.textBaseline='alphabetic'});
+  // dim everything outside the video frame
+  const f=frameRect();ctx.fillStyle='rgba(6,8,7,.62)';
+  ctx.fillRect(0,0,cv.width,f.y*D);ctx.fillRect(0,(f.y+f.h)*D,cv.width,cv.height);ctx.fillRect(0,f.y*D,f.x*D,f.h*D);ctx.fillRect((f.x+f.w)*D,f.y*D,cv.width,f.h*D);
+  ctx.strokeStyle='rgba(231,236,233,.9)';ctx.lineWidth=1.5*D;ctx.strokeRect(f.x*D,f.y*D,f.w*D,f.h*D);
+  // caption preview where the video puts it
+  const s=cur();if(s&&s.name){ctx.font=`700 ${Math.round(f.w*.062)*D}px serif`;ctx.textAlign='center';ctx.lineWidth=4*D;ctx.strokeStyle='rgba(0,0,0,.75)';const y=(f.y+f.h*.83)*D,x=(f.x+f.w/2)*D;ctx.strokeText(s.name,x,y);ctx.fillStyle='#f4ecdc';ctx.fillText(s.name,x,y);ctx.textAlign='left'}
+}
+function cur(){return S.shots.find(s=>s.id===S.active)}
+function updateHint(){
+  if(!S.shots.length){hint.innerHTML='双指拖动、缩放地图，把想拍的地方放进<b>白框</b>里，再点「+ 加为镜头」。白框里的就是视频画面。';hint.hidden=false;return}
+  const s=cur();hint.innerHTML=s?`镜头 <b>${S.shots.indexOf(s)+1}</b>/${S.shots.length}。想换位置：挪好地图后点「改成当前画面」。`:'点下面的编号查看镜头，或继续「+ 加为镜头」。';hint.hidden=false;
+}
+function render(){
+  const c=$('chips');c.textContent='';
+  S.shots.forEach((s,i)=>{const b=document.createElement('button');b.className='chip'+(s.id===S.active?' on':'');
+    const n=document.createElement('span');n.className='n';n.textContent=i+1;b.appendChild(n);b.appendChild(document.createTextNode(s.name||'未命名'));
+    b.onclick=()=>{S.active=s.id;showShot(s);render();draw()};c.appendChild(b)});
+  const s=cur();$('editor').hidden=!s;
+  if(s){if(document.activeElement!==$('iName'))$('iName').value=s.name||'';if(document.activeElement!==$('iVo'))$('iVo').value=s.vo||'';
+    const i=S.shots.indexOf(s);$('bUp').disabled=i===0;$('bDown').disabled=i===S.shots.length-1}
+  const on=c.querySelector('.chip.on');if(on&&on.scrollIntoView)on.scrollIntoView({block:'nearest',inline:'nearest'});
+  updateHint();
+}
+
+// gestures (map only; the frame stays put)
+const P=new Map();
+const loc=e=>{const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}};
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);P.set(e.pointerId,loc(e));if(document.activeElement&&document.activeElement.blur)document.activeElement.blur()});
+cv.addEventListener('pointermove',e=>{if(!P.has(e.pointerId))return;const a=[...P.values()].map(p=>({...p}));P.set(e.pointerId,loc(e));const b=[...P.values()];
+  if(b.length===1)S.V=new DOMMatrix().translate(b[0].x-a[0].x,b[0].y-a[0].y).multiply(S.V);
+  else{const c0={x:(a[0].x+a[1].x)/2,y:(a[0].y+a[1].y)/2},c1={x:(b[0].x+b[1].x)/2,y:(b[0].y+b[1].y)/2},d0=Math.hypot(a[1].x-a[0].x,a[1].y-a[0].y),d1=Math.hypot(b[1].x-b[0].x,b[1].y-b[0].y);if(d0>1)S.V=new DOMMatrix().translate(c1.x,c1.y).scale(d1/d0).translate(-c0.x,-c0.y).multiply(S.V)}
+  draw()});
+const up=e=>P.delete(e.pointerId);cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+cv.addEventListener('wheel',e=>{e.preventDefault();const p=loc(e),k=Math.exp(-e.deltaY*.0015);S.V=new DOMMatrix().translate(p.x,p.y).scale(k).translate(-p.x,-p.y).multiply(S.V);draw()},{passive:false});
+
+function setSide(s){S.side=s;$('tOld').classList.toggle('on',s==='old');$('tNew').classList.toggle('on',s==='new');draw()}
+$('tOld').onclick=()=>setSide('old');$('tNew').onclick=()=>setSide('new');
+$('bAdd').onclick=()=>{const id=S.shots.reduce((m,s)=>Math.max(m,s.id),0)+1;S.shots.push({id,...currentView(),name:'',vo:''});S.active=id;render();draw();save();setTimeout(()=>$('iName').focus(),50)};
+$('bGrab').onclick=()=>{const s=cur();if(!s)return;Object.assign(s,currentView());draw();save();st('镜头位置已更新','ok')};
+$('bDel').onclick=()=>{S.shots=S.shots.filter(s=>s.id!==S.active);S.active=S.shots.length?S.shots[S.shots.length-1].id:null;render();draw();save()};
+function move(d){const i=S.shots.findIndex(s=>s.id===S.active),j=i+d;if(i<0||j<0||j>=S.shots.length)return;[S.shots[i],S.shots[j]]=[S.shots[j],S.shots[i]];render();draw();save()}
+$('bUp').onclick=()=>move(-1);$('bDown').onclick=()=>move(1);
+$('iName').oninput=e=>{const s=cur();if(!s)return;s.name=e.target.value;const b=document.querySelector('.chip.on');if(b)b.lastChild.textContent=s.name||'未命名';draw();save()};
+$('iVo').oninput=e=>{const s=cur();if(!s)return;s.vo=e.target.value;save()};
+$('iIntro').oninput=e=>{S.intro=e.target.value;save()};$('iOutro').oninput=e=>{S.outro=e.target.value;save()};
+
+// saving
+const st=(t,c)=>{const s=$('status');s.textContent=t;s.className=c||''};
+function payload(){return{shots:S.shots.map(s=>({id:s.id,cx:s.cx,cy:s.cy,w:s.w,name:s.name||'',vo:s.vo||''})),intro:S.intro||'',outro:S.outro||'',frame:FRAME,updatedAt:new Date().toISOString()}}
+let saveT=null,saving=false,again=false;
+function save(){
+  $('dump').value=JSON.stringify(payload());
+  if(!S.db){showFallback();return}
+  clearTimeout(saveT);saveT=setTimeout(async()=>{
+    if(saving){again=true;return}saving=true;st('保存中…');
+    try{await S.db.doc('video/shots').set(payload());st(`已保存 · ${S.shots.length} 个镜头`,'ok')}
+    catch(e){st('没能保存','bad');showFallback()}
+    saving=false;if(again){again=false;save()}
+  },700);
+}
+function showFallback(){$('fallback').hidden=false;$('dump').value=JSON.stringify(payload())}
+$('bCopy').onclick=()=>{const t=$('dump');navigator.clipboard.writeText(t.value).then(()=>st('已复制，去聊天里粘贴','ok')).catch(()=>{t.focus();t.select();st('请长按文本框选择“拷贝”')})};
+
+window.addEventListener('resize',resize);
+new ResizeObserver(resize).observe(stage);
+Promise.all([load(OLD_SRC),load(NEW_SRC)]).then(async([o,n])=>{
+  S.imgs.old=o;S.imgs.new=n;resize();fitAll();render();draw();
+  let timer=setTimeout(()=>{if(!S.db){st('无法自动保存','bad');showFallback()}},10000);
+  try{
+    const db=window.claude?await window.claude.use('db'):null;
+    if(!db){clearTimeout(timer);st('无法自动保存','bad');showFallback();return}
+    S.db=db;
+    const snap=await db.doc('video/shots').get();clearTimeout(timer);
+    if(snap.exists){const d=snap.data();S.shots=(d.shots||[]).map(s=>({...s}));S.intro=d.intro||'';S.outro=d.outro||'';$('iIntro').value=S.intro;$('iOutro').value=S.outro;S.active=null;render();draw()}
+    st(S.shots.length?`已载入 ${S.shots.length} 个镜头`:'会自动保存','ok');
+  }catch(e){clearTimeout(timer);st('无法自动保存','bad');showFallback()}
+});
+</script>
