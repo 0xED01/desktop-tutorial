@@ -37,7 +37,7 @@ button.sm{padding:8px 10px;font-size:13px}
 .chip .n{font-family:var(--mono);color:var(--accent);margin-right:5px}
 label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);flex:1;min-width:0}
 input[type=text],textarea{width:100%;box-sizing:border-box;background:var(--field);color:var(--fg);border:1px solid var(--line);border-radius:8px;font:inherit;font-size:16px;padding:9px 10px;-webkit-user-select:text;user-select:text}
-textarea{resize:none;height:62px;line-height:1.4}
+textarea{resize:none;height:76px;line-height:1.4}
 #status{font-size:13px;color:var(--muted)}
 #status.ok{color:var(--new)} #status.bad{color:var(--warn)}
 #dump{height:80px;font-family:var(--mono);font-size:11px}
@@ -64,8 +64,8 @@ details .in{display:flex;flex-direction:column;gap:8px;padding-top:6px}
       <div class="row">
         <label class="f">这里叫什么<input type="text" id="iName" maxlength="24" placeholder="例如：十字街、西门水库" autocomplete="off"></label>
       </div>
-      <div class="row" style="margin-top:8px" hidden>
-        <label class="f">旁白（念出来的话，不填就念字幕）<textarea id="iVo" maxlength="80" placeholder="例如：这里，是曾经最繁华的十字街。"></textarea></label>
+      <div class="row" style="margin-top:8px">
+        <label class="f">说说这个地方（可不填）<textarea id="iVo" maxlength="200" placeholder="例如：以前全城最热闹的地方，逢年过节人挤人；现在两边都盖成了商铺。"></textarea></label>
       </div>
       <div class="row" style="margin-top:8px">
         <button class="sm" id="bGrab" hidden>改成当前画面</button>
@@ -130,7 +130,7 @@ function render(){
     const n=document.createElement('span');n.className='n';n.textContent=i+1;b.appendChild(n);b.appendChild(document.createTextNode(s.name||'未命名'));
     b.onclick=()=>{S.active=s.id;if(s.cx!=null){const r=stage.getBoundingClientRect(),q=S.V.transformPoint(new DOMPoint(s.cx,s.cy));S.V=new DOMMatrix().translate(r.width/2-q.x,r.height/2-q.y).multiply(S.V)}render();draw()};c.appendChild(b)});
   const s=cur();$('editor').hidden=!s;
-  if(s){if(document.activeElement!==$('iName'))$('iName').value=s.name||'';if(document.activeElement!==$('iVo'))$('iVo').value=s.vo||'';
+  if(s){if(document.activeElement!==$('iName'))$('iName').value=s.name||'';if(document.activeElement!==$('iVo'))$('iVo').value=s.desc||'';
     const i=S.shots.indexOf(s);$('bUp').disabled=i===0;$('bDown').disabled=i===S.shots.length-1}
   const on=c.querySelector('.chip.on');if(on&&on.scrollIntoView)on.scrollIntoView({block:'nearest',inline:'nearest'});
   updateHint();
@@ -153,18 +153,18 @@ cv.addEventListener('wheel',e=>{e.preventDefault();const p=loc(e),k=Math.exp(-e.
 
 function setSide(s){S.side=s;$('tOld').classList.toggle('on',s==='old');$('tNew').classList.toggle('on',s==='new');draw()}
 $('tOld').onclick=()=>setSide('old');$('tNew').onclick=()=>setSide('new');
-$('bAdd').onclick=()=>{const id=S.shots.reduce((m,s)=>Math.max(m,s.id),0)+1;S.shots.push({id,cx:null,cy:null,name:'',vo:''});S.active=id;render();draw()};
+$('bAdd').onclick=()=>{const id=S.shots.reduce((m,s)=>Math.max(m,s.id),0)+1;S.shots.push({id,cx:null,cy:null,name:'',desc:''});S.active=id;render();draw()};
 $('bGrab').onclick=()=>{const s=cur();if(!s)return;Object.assign(s,currentView());draw();save();st('镜头位置已更新','ok')};
 $('bDel').onclick=()=>{S.shots=S.shots.filter(s=>s.id!==S.active);S.active=S.shots.length?S.shots[S.shots.length-1].id:null;render();draw();save()};
 function move(d){const i=S.shots.findIndex(s=>s.id===S.active),j=i+d;if(i<0||j<0||j>=S.shots.length)return;[S.shots[i],S.shots[j]]=[S.shots[j],S.shots[i]];render();draw();save()}
 $('bUp').onclick=()=>move(-1);$('bDown').onclick=()=>move(1);
 $('iName').oninput=e=>{const s=cur();if(!s)return;s.name=e.target.value;const b=document.querySelector('.chip.on');if(b)b.lastChild.textContent=s.name||'未命名';draw();save()};
-$('iVo').oninput=e=>{const s=cur();if(!s)return;s.vo=e.target.value;save()};
+$('iVo').oninput=e=>{const s=cur();if(!s)return;s.desc=e.target.value;save()};
 $('iIntro').oninput=e=>{S.intro=e.target.value;save()};$('iOutro').oninput=e=>{S.outro=e.target.value;save()};
 
 // saving
 const st=(t,c)=>{const s=$('status');s.textContent=t;s.className=c||''};
-function payload(){return{shots:S.shots.filter(s=>s.cx!=null).map(s=>({id:s.id,cx:s.cx,cy:s.cy,name:s.name||''})),intro:S.intro||'',outro:S.outro||'',frame:FRAME,updatedAt:new Date().toISOString()}}
+function payload(){return{shots:S.shots.filter(s=>s.cx!=null).map(s=>({id:s.id,cx:s.cx,cy:s.cy,name:s.name||'',desc:s.desc||''})),intro:S.intro||'',outro:S.outro||'',frame:FRAME,updatedAt:new Date().toISOString()}}
 let saveT=null,saving=false,again=false;
 function save(){
   $('dump').value=JSON.stringify(payload());
