@@ -114,7 +114,8 @@ def build_timeline():
                     nc = tuple(af['cam'])
                     d2 = math.hypot(nc[0] - curcam[0], nc[1] - curcam[1])
                     keys.append((s, curcam, 0)); keys.append((s + 2.0, nc, min(0.9, math.log(1 + d2 / max(nc[2], curcam[2])) * 0.7)))
-                    extra_marks.append([nc[0], nc[1], s + 1.6])
+                    mk = af.get('mark') or nc[:2]
+                    extra_marks.append([mk[0], mk[1], s + 1.6, s + 0.5 + len(av) / SR + 0.3])
                     if mark_end is None: mark_end = s
                     curcam = nc; s += 0.5
                 if af.get('cap'):
@@ -124,7 +125,7 @@ def build_timeline():
                 clips.append((s, av)); s += len(av) / SR + 0.5
             end = s + 0.3
             if curcam != cam: end += 0.6
-            for mx, my, ta in extra_marks: marks.append((mx, my, ta, end, None))
+            for k, (mx, my, ta, te) in enumerate(extra_marks): marks.append((mx, my, ta, end if k == len(extra_marks) - 1 else te, None))
             cam = curcam
         else:
             end = e2 + 0.8
