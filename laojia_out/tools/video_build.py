@@ -27,6 +27,7 @@ def all_text():
         s += ''.join(SC[k]['top'] + SC[k]['bottom'])
     for p in SC['places']:
         s += ''.join(p['cap'])
+        for x in (p.get('after') if isinstance(p.get('after'), list) else []): s += ''.join(x.get('cap', []))
     return ''.join(sorted(set(s + '0123456789·，？：' + '19742025')))
 
 def fetch_fonts():
@@ -100,26 +101,54 @@ def build_timeline():
         s1 = t + move + 0.15; e1 = s1 + len(a1) / SR
         s2 = e1 + 0.45; e2 = s2 + len(a2) / SR
         clips.append((s1, a1)); clips.append((s2, a2))
-        if p.get('after'):
-            a3 = voice(f'p{i}_after', p['after'])
+        afters = p.get('after') or []
+        if isinstance(afters, str): afters = [{'vo': afters}]
+        cap_name, ca, cb = f'p{i}', t + move - 0.3, t + move + 0.2
+        mark_end = None
+        if afters:
             olds.append((s2 - 0.45, s2 + 0.35, e2 + 0.1, e2 + 0.8))
-            s3 = e2 + 0.9; clips.append((s3, a3)); end = s3 + len(a3) / SR + 0.8
+            s = e2 + 0.9; curcam = cam; extra_marks = []
+            for j, af in enumerate(afters):
+                av = voice(f'p{i}_after{j}', af['vo'])
+                if af.get('cam'):
+                    nc = tuple(af['cam'])
+                    d2 = math.hypot(nc[0] - curcam[0], nc[1] - curcam[1])
+                    keys.append((s, curcam, 0)); keys.append((s + 2.0, nc, min(0.9, math.log(1 + d2 / max(nc[2], curcam[2])) * 0.7)))
+                    extra_marks.append([nc[0], nc[1], s + 1.6])
+                    if mark_end is None: mark_end = s
+                    curcam = nc; s += 0.5
+                if af.get('cap'):
+                    caps.append((cap_name, ca, cb, s - 0.4, s))
+                    cap_name, ca, cb = f'p{i}_a{j}', s - 0.1, s + 0.4
+                    if mark_end is None: mark_end = s - 0.2
+                clips.append((s, av)); s += len(av) / SR + 0.5
+            end = s + 0.3
+            if curcam != cam: end += 0.6
+            for mx, my, ta in extra_marks: marks.append((mx, my, ta, end, None))
+            cam = curcam
         else:
             end = e2 + 0.8
             olds.append((s2 - 0.45, s2 + 0.35, end - 0.1, end + 0.9))
         keys.append((end, cam, 0))
-        marks.append((p['cx'], p['cy'], t + move - 0.1, (e2 + 0.8) if p.get('after') else end, p.get('mark_old')))
-        caps.append((f'p{i}', t + move - 0.3, t + move + 0.2, end - 0.1, end + 0.4))
+        marks.append((p['cx'], p['cy'], t + move - 0.1, mark_end or end, p.get('mark_old')))
+        caps.append((cap_name, ca, cb, end - 0.1, end + 0.4))
         prev = cam; t = end
-    # outro
-    v = voice('outro', SC['outro']['vo']); dv = len(v) / SR
+    # outro: 1974 -> fades to 2025 across the middle sentence -> question on 2025
+    parts = SC['outro'].get('vo_parts') or [SC['outro']['vo']]
     move = 1.8
     keys.append((t + move, FULL, 0.15))
-    s = t + move + 0.2; clips.append((s, v))
-    end = s + dv + 1.8
+    s = t + move + 0.2; spans = []
+    for j, txt in enumerate(parts):
+        v = voice(f'outro{j}', txt); clips.append((s, v)); spans.append((s, s + len(v) / SR)); s = spans[-1][1] + 0.4
+    end = spans[-1][1] + 1.8
     keys.append((end, FULL, 0))
-    olds.append((t + move, t + move + 1.0, end + 5, end + 6))
-    caps.append(('outro', t + move - 0.2, t + move + 0.6, end + 5, end + 6))
+    if len(parts) >= 3:
+        olds.append((t + move - 0.6, t + move + 0.4, spans[1][0] + 0.2, spans[1][1] - 0.3))
+        caps.append(('outro', t + move - 0.2, t + move + 0.6, end + 5, end + 6))
+        caps.append(('outro_q', spans[2][0] - 0.3, spans[2][0] + 0.3, end + 5, end + 6))
+    else:
+        olds.append((t + move, t + move + 1.0, end + 5, end + 6))
+        caps.append(('outro', t + move - 0.2, t + move + 0.6, end + 5, end + 6))
     T_END = end
 
 # ---------------------------------------------------------------- drawing
@@ -201,9 +230,13 @@ def setup_layers():
     global L
     L = {'hook': (top_layer(SC['hook']['top'], 96), bottom_layer(SC['hook']['bottom'])),
          'swipe': (top_layer(SC['swipe']['top']), bottom_layer(SC['swipe']['bottom'])),
-         'outro': (top_layer(SC['outro']['top']), bottom_layer(SC['outro']['bottom']))}
+         'outro': (top_layer(SC['outro']['top']), None if SC['outro'].get('vo_parts') else bottom_layer(SC['outro']['bottom'])),
+         'outro_q': (None, bottom_layer(SC['outro']['bottom']))}
     for i, p in enumerate(SC['places']):
         L[f'p{i}'] = (None, bottom_layer(p['cap']))
+        af = p.get('after') or []
+        for j, x in enumerate(af if isinstance(af, list) else []):
+            if x.get('cap'): L[f'p{i}_a{j}'] = (None, bottom_layer(x['cap']))
     L['b74'] = badge('1974', AMBER, 110); L['b25'] = badge('2025', TEAL, 110); L['b74r'] = badge('1974', AMBER, W - 260)
 
 def frame(t):
@@ -235,7 +268,7 @@ def frame(t):
         c[PY + i] = c[PY + i] * (1 - k) + BG * k; c[PY + PH - 1 - i] = c[PY + PH - 1 - i] * (1 - k) + BG * k
     # scrims behind on-image text
     ts = max([win(t, *x[1:]) for x in caps if L[x[0]][0] is not None] + [0])
-    bs = max([win(t, *x[1:]) for x in caps] + [0])
+    bs = max([win(t, *x[1:]) for x in caps if L[x[0]][1] is not None] + [0])
     if ts > 0.001:
         g = (np.clip(1 - np.arange(420) / 420, 0, 1) ** 1.3 * 0.82 * ts)[:, None, None]
         c[PY:PY + 420] = c[PY:PY + 420] * (1 - g) + BG * g
@@ -249,7 +282,7 @@ def frame(t):
     for name, a1, b1, c1, d1 in caps:
         k = win(t, a1, b1, c1, d1)
         if L[name][0] is not None: comp(c, L[name][0], k)
-        comp(c, L[name][1], k)
+        if L[name][1] is not None: comp(c, L[name][1], k)
     k = ramp(t, 0, 0.5) * (1 - ramp(t, T_END - 0.7, T_END))
     return np.clip(c * k, 0, 255).astype(np.uint8)
 
@@ -308,6 +341,20 @@ def music_and_mix():
 # ---------------------------------------------------------------- main
 fetch_fonts(); build_timeline(); setup_images(); setup_layers()
 print('length', round(T_END, 1), 's')
+if MODE == 'audit':
+    texts = {}
+    for f in sorted(os.listdir(P('vo'))):
+        if f.endswith('.txt'): texts[f[:-4]] = open(P('vo', f)).read()
+    order = ['hook', 'swipe'] + [k for i in range(len(SC['places'])) for k in (f'p{i}_now', f'p{i}_then') + tuple(f'p{i}_after{j}' for j in range(5))] + [f'outro{j}' for j in range(3)]
+    order = [k for k in order if k in texts]
+    for (s, v), k in zip(sorted(clips, key=lambda x: x[0]), order):
+        e = s + len(v) / SR
+        def st(x):
+            a = oldness(x); return 'swipe' if a is None else ('1974' if a > 0.95 else '2025' if a < 0.05 else f'mix{a:.1f}')
+        cs = [n for n, a1, b1, c1, d1 in caps if win((s + e) / 2, a1, b1, c1, d1) > 0.5]
+        mk = any(ta <= (s + e) / 2 <= te for _, _, ta, te, _ in marks)
+        print(f'{s:5.1f}-{e:5.1f} [{st(s + 0.15)} -> {st(e - 0.15)}] cap={cs} ring={mk} | {texts[k]}')
+    sys.exit()
 if MODE == 'stills':
     ts = [float(x) for x in sys.argv[4].split(',')] if len(sys.argv) > 4 else None
     if ts is None:
