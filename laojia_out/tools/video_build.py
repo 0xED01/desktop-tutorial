@@ -68,6 +68,7 @@ clips = []          # (start_time, audio)
 keys = []           # camera keyframes (t, (cx,cy,w), hop)
 olds = []           # (a,b,c,d) oldness windows; 1 = show 1974
 caps = []           # (layer_name, a, b, c, d)
+marks = []          # (cx, cy, arrive, end) place markers
 SWIPE = None
 
 def build_timeline():
@@ -101,6 +102,7 @@ def build_timeline():
         end = e2 + 0.8
         keys.append((end, cam, 0))
         olds.append((s2 - 0.45, s2 + 0.35, end - 0.1, end + 0.9))
+        marks.append((p['cx'], p['cy'], t + move - 0.1, end))
         caps.append((f'p{i}', t + move - 0.3, t + move + 0.2, end - 0.1, end + 0.4))
         prev = cam; t = end
     # outro
@@ -210,6 +212,17 @@ def frame(t):
     elif a <= 0.001: panel = vn
     else: panel = vn * (1 - a) + view(OLD, cx, cy, w) * a
     c[PY:PY + PH] = panel
+    # ring marking the place being talked about
+    for mx, my, ta, te in marks:
+        k = win(t, ta, ta + 0.6, te - 0.5, te)
+        if k <= 0.001: continue
+        s = PW / min(w, 4096 * 0.98)
+        x = PW / 2 + (mx - cx) * s; y = PY + PH / 2 + (my - cy) * s
+        r = 58 + 70 * (1 - ramp(t, ta, ta + 0.7))
+        tmp = c.copy()
+        cv2.circle(tmp, (int(x * 4), int(y * 4)), int(r * 4), (20, 18, 14), 11, cv2.LINE_AA, 2)
+        cv2.circle(tmp, (int(x * 4), int(y * 4)), int(r * 4), (84, 176, 232)[::-1], 5, cv2.LINE_AA, 2)
+        c[:] = c * (1 - k * 0.95) + tmp * (k * 0.95)
     for i in range(40):
         k = (1 - i / 40) * 0.55
         c[PY + i] = c[PY + i] * (1 - k) + BG * k; c[PY + PH - 1 - i] = c[PY + PH - 1 - i] * (1 - k) + BG * k
