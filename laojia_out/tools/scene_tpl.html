@@ -1,4 +1,4 @@
-<title>狮城分镜板</title>
+<title>狮城地名板</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
 /* Layout: map stage with a fixed 4:5 video frame, shot list and shot editor in the bottom tray */
@@ -47,7 +47,7 @@ details .in{display:flex;flex-direction:column;gap:8px;padding-top:6px}
 
 <div id="app">
   <header>
-    <h1>分镜</h1>
+    <h1>标地名</h1>
     <div class="seg" role="group" aria-label="显示哪一年">
       <button id="tOld" class="o">1974</button><button id="tNew" class="n on">2025</button>
     </div>
@@ -57,25 +57,25 @@ details .in{display:flex;flex-direction:column;gap:8px;padding-top:6px}
   <div id="stage"><canvas id="cv"></canvas><div id="hint"></div></div>
   <div class="tray">
     <div class="row">
-      <button id="bAdd" class="primary">+ 加为镜头</button>
+      <button id="bAdd" class="primary">+ 加地名</button>
       <div id="chips"></div>
     </div>
     <div id="editor" hidden>
       <div class="row">
-        <label class="f">字幕（显示在画面上）<input type="text" id="iName" maxlength="24" placeholder="例如：曾经最繁华的十字街" autocomplete="off"></label>
+        <label class="f">这里叫什么<input type="text" id="iName" maxlength="24" placeholder="例如：十字街、西门水库" autocomplete="off"></label>
       </div>
-      <div class="row" style="margin-top:8px">
+      <div class="row" style="margin-top:8px" hidden>
         <label class="f">旁白（念出来的话，不填就念字幕）<textarea id="iVo" maxlength="80" placeholder="例如：这里，是曾经最繁华的十字街。"></textarea></label>
       </div>
       <div class="row" style="margin-top:8px">
-        <button class="sm" id="bGrab">改成当前画面</button>
+        <button class="sm" id="bGrab" hidden>改成当前画面</button>
         <button class="sm" id="bUp" aria-label="往前移">← 前移</button>
         <button class="sm" id="bDown" aria-label="往后移">后移 →</button>
         <span class="grow"></span>
         <button class="sm" id="bDel">删除</button>
       </div>
     </div>
-    <details id="extra">
+    <details id="extra" hidden>
       <summary>片头和片尾的文字（可不填，不填就用上一个视频的）</summary>
       <div class="in">
         <label class="f">片头旁白<textarea id="iIntro" maxlength="100" placeholder="例如：一九七四年，一颗美国侦察卫星，从太空拍下了我的老家——周宁县狮城镇。"></textarea></label>
@@ -111,27 +111,24 @@ function draw(){
   const m=new DOMMatrix([D,0,0,D,0,0]).multiply(S.V);
   ctx.setTransform(m.a,m.b,m.c,m.d,m.e,m.f);ctx.imageSmoothingQuality='high';ctx.drawImage(im,0,0);
   ctx.setTransform(1,0,0,1,0,0);
-  // shot centres
-  S.shots.forEach((s,i)=>{const q=m.transformPoint(new DOMPoint(s.cx,s.cy)),act=s.id===S.active;
-    ctx.beginPath();ctx.arc(q.x,q.y,(act?11:9)*D,0,7);ctx.fillStyle=act?'#e0a84a':'rgba(15,19,18,.8)';ctx.fill();ctx.strokeStyle='#e0a84a';ctx.lineWidth=1.5*D;ctx.stroke();
-    ctx.fillStyle=act?'#1a1206':'#e0a84a';ctx.font=`600 ${11*D}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(i+1,q.x,q.y+.5*D);ctx.textAlign='left';ctx.textBaseline='alphabetic'});
-  // dim everything outside the video frame
-  const f=frameRect();ctx.fillStyle='rgba(6,8,7,.62)';
-  ctx.fillRect(0,0,cv.width,f.y*D);ctx.fillRect(0,(f.y+f.h)*D,cv.width,cv.height);ctx.fillRect(0,f.y*D,f.x*D,f.h*D);ctx.fillRect((f.x+f.w)*D,f.y*D,cv.width,f.h*D);
-  ctx.strokeStyle='rgba(231,236,233,.9)';ctx.lineWidth=1.5*D;ctx.strokeRect(f.x*D,f.y*D,f.w*D,f.h*D);
-  // caption preview where the video puts it
-  const s=cur();if(s&&s.name){ctx.font=`700 ${Math.round(f.w*.062)*D}px serif`;ctx.textAlign='center';ctx.lineWidth=4*D;ctx.strokeStyle='rgba(0,0,0,.75)';const y=(f.y+f.h*.83)*D,x=(f.x+f.w/2)*D;ctx.strokeText(s.name,x,y);ctx.fillStyle='#f4ecdc';ctx.fillText(s.name,x,y);ctx.textAlign='left'}
+  S.shots.forEach((s,i)=>{if(s.cx==null)return;const q=m.transformPoint(new DOMPoint(s.cx,s.cy)),act=s.id===S.active;
+    ctx.beginPath();ctx.arc(q.x,q.y,(act?12:10)*D,0,7);ctx.fillStyle=act?'#e0a84a':'rgba(15,19,18,.85)';ctx.fill();ctx.strokeStyle=act?'#fff':'#e0a84a';ctx.lineWidth=(act?2.5:1.5)*D;ctx.stroke();
+    ctx.fillStyle=act?'#1a1206':'#e0a84a';ctx.font=`600 ${11*D}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(i+1,q.x,q.y+.5*D);
+    if(s.name){ctx.font=`600 ${13*D}px sans-serif`;ctx.textBaseline='alphabetic';ctx.lineWidth=3.5*D;ctx.strokeStyle='rgba(0,0,0,.85)';ctx.strokeText(s.name,q.x,q.y-17*D);ctx.fillStyle='#f4ecdc';ctx.fillText(s.name,q.x,q.y-17*D)}
+    ctx.textAlign='left';ctx.textBaseline='alphabetic'});
 }
 function cur(){return S.shots.find(s=>s.id===S.active)}
 function updateHint(){
-  if(!S.shots.length){hint.innerHTML='双指拖动、缩放地图，把想拍的地方放进<b>白框</b>里，再点「+ 加为镜头」。白框里的就是视频画面。';hint.hidden=false;return}
-  const s=cur();hint.innerHTML=s?`镜头 <b>${S.shots.indexOf(s)+1}</b>/${S.shots.length}。想换位置：挪好地图后点「改成当前画面」。`:'点下面的编号查看镜头，或继续「+ 加为镜头」。';hint.hidden=false;
+  const s=cur();
+  if(!S.shots.length){hint.innerHTML='点「+ 加地名」，然后在地图上<b>轻点</b>那个地方，再写上它叫什么。';return}
+  if(!s){hint.innerHTML='点下面的编号查看，或继续「+ 加地名」。';return}
+  hint.innerHTML=s.cx==null?`第 <b>${S.shots.indexOf(s)+1}</b> 个：双指放大，在地图上<b>轻点</b>这个地方。`:`第 <b>${S.shots.indexOf(s)+1}</b> 个 · 共 ${S.shots.length} 个。位置不对就在地图上<b>再点一次</b>。`;
 }
 function render(){
   const c=$('chips');c.textContent='';
   S.shots.forEach((s,i)=>{const b=document.createElement('button');b.className='chip'+(s.id===S.active?' on':'');
     const n=document.createElement('span');n.className='n';n.textContent=i+1;b.appendChild(n);b.appendChild(document.createTextNode(s.name||'未命名'));
-    b.onclick=()=>{S.active=s.id;showShot(s);render();draw()};c.appendChild(b)});
+    b.onclick=()=>{S.active=s.id;if(s.cx!=null){const r=stage.getBoundingClientRect(),q=S.V.transformPoint(new DOMPoint(s.cx,s.cy));S.V=new DOMMatrix().translate(r.width/2-q.x,r.height/2-q.y).multiply(S.V)}render();draw()};c.appendChild(b)});
   const s=cur();$('editor').hidden=!s;
   if(s){if(document.activeElement!==$('iName'))$('iName').value=s.name||'';if(document.activeElement!==$('iVo'))$('iVo').value=s.vo||'';
     const i=S.shots.indexOf(s);$('bUp').disabled=i===0;$('bDown').disabled=i===S.shots.length-1}
@@ -140,19 +137,23 @@ function render(){
 }
 
 // gestures (map only; the frame stays put)
-const P=new Map();
+const P=new Map();let tap=null;
 const loc=e=>{const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}};
-cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);P.set(e.pointerId,loc(e));if(document.activeElement&&document.activeElement.blur)document.activeElement.blur()});
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);P.set(e.pointerId,loc(e));tap=P.size===1?{...loc(e),t:Date.now(),moved:false}:null;if(document.activeElement&&document.activeElement.blur)document.activeElement.blur()});
 cv.addEventListener('pointermove',e=>{if(!P.has(e.pointerId))return;const a=[...P.values()].map(p=>({...p}));P.set(e.pointerId,loc(e));const b=[...P.values()];
+  if(tap&&Math.hypot(b[0].x-tap.x,b[0].y-tap.y)>8)tap.moved=true;
   if(b.length===1)S.V=new DOMMatrix().translate(b[0].x-a[0].x,b[0].y-a[0].y).multiply(S.V);
   else{const c0={x:(a[0].x+a[1].x)/2,y:(a[0].y+a[1].y)/2},c1={x:(b[0].x+b[1].x)/2,y:(b[0].y+b[1].y)/2},d0=Math.hypot(a[1].x-a[0].x,a[1].y-a[0].y),d1=Math.hypot(b[1].x-b[0].x,b[1].y-b[0].y);if(d0>1)S.V=new DOMMatrix().translate(c1.x,c1.y).scale(d1/d0).translate(-c0.x,-c0.y).multiply(S.V)}
   draw()});
-const up=e=>P.delete(e.pointerId);cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+cv.addEventListener('pointerup',e=>{if(!P.has(e.pointerId))return;P.delete(e.pointerId);if(tap&&!tap.moved&&Date.now()-tap.t<600)place(tap);tap=null});
+cv.addEventListener('pointercancel',e=>{P.delete(e.pointerId);tap=null});
+function place(pt){const s=cur();if(!s)return;const w=S.V.inverse().transformPoint(new DOMPoint(pt.x,pt.y)),im=S.imgs.new;if(w.x<0||w.y<0||w.x>im.width||w.y>im.height)return;
+  const first=s.cx==null;s.cx=Math.round(w.x);s.cy=Math.round(w.y);render();draw();save();if(first&&!s.name)setTimeout(()=>$('iName').focus(),50)}
 cv.addEventListener('wheel',e=>{e.preventDefault();const p=loc(e),k=Math.exp(-e.deltaY*.0015);S.V=new DOMMatrix().translate(p.x,p.y).scale(k).translate(-p.x,-p.y).multiply(S.V);draw()},{passive:false});
 
 function setSide(s){S.side=s;$('tOld').classList.toggle('on',s==='old');$('tNew').classList.toggle('on',s==='new');draw()}
 $('tOld').onclick=()=>setSide('old');$('tNew').onclick=()=>setSide('new');
-$('bAdd').onclick=()=>{const id=S.shots.reduce((m,s)=>Math.max(m,s.id),0)+1;S.shots.push({id,...currentView(),name:'',vo:''});S.active=id;render();draw();save();setTimeout(()=>$('iName').focus(),50)};
+$('bAdd').onclick=()=>{const id=S.shots.reduce((m,s)=>Math.max(m,s.id),0)+1;S.shots.push({id,cx:null,cy:null,name:'',vo:''});S.active=id;render();draw()};
 $('bGrab').onclick=()=>{const s=cur();if(!s)return;Object.assign(s,currentView());draw();save();st('镜头位置已更新','ok')};
 $('bDel').onclick=()=>{S.shots=S.shots.filter(s=>s.id!==S.active);S.active=S.shots.length?S.shots[S.shots.length-1].id:null;render();draw();save()};
 function move(d){const i=S.shots.findIndex(s=>s.id===S.active),j=i+d;if(i<0||j<0||j>=S.shots.length)return;[S.shots[i],S.shots[j]]=[S.shots[j],S.shots[i]];render();draw();save()}
@@ -163,14 +164,14 @@ $('iIntro').oninput=e=>{S.intro=e.target.value;save()};$('iOutro').oninput=e=>{S
 
 // saving
 const st=(t,c)=>{const s=$('status');s.textContent=t;s.className=c||''};
-function payload(){return{shots:S.shots.map(s=>({id:s.id,cx:s.cx,cy:s.cy,w:s.w,name:s.name||'',vo:s.vo||''})),intro:S.intro||'',outro:S.outro||'',frame:FRAME,updatedAt:new Date().toISOString()}}
+function payload(){return{shots:S.shots.filter(s=>s.cx!=null).map(s=>({id:s.id,cx:s.cx,cy:s.cy,name:s.name||''})),intro:S.intro||'',outro:S.outro||'',frame:FRAME,updatedAt:new Date().toISOString()}}
 let saveT=null,saving=false,again=false;
 function save(){
   $('dump').value=JSON.stringify(payload());
   if(!S.db){showFallback();return}
   clearTimeout(saveT);saveT=setTimeout(async()=>{
     if(saving){again=true;return}saving=true;st('保存中…');
-    try{await S.db.doc('video/shots').set(payload());st(`已保存 · ${S.shots.length} 个镜头`,'ok')}
+    try{await S.db.doc('video/places').set(payload());st(`已保存 · ${S.shots.filter(s=>s.cx!=null).length} 个地名`,'ok')}
     catch(e){st('没能保存','bad');showFallback()}
     saving=false;if(again){again=false;save()}
   },700);
@@ -187,9 +188,9 @@ Promise.all([load(OLD_SRC),load(NEW_SRC)]).then(async([o,n])=>{
     const db=window.claude?await window.claude.use('db'):null;
     if(!db){clearTimeout(timer);st('无法自动保存','bad');showFallback();return}
     S.db=db;
-    const snap=await db.doc('video/shots').get();clearTimeout(timer);
+    const snap=await db.doc('video/places').get();clearTimeout(timer);
     if(snap.exists){const d=snap.data();S.shots=(d.shots||[]).map(s=>({...s}));S.intro=d.intro||'';S.outro=d.outro||'';$('iIntro').value=S.intro;$('iOutro').value=S.outro;S.active=null;render();draw()}
-    st(S.shots.length?`已载入 ${S.shots.length} 个镜头`:'会自动保存','ok');
+    st(S.shots.length?`已载入 ${S.shots.length} 个地名`:'会自动保存','ok');
   }catch(e){clearTimeout(timer);st('无法自动保存','bad');showFallback()}
 });
 </script>
